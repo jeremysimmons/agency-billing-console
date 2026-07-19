@@ -27,18 +27,15 @@ Use a conventional server-side application framework with PostgreSQL.
 Recommended .NET implementation:
 
 * ASP.NET Core
-* Entity Framework Core
-* PostgreSQL through Npgsql
+* PostgreSQL through Npgsql and Dapper
 * ASP.NET Core Identity
 * Google OpenID Connect authentication
 * Background jobs using Hangfire, Quartz.NET, or a hosted worker
 * REST API for frontend communication
 
-Equivalent Node, Laravel, or Django implementations are acceptable, but PostgreSQL must remain the primary datastore.
-
 ## Frontend
 
-Use Vue, Nuxt, React, or another conventional frontend framework.
+Use VueJS, Nuxt and Nuxt UI.
 
 The frontend should communicate only with the backend API. It should not communicate directly with ClickUp or PostgreSQL.
 
@@ -1494,10 +1491,14 @@ Milestones map to Section 19 phases.
   - `api/http.ts` CSRF interceptor, `stores/auth.ts`, `queries/{clients,projects,tasks}.ts`
   - Views: Login (password + magic-link + Google GIS), MagicLink consume, Dashboard, Clients, Client detail
   - Route guards; vue-tsc clean; prod build OK; live E2E green
-- [ ] **M3 — Phase 2: ClickUp ingestion** (NEXT)
-  - ClickUp API client, external connections
-  - External users/containers/tasks/time entries
-  - Import runs, sync cursors, scheduled incremental imports (Quartz), diagnostics
+- [x] **M3 — Phase 2: ClickUp ingestion** (DONE, verified)
+  - ClickUp v2 REST client (retry/backoff), external connection seeded from config
+  - External staging: `external_connection/identity/container/work_item/time_entry` (+ `import_run/import_record/sync_cursor`), Script0002
+  - Idempotent upserts (unique on connection+external_id); work-item unchanged-detection via `source_updated_at`
+  - Import runs + per-entity diagnostics; sync cursors advanced only on success; incremental via `date_updated_gt` watermark
+  - Quartz scheduled incremental job (`ClickUpImportJob`, cron-configurable; disabled in dev)
+  - API: `GET /api/integrations/clickup/connections`, `POST .../import`, `GET .../imports`
+  - Verified live: 336 work items / 75 containers / 9 identities / 47 time entries; repeat full import = 0 created, 336 unchanged, 0 failed; incremental fetched 1 (watermark)
 - [ ] **M4 — Phase 3: Mapping** (folder/list→client/project, task mappings, rules, review, status mappings, conflicts)
 - [ ] **M5 — Phase 4: Time & rollups** (internal time entries, imported linking, estimate/actual rollups, review queue)
 - [ ] **M6 — Phase 5: Billing** (billing periods/items, finalization, invoices, lines, expenses, payments, PDF)

@@ -89,3 +89,70 @@ public enum MagicLinkPurpose
     Login,
     Invitation
 }
+
+// ---- ClickUp integration ----
+
+public enum ExternalConnectionStatus
+{
+    Active,
+    Disabled,
+    Error
+}
+
+/// <summary>ClickUp container hierarchy levels.</summary>
+public enum ContainerType
+{
+    Workspace,
+    Team,
+    Space,
+    Folder,
+    List
+}
+
+public enum WorkItemType
+{
+    Task,
+    Subtask
+}
+
+public enum ImportType
+{
+    Full,
+    Incremental,
+    Manual,
+    Retry
+}
+
+public enum ImportStatus
+{
+    Queued,
+    Running,
+    Completed,
+    CompletedWithErrors,
+    Failed
+}
+
+/// <summary>Kind of external record an import touched (also used for sync cursors).</summary>
+public enum ExternalEntityType
+{
+    Identity,
+    Container,
+    WorkItem,
+    TimeEntry
+}
+
+public enum ImportAction
+{
+    Created,
+    Updated,
+    Unchanged,
+    Failed,
+    Skipped
+}
+
+public enum ImportRecordStatus
+{
+    Success,
+    Failed,
+    Skipped
+}

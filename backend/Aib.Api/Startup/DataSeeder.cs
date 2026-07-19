@@ -1,11 +1,13 @@
+using Aib.Application;
 using Aib.Application.Abstractions;
 using Aib.Application.Services;
 using Aib.Domain;
 using Aib.Domain.Entities;
+using Microsoft.Extensions.Options;
 
 namespace Aib.Api.Startup;
 
-/// <summary>Seeds roles, the single agency/contractor, the owner user, and the Google provider.</summary>
+/// <summary>Seeds roles, the single agency/contractor, the owner user, the Google provider, and the ClickUp connection.</summary>
 public sealed class DataSeeder(
     IRoleRepository roles,
     IAgencyRepository agencies,
@@ -13,9 +15,11 @@ public sealed class DataSeeder(
     IUserRepository users,
     ILocalCredentialRepository credentials,
     IIdentityProviderRepository identityProviders,
+    IExternalConnectionRepository externalConnections,
     IPasswordHasher passwordHasher,
     IClock clock,
     IConfiguration config,
+    IOptions<ClickUpOptions> clickUpOptions,
     ILogger<DataSeeder> logger)
 {
     public async Task SeedAsync(CancellationToken ct = default)
@@ -45,6 +49,32 @@ public sealed class DataSeeder(
             await SeedOwnerAsync(agency, ownerEmail!, ownerPassword!, ct);
 
         await SeedGoogleProviderAsync(ct);
+        await SeedClickUpConnectionAsync(agency, ct);
+    }
+
+    private async Task SeedClickUpConnectionAsync(Agency agency, CancellationToken ct)
+    {
+        var teamId = clickUpOptions.Value.TeamId;
+        if (string.IsNullOrWhiteSpace(teamId))
+            return;
+
+        if (await externalConnections.GetByProviderWorkspaceAsync("clickup", teamId, ct) is not null)
+            return;
+
+        var now = clock.UtcNow;
+        await externalConnections.InsertAsync(new ExternalConnection
+        {
+            Id = Guid.NewGuid(),
+            AgencyId = agency.Id,
+            ProviderType = "clickup",
+            Name = "ClickUp",
+            ExternalWorkspaceId = teamId,
+            AuthenticationReference = "env:CLICKUP_API_TOKEN",
+            Status = ExternalConnectionStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
+        }, ct);
+        logger.LogInformation("Seeded ClickUp connection for workspace {TeamId}", teamId);
     }
 
     private async Task SeedOwnerAsync(Agency agency, string email, string password, CancellationToken ct)

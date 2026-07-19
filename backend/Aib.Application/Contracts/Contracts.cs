@@ -69,3 +69,17 @@ public sealed record TaskDto(
     decimal? HourlyRate, decimal? FixedFee, int? EstimatedMinutes,
     RollupMode EstimateRollupMode, RollupMode ActualRollupMode, BillingRollupMode BillingRollupMode,
     DateOnly? DueDate, DateTimeOffset? CompletedAt, DateTimeOffset? FinalizedAt, int SortOrder);
+
+// ---- ClickUp integration ----
+public sealed record ExternalConnectionDto(
+    Guid Id, string ProviderType, string Name, string? ExternalWorkspaceId,
+    ExternalConnectionStatus Status, DateTimeOffset? LastSuccessfulSyncAt,
+    DateTimeOffset? LastAttemptedSyncAt);
+
+public sealed record TriggerImportRequest(Guid? ConnectionId, bool FullResync);
+
+public sealed record ImportRunDto(
+    Guid Id, Guid ExternalConnectionId, ImportType ImportType, ImportStatus Status,
+    DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, DateTimeOffset? SourceUpdatedAfter,
+    int RecordsFetched, int RecordsCreated, int RecordsUpdated, int RecordsUnchanged, int RecordsFailed,
+    string? ErrorSummary);
