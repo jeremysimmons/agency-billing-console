@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Aib.Api/Aib.Api.csproj" />
+  <Project Path="Aib.Application/Aib.Application.csproj" />
+  <Project Path="Aib.Domain/Aib.Domain.csproj" />
+  <Project Path="Aib.Infrastructure/Aib.Infrastructure.csproj" />
+</Solution>
