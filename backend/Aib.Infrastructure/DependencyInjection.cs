@@ -63,6 +63,12 @@ public static class DependencyInjection
         services.AddScoped<IImportRecordRepository, ImportRecordRepository>();
         services.AddScoped<ISyncCursorRepository, SyncCursorRepository>();
 
+        // Mapping repositories
+        services.AddScoped<IExternalContainerMappingRepository, ExternalContainerMappingRepository>();
+        services.AddScoped<IExternalTaskMappingRepository, ExternalTaskMappingRepository>();
+        services.AddScoped<IExternalStatusMappingRepository, ExternalStatusMappingRepository>();
+        services.AddScoped<IMappingQueryRepository, MappingQueryRepository>();
+
         AddClickUp(services, configuration);
 
         return services;

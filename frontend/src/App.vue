@@ -18,6 +18,7 @@ async function logout() {
       <nav>
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/clients">Clients</RouterLink>
+        <RouterLink to="/mappings">Mappings</RouterLink>
       </nav>
       <div class="spacer" />
       <span class="user">{{ auth.user.displayName }}</span>

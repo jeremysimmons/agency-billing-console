@@ -156,3 +156,23 @@ public enum ImportRecordStatus
     Failed,
     Skipped
 }
+
+// ---- External ↔ internal mapping ----
+
+public enum MappingStatus
+{
+    Suggested,
+    Confirmed,
+    Ignored,
+    Conflict,
+    Unmapped
+}
+
+public enum MappingSource
+{
+    Manual,
+    Rule,
+    NameMatch,
+    ParentMapping,
+    ImportCreated
+}

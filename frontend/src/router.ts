@@ -7,6 +7,7 @@ const routes = [
   { path: '/', name: 'dashboard', component: () => import('./views/DashboardView.vue') },
   { path: '/clients', name: 'clients', component: () => import('./views/ClientsView.vue') },
   { path: '/clients/:id', name: 'client-detail', component: () => import('./views/ClientDetailView.vue'), props: true },
+  { path: '/mappings', name: 'mappings', component: () => import('./views/MappingReviewView.vue') },
 ]
 
 export const router = createRouter({

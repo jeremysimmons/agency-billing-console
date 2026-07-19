@@ -68,3 +68,36 @@ public interface ISyncCursorRepository
     Task<SyncCursor?> GetAsync(Guid connectionId, ExternalEntityType entityType, CancellationToken ct = default);
     Task UpsertAsync(SyncCursor cursor, CancellationToken ct = default);
 }
+
+public interface IExternalContainerMappingRepository
+{
+    Task<ExternalContainerMapping?> GetByContainerIdAsync(Guid containerId, CancellationToken ct = default);
+    Task<ExternalContainerMapping?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<ExternalContainerMapping>> ListByConnectionAsync(Guid connectionId, MappingStatus? status, CancellationToken ct = default);
+    Task UpsertAsync(ExternalContainerMapping mapping, CancellationToken ct = default);
+}
+
+public interface IExternalTaskMappingRepository
+{
+    Task<ExternalTaskMapping?> GetByWorkItemIdAsync(Guid workItemId, CancellationToken ct = default);
+    Task<ExternalTaskMapping?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<ExternalTaskMapping>> ListByConnectionAsync(Guid connectionId, MappingStatus? status, CancellationToken ct = default);
+    Task UpsertAsync(ExternalTaskMapping mapping, CancellationToken ct = default);
+}
+
+public interface IExternalStatusMappingRepository
+{
+    Task<IReadOnlyList<ExternalStatusMapping>> ListByConnectionAsync(Guid connectionId, CancellationToken ct = default);
+    Task<ExternalStatusMapping?> GetByStatusNameAsync(Guid connectionId, string statusName, CancellationToken ct = default);
+    Task UpsertAsync(ExternalStatusMapping mapping, CancellationToken ct = default);
+}
+
+/// <summary>Read helpers for mapping review (joined external + mapping rows).</summary>
+public interface IMappingQueryRepository
+{
+    Task<IReadOnlyList<ExternalContainer>> ListContainersAsync(Guid connectionId, CancellationToken ct = default);
+    Task<IReadOnlyList<ExternalWorkItem>> ListWorkItemsAsync(Guid connectionId, CancellationToken ct = default);
+    Task<IReadOnlyList<Client>> ListClientsByAgencyAsync(Guid agencyId, CancellationToken ct = default);
+    Task<IReadOnlyList<Project>> ListProjectsByAgencyAsync(Guid agencyId, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkTask>> ListTasksByAgencyAsync(Guid agencyId, CancellationToken ct = default);
+}

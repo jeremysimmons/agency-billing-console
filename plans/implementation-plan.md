@@ -1499,8 +1499,13 @@ Milestones map to Section 19 phases.
   - Quartz scheduled incremental job (`ClickUpImportJob`, cron-configurable; disabled in dev)
   - API: `GET /api/integrations/clickup/connections`, `POST .../import`, `GET .../imports`
   - Verified live: 336 work items / 75 containers / 9 identities / 47 time entries; repeat full import = 0 created, 336 unchanged, 0 failed; incremental fetched 1 (watermark)
-- [ ] **M4 — Phase 3: Mapping** (folder/list→client/project, task mappings, rules, review, status mappings, conflicts)
-- [ ] **M5 — Phase 4: Time & rollups** (internal time entries, imported linking, estimate/actual rollups, review queue)
+- [x] **M4 — Phase 3: Mapping** (DONE, verified)
+  - Schema: `external_container_mapping`, `external_task_mapping`, `external_status_mapping` (Script0003)
+  - `MappingService`: suggest (name match + parent + container rule), confirm/ignore (no silent overwrite of Confirmed), create client/project/task from external, status seed from sheet vocabulary, apply statuses → `WorkStatus` + `PendingReview` when completed
+  - API: unmapped containers/tasks, suggest, confirm/ignore, status CRUD, apply-statuses
+  - Vue `/mappings` review (Pinia Colada): suggest, accept, create client/project/task, ignore, status table
+  - Verified: status seed 12; confirm folder→client + list→project; create task under mapped list; overwrite Confirmed → 400; re-suggest produced 6 container + 11 task suggestions
+- [ ] **M5 — Phase 4: Time & rollups** (NEXT)
 - [ ] **M6 — Phase 5: Billing** (billing periods/items, finalization, invoices, lines, expenses, payments, PDF)
 - [ ] **M7 — Phase 6: Agency portal** (pending/completed/finalized dashboards, invoice history, client authz, audit)
 - [ ] **M8 — Phase 7: Hardening + deploy** (tests, idempotency, security, indexes, monitoring, backup; AWS Lightsail + nginx + systemd bootstrap on Ubuntu 24)

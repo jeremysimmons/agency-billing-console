@@ -83,3 +83,47 @@ public sealed record ImportRunDto(
     DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, DateTimeOffset? SourceUpdatedAfter,
     int RecordsFetched, int RecordsCreated, int RecordsUpdated, int RecordsUnchanged, int RecordsFailed,
     string? ErrorSummary);
+
+// ---- Mapping ----
+public sealed record UnmappedContainerDto(
+    Guid ContainerId, string ExternalId, ContainerType ContainerType, string Name,
+    string? ParentExternalId, Guid? MappingId, MappingStatus? MappingStatus,
+    Guid? SuggestedClientId, string? SuggestedClientName,
+    Guid? SuggestedProjectId, string? SuggestedProjectName);
+
+public sealed record UnmappedWorkItemDto(
+    Guid WorkItemId, string ExternalId, string Name, string? StatusName, string? Url,
+    string? ParentExternalId, Guid? ContainerId, string? ContainerName,
+    Guid? MappingId, MappingStatus? MappingStatus,
+    Guid? SuggestedTaskId, string? SuggestedTaskTitle,
+    Guid? SuggestedClientId, Guid? SuggestedProjectId);
+
+public sealed record ContainerMappingDto(
+    Guid Id, Guid ExternalContainerId, string ContainerName, ContainerType ContainerType,
+    Guid? ClientId, string? ClientName, Guid? ProjectId, string? ProjectName,
+    MappingStatus MappingStatus, MappingSource MappingSource, string? Notes, DateTimeOffset? MappedAt);
+
+public sealed record TaskMappingDto(
+    Guid Id, Guid ExternalWorkItemId, string WorkItemName, string? Url,
+    Guid? TaskId, string? TaskTitle, MappingStatus MappingStatus, MappingSource MappingSource,
+    string? Notes, DateTimeOffset? MappedAt);
+
+public sealed record StatusMappingDto(
+    Guid Id, string ExternalStatusName, string? ExternalStatusType,
+    WorkStatus InternalStatus, bool TreatedAsCompleted, bool TreatedAsBillable, bool Active);
+
+public sealed record ConfirmContainerMappingRequest(
+    Guid? ClientId, Guid? ProjectId, bool CreateClient, bool CreateProject, string? Notes);
+
+public sealed record ConfirmTaskMappingRequest(
+    Guid? TaskId, bool CreateTask, string? Notes);
+
+public sealed record IgnoreMappingRequest(string? Notes);
+
+public sealed record UpsertStatusMappingRequest(
+    string ExternalStatusName, string? ExternalStatusType,
+    WorkStatus InternalStatus, bool TreatedAsCompleted, bool TreatedAsBillable, bool Active);
+
+public sealed record SuggestMappingsResult(int ContainerSuggestions, int TaskSuggestions, int StatusSeeded);
+
+public sealed record ApplyMappedStatusesResult(int Updated);

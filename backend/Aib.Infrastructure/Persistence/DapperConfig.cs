@@ -65,5 +65,7 @@ public static class DapperConfig
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ExternalEntityType>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ImportAction>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ImportRecordStatus>());
+        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.MappingStatus>());
+        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.MappingSource>());
     }
 }
