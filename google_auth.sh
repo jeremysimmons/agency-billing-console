@@ -6,9 +6,9 @@ set -euo pipefail
 # Configuration
 # ============================================================
 
-PROJECT_ID="your-google-cloud-project-id"
-PROJECT_NAME="Your Application"
-BILLING_ACCOUNT_ID="" # Optional: 000000-000000-000000
+PROJECT_ID="1034584934194"
+PROJECT_NAME="agency-billing-console"
+BILLING_ACCOUNT_ID="01ED4A-9C58E4-B38797" # Optional: 000000-000000-000000
 
 # Enable APIs your application will use.
 APIS=(
