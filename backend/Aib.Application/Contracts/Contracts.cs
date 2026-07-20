@@ -33,6 +33,7 @@ public sealed record AgencyDto(
 public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status);
 public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
 public sealed record ClientDto(Guid Id, string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
+public sealed record DeleteAllClientsResult(int Deleted);
 
 // ---- Projects ----
 public sealed record CreateProjectRequest(

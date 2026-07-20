@@ -78,6 +78,15 @@ public sealed class ClientService(
         await clients.DeleteAsync(id, ct);
     }
 
+    public async Task<DeleteAllClientsResult> DeleteAllAsync(CancellationToken ct = default)
+    {
+        access.EnsureCanManage();
+        var list = await ListAsync(ct);
+        foreach (var client in list)
+            await clients.DeleteAsync(client.Id, ct);
+        return new DeleteAllClientsResult(list.Count);
+    }
+
     private static ClientDto Map(Client c) =>
         new(c.Id, c.Name, c.Code, c.OriginalName, c.Description, c.Status, c.Active);
 }

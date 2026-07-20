@@ -27,6 +27,10 @@ public sealed class ClientsController(ClientService clients) : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClientRequest request, CancellationToken ct)
         => Ok(await clients.UpdateAsync(id, request, ct));
 
+    [HttpDelete]
+    public async Task<IActionResult> DeleteAll(CancellationToken ct)
+        => Ok(await clients.DeleteAllAsync(ct));
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
