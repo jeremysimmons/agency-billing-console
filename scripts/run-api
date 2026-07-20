@@ -32,5 +32,7 @@ if [[ -f "${COMPOSE_FILE}" ]] && command -v docker >/dev/null 2>&1; then
   fi
 fi
 
-echo "API → ${ASPNETCORE_URLS} (${ASPNETCORE_ENVIRONMENT})"
-exec dotnet run --no-launch-profile "$@"
+echo "API → ${ASPNETCORE_URLS} (${ASPNETCORE_ENVIRONMENT}, hot reload)"
+# Hot reload on C# edits; --non-interactive auto-restarts when a rude edit can't hot-reload.
+export DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER=1
+exec dotnet watch run --no-launch-profile --non-interactive "$@"

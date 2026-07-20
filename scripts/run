@@ -18,13 +18,6 @@ fi
 if [[ -f "${COMPOSE_FILE}" ]] && command -v docker >/dev/null 2>&1; then
   if docker compose -f "${COMPOSE_FILE}" up -d mailpit; then
     echo "Mailpit → ${MAILPIT_URL} (SMTP :1025)"
-    if command -v open >/dev/null 2>&1; then
-      open "${MAILPIT_URL}"
-    elif command -v xdg-open >/dev/null 2>&1; then
-      xdg-open "${MAILPIT_URL}" >/dev/null 2>&1 || true
-    fi
-  else
-    echo "Warning: could not start Mailpit (docker compose). Emails may fail." >&2
   fi
 else
   echo "Warning: Docker or docker-compose.yml missing — Mailpit not started." >&2

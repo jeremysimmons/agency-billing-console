@@ -21,5 +21,13 @@ fi
 
 "${REPO_ROOT}/scripts/free-port" "${UI_PORT}"
 
-echo "UI → https://localhost:${UI_PORT} (proxies /api → http://127.0.0.1:5080)"
+API_URL="${API_URL:-http://127.0.0.1:5080}"
+API_HEALTH="${API_URL}/health"
+echo "Waiting for API at ${API_HEALTH}…"
+until curl -sf --connect-timeout 1 "${API_HEALTH}" >/dev/null 2>&1; do
+  sleep 0.5
+done
+echo "API ready."
+
+echo "UI → https://localhost:${UI_PORT} (proxies /api → ${API_URL})"
 exec npm run dev -- --port "${UI_PORT}" "$@"
