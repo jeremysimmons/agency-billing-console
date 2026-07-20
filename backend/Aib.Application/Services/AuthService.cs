@@ -13,7 +13,6 @@ public sealed class AuthService(
     ISessionRepository sessions,
     IIdentityProviderRepository identityProviders,
     ISocialIdentityRepository socialIdentities,
-    IAuthEventRepository authEvents,
     IPasswordHasher passwordHasher,
     ITokenService tokens,
     IGoogleTokenValidator googleValidator,
@@ -33,23 +32,14 @@ public sealed class AuthService(
                    ?? await users.GetByNormalizedEmailAsync(normalized, ct);
 
         if (user is null || user.Status != UserStatus.Active || !user.PasswordLoginEnabled)
-        {
-            await RecordAsync(user?.Id, "login", AuthMethod.Password, false, "invalid_user", ct);
             return AuthResult.Fail("Invalid credentials.");
-        }
 
         var credential = await credentials.GetByUserIdAsync(user.Id, ct);
         if (credential is null)
-        {
-            await RecordAsync(user.Id, "login", AuthMethod.Password, false, "no_credential", ct);
             return AuthResult.Fail("Invalid credentials.");
-        }
 
         if (credential.LockedUntil is { } lockedUntil && lockedUntil > clock.UtcNow)
-        {
-            await RecordAsync(user.Id, "login", AuthMethod.Password, false, "locked", ct);
             return AuthResult.Fail("Account is temporarily locked. Try again later.");
-        }
 
         if (!passwordHasher.Verify(request.Password, credential.PasswordHash))
         {
@@ -61,7 +51,6 @@ public sealed class AuthService(
                 credential.FailedAttemptCount = 0;
             }
             await credentials.UpsertAsync(credential, ct);
-            await RecordAsync(user.Id, "login", AuthMethod.Password, false, "bad_password", ct);
             return AuthResult.Fail("Invalid credentials.");
         }
 
@@ -121,10 +110,7 @@ public sealed class AuthService(
         var hash = tokens.Hash(token);
         var record = await magicLinks.GetActiveByHashAsync(hash, ct);
         if (record is null || record.ExpiresAt <= clock.UtcNow)
-        {
-            await RecordAsync(record?.UserId, "magic_link_consume", AuthMethod.MagicLink, false, "invalid_token", ct);
             return AuthResult.Fail("Invalid or expired link.");
-        }
 
         var user = await users.GetByIdAsync(record.UserId, ct);
         if (user is null || user.Status != UserStatus.Active)
@@ -161,7 +147,6 @@ public sealed class AuthService(
         }
         catch (Exception)
         {
-            await RecordAsync(null, "google_login", AuthMethod.Google, false, "invalid_token", ct);
             return AuthResult.Fail("Could not validate Google sign-in.");
         }
 
@@ -187,10 +172,7 @@ public sealed class AuthService(
         var normalizedEmail = Normalize(identity.Email);
         var user = await users.GetByNormalizedEmailAsync(normalizedEmail, ct);
         if (user is null || user.Status != UserStatus.Active || !user.SocialLoginEnabled)
-        {
-            await RecordAsync(user?.Id, "google_link", AuthMethod.Google, false, "no_match", ct);
             return AuthResult.Fail("No matching account was found for this Google identity.");
-        }
 
         var now = clock.UtcNow;
         await socialIdentities.InsertAsync(new SocialIdentity
@@ -208,7 +190,6 @@ public sealed class AuthService(
             CreatedAt = now,
             UpdatedAt = now
         }, ct);
-        await RecordAsync(user.Id, "google_link", AuthMethod.Google, true, null, ct);
 
         if (user.EmailVerifiedAt is null)
         {
@@ -223,10 +204,7 @@ public sealed class AuthService(
     {
         var session = await sessions.GetActiveByHashAsync(tokens.Hash(sessionToken), ct);
         if (session is not null)
-        {
             await sessions.RevokeAsync(session.Id, clock.UtcNow, ct);
-            await RecordAsync(session.UserId, "logout", session.AuthenticationMethod, true, null, ct);
-        }
     }
 
     public async Task<AuthenticatedUser?> GetCurrentAsync(Guid userId, CancellationToken ct = default)
@@ -259,7 +237,6 @@ public sealed class AuthService(
 
         user.LastLoginAt = now;
         await users.UpdateAsync(user, ct);
-        await RecordAsync(user.Id, "login", method, true, null, ct);
 
         var roles = await users.GetRoleNamesAsync(user.Id, ct);
         return AuthResult.Ok(ToAuthenticatedUser(user, roles), token, expiresAt);
@@ -267,19 +244,5 @@ public sealed class AuthService(
 
     private static AuthenticatedUser ToAuthenticatedUser(AppUser user, IReadOnlyList<string> roles) =>
         new(user.Id, user.Username, user.Email, user.DisplayName, roles,
-            roles.Any(r => Roles.ContractorSide.Contains(r)));
-
-    private Task RecordAsync(Guid? userId, string type, AuthMethod method, bool success, string? detail, CancellationToken ct) =>
-        authEvents.InsertAsync(new AuthEvent
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            EventType = type,
-            AuthenticationMethod = method,
-            Success = success,
-            Detail = detail,
-            IpAddress = currentUser.IpAddress,
-            UserAgent = currentUser.UserAgent,
-            CreatedAt = clock.UtcNow
-        }, ct);
+            roles.Contains(Roles.Contractor));
 }

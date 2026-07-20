@@ -47,7 +47,6 @@ public static class DapperConfig
         SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.UserStatus>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.AccessLevel>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.AuthMethod>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.WorkStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.BillingStatus>());
@@ -57,16 +56,5 @@ public static class DapperConfig
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ClientStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ProjectStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.MagicLinkPurpose>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ApprovalStatus>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ExternalConnectionStatus>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ContainerType>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.WorkItemType>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ImportType>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ImportStatus>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ExternalEntityType>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ImportAction>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ImportRecordStatus>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.MappingStatus>());
-        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.MappingSource>());
     }
 }

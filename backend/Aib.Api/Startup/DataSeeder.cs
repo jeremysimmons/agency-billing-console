@@ -1,13 +1,11 @@
-using Aib.Application;
 using Aib.Application.Abstractions;
 using Aib.Application.Services;
 using Aib.Domain;
 using Aib.Domain.Entities;
-using Microsoft.Extensions.Options;
 
 namespace Aib.Api.Startup;
 
-/// <summary>Seeds roles, agency/contractor, contractor users, Google provider, and ClickUp connection.</summary>
+/// <summary>Seeds roles, agency/contractor, contractor users, and Google provider.</summary>
 public sealed class DataSeeder(
     IRoleRepository roles,
     IAgencyRepository agencies,
@@ -15,11 +13,9 @@ public sealed class DataSeeder(
     IUserRepository users,
     ILocalCredentialRepository credentials,
     IIdentityProviderRepository identityProviders,
-    IExternalConnectionRepository externalConnections,
     IPasswordHasher passwordHasher,
     IClock clock,
     IConfiguration config,
-    IOptions<ClickUpOptions> clickUpOptions,
     ILogger<DataSeeder> logger)
 {
     public async Task SeedAsync(CancellationToken ct = default)
@@ -47,7 +43,7 @@ public sealed class DataSeeder(
         var ownerPassword = config["Seed:Owner:Password"];
         if (!string.IsNullOrWhiteSpace(ownerEmail) && !string.IsNullOrWhiteSpace(ownerPassword))
         {
-            await SeedContractorAdminAsync(
+            await SeedContractorUserAsync(
                 agency,
                 email: ownerEmail!,
                 password: ownerPassword!,
@@ -63,7 +59,7 @@ public sealed class DataSeeder(
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
                 continue;
 
-            await SeedContractorAdminAsync(
+            await SeedContractorUserAsync(
                 agency,
                 email: email!,
                 password: password!,
@@ -73,35 +69,9 @@ public sealed class DataSeeder(
         }
 
         await SeedGoogleProviderAsync(ct);
-        await SeedClickUpConnectionAsync(agency, ct);
     }
 
-    private async Task SeedClickUpConnectionAsync(Agency agency, CancellationToken ct)
-    {
-        var teamId = clickUpOptions.Value.TeamId;
-        if (string.IsNullOrWhiteSpace(teamId))
-            return;
-
-        if (await externalConnections.GetByProviderWorkspaceAsync("clickup", teamId, ct) is not null)
-            return;
-
-        var now = clock.UtcNow;
-        await externalConnections.InsertAsync(new ExternalConnection
-        {
-            Id = Guid.NewGuid(),
-            AgencyId = agency.Id,
-            ProviderType = "clickup",
-            Name = "ClickUp",
-            ExternalWorkspaceId = teamId,
-            AuthenticationReference = "env:CLICKUP_API_TOKEN",
-            Status = ExternalConnectionStatus.Active,
-            CreatedAt = now,
-            UpdatedAt = now
-        }, ct);
-        logger.LogInformation("Seeded ClickUp connection for workspace {TeamId}", teamId);
-    }
-
-    private async Task SeedContractorAdminAsync(
+    private async Task SeedContractorUserAsync(
         Agency agency, string email, string password, string username, string displayName, CancellationToken ct)
     {
         var normalizedEmail = AuthService.Normalize(email);
@@ -110,7 +80,7 @@ public sealed class DataSeeder(
 
         var now = clock.UtcNow;
 
-        // Prefer the existing default contractor so multiple admins share one contractor record.
+        // Prefer the existing default contractor so multiple users share one contractor record.
         var contractor = await contractors.GetDefaultAsync(ct)
                          ?? await contractors.GetByEmailAsync(email, ct);
         Guid contractorId;
@@ -157,11 +127,11 @@ public sealed class DataSeeder(
             UpdatedAt = now
         }, ct);
 
-        var role = await roles.GetByNameAsync(Roles.ContractorAdmin, ct);
+        var role = await roles.GetByNameAsync(Roles.Contractor, ct);
         if (role is not null)
             await users.AddRoleAsync(user.Id, role.Id, ct);
 
-        logger.LogInformation("Seeded contractor admin {Email} ({Username})", email, username);
+        logger.LogInformation("Seeded contractor user {Email} ({Username})", email, username);
     }
 
     private async Task SeedGoogleProviderAsync(CancellationToken ct)

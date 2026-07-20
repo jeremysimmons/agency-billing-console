@@ -61,11 +61,6 @@ public interface ISocialIdentityRepository
     Task UpdateLastLoginAsync(Guid id, DateTimeOffset when, CancellationToken ct = default);
 }
 
-public interface IAuthEventRepository
-{
-    Task InsertAsync(AuthEvent authEvent, CancellationToken ct = default);
-}
-
 public interface IClientRepository
 {
     Task<Client?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -73,12 +68,6 @@ public interface IClientRepository
     Task<Guid> InsertAsync(Client client, CancellationToken ct = default);
     Task UpdateAsync(Client client, CancellationToken ct = default);
     Task DeleteAsync(Guid id, CancellationToken ct = default);
-}
-
-public interface IClientAccessRepository
-{
-    Task<IReadOnlyList<Guid>> GetAccessibleClientIdsAsync(Guid userId, CancellationToken ct = default);
-    Task GrantAsync(ClientAccess access, CancellationToken ct = default);
 }
 
 public interface IProjectRepository
@@ -115,27 +104,4 @@ public interface IContractorRepository
     Task<Contractor?> GetDefaultAsync(CancellationToken ct = default);
     Task<Contractor?> GetByEmailAsync(string email, CancellationToken ct = default);
     Task<Guid> InsertAsync(Contractor contractor, CancellationToken ct = default);
-}
-
-public interface ITimeEntryRepository
-{
-    Task<TimeEntry?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<IReadOnlyList<TimeEntry>> ListByTaskAsync(Guid taskId, CancellationToken ct = default);
-    Task<IReadOnlyList<TimeEntry>> ListByClientAsync(Guid clientId, CancellationToken ct = default);
-    Task<int> SumDurationMinutesAsync(Guid taskId, bool directOnly, CancellationToken ct = default);
-    Task<Guid> InsertAsync(TimeEntry entry, CancellationToken ct = default);
-    Task UpdateAsync(TimeEntry entry, CancellationToken ct = default);
-}
-
-public interface ITimeEntrySourceRepository
-{
-    Task<TimeEntrySource?> GetByExternalIdAsync(Guid externalTimeEntryId, CancellationToken ct = default);
-    Task<TimeEntrySource?> GetByTimeEntryIdAsync(Guid timeEntryId, CancellationToken ct = default);
-    Task InsertAsync(TimeEntrySource source, CancellationToken ct = default);
-}
-
-public interface IExternalTimeEntryQueryRepository
-{
-    Task<IReadOnlyList<ExternalTimeEntry>> ListUnlinkedForMappedTasksAsync(Guid connectionId, CancellationToken ct = default);
-    Task<ExternalTimeEntry?> GetByIdAsync(Guid id, CancellationToken ct = default);
 }

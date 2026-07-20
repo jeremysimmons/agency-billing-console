@@ -5,10 +5,9 @@ using Aib.Domain.Entities;
 
 namespace Aib.Application.Services;
 
-/// <summary>Computes estimate and actual rollups from source records (no cached totals).</summary>
+/// <summary>Computes estimate rollups from task records (no cached totals).</summary>
 public sealed class RollupService(
     ITaskRepository tasks,
-    ITimeEntryRepository timeEntries,
     AccessService access)
 {
     public async Task<TaskRollupDto> GetAsync(Guid taskId, CancellationToken ct = default)
@@ -19,10 +18,6 @@ public sealed class RollupService(
         var tree = await tasks.GetSubtreeAsync(taskId, ct);
         var descendants = tree.Where(t => t.Id != taskId).ToList();
 
-        var directActual = await timeEntries.SumDurationMinutesAsync(taskId, directOnly: true, ct);
-        var subtreeActual = await timeEntries.SumDurationMinutesAsync(taskId, directOnly: false, ct);
-        var childrenActual = subtreeActual - directActual;
-
         var directEstimate = task.EstimatedMinutes ?? 0;
         var childrenEstimate = descendants.Sum(d => d.EstimatedMinutes ?? 0);
 
@@ -30,8 +25,8 @@ public sealed class RollupService(
             task.Id, task.Title, task.EstimateRollupMode, task.ActualRollupMode,
             task.EstimatedMinutes,
             ApplyMode(task.EstimateRollupMode, directEstimate, childrenEstimate),
-            directActual,
-            ApplyMode(task.ActualRollupMode, directActual, childrenActual),
+            DirectActualMinutes: 0,
+            RolledUpActualMinutes: 0,
             descendants.Count);
     }
 

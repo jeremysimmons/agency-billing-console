@@ -30,7 +30,7 @@ public class Client
     public Guid AgencyId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
-    /// <summary>Source title before Code/Name parsing (e.g. ClickUp folder name).</summary>
+    /// <summary>Source title before Code/Name parsing.</summary>
     public string? OriginalName { get; set; }
     public string? Description { get; set; }
     public ClientStatus Status { get; set; } = ClientStatus.Active;

@@ -219,19 +219,3 @@ public sealed class SocialIdentityRepository(IDbConnectionFactory factory) : ISo
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 }
-
-public sealed class AuthEventRepository(IDbConnectionFactory factory) : IAuthEventRepository
-{
-    public async Task InsertAsync(AuthEvent e, CancellationToken ct = default)
-    {
-        var builder = SimpleBuilder.Create($"""
-            insert into auth_event
-                (id, user_id, event_type, authentication_method, success, detail, ip_address, user_agent, created_at)
-            values
-                ({e.Id}, {e.UserId}, {e.EventType}, {e.AuthenticationMethod}, {e.Success}, {e.Detail},
-                 {e.IpAddress}, {e.UserAgent}, {e.CreatedAt})
-            """);
-        using var conn = await factory.OpenAsync(ct);
-        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-    }
-}

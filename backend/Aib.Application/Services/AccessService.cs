@@ -1,41 +1,39 @@
 using Aib.Application.Abstractions;
+using Aib.Domain;
 
 namespace Aib.Application.Services;
 
 /// <summary>
-/// Centralizes client-scoping. Contractor-side users have unrestricted access;
-/// agency users are limited to their <c>client_access</c> grants.
+/// Access rules: agency and contractor users both see the full agency.
+/// Only contractors may manage (create/update/delete) resources.
 /// </summary>
-public sealed class AccessService(ICurrentUser currentUser, IClientAccessRepository clientAccess)
+public sealed class AccessService(ICurrentUser currentUser)
 {
     /// <summary>
-    /// Returns null when the caller may see every client (contractor side),
-    /// otherwise the explicit set of accessible client ids.
+    /// Returns null — no per-client restriction; callers scope by agency.
     /// </summary>
-    public async Task<IReadOnlyCollection<Guid>?> AccessibleClientIdsAsync(CancellationToken ct = default)
+    public Task<IReadOnlyCollection<Guid>?> AccessibleClientIdsAsync(CancellationToken _ = default)
     {
-        if (!currentUser.IsAuthenticated)
-            throw new ForbiddenException("Not authenticated.");
-
-        if (currentUser.IsContractorSide)
-            return null;
-
-        return await clientAccess.GetAccessibleClientIdsAsync(currentUser.UserId!.Value, ct);
+        EnsureAuthenticated();
+        return Task.FromResult<IReadOnlyCollection<Guid>?>(null);
     }
 
-    public async Task EnsureCanViewClientAsync(Guid clientId, CancellationToken ct = default)
+    public Task EnsureCanViewClientAsync(Guid _, CancellationToken __ = default)
     {
-        var accessible = await AccessibleClientIdsAsync(ct);
-        if (accessible is not null && !accessible.Contains(clientId))
-            throw new ForbiddenException("You do not have access to this client.");
+        EnsureAuthenticated();
+        return Task.CompletedTask;
     }
 
-    /// <summary>Managing clients/projects/tasks is contractor-side only in Phase 1.</summary>
     public void EnsureCanManage()
     {
-        if (!currentUser.IsAuthenticated)
-            throw new ForbiddenException("Not authenticated.");
+        EnsureAuthenticated();
         if (!currentUser.IsContractorSide)
             throw new ForbiddenException("Only contractor users can modify this resource.");
+    }
+
+    private void EnsureAuthenticated()
+    {
+        if (!currentUser.IsAuthenticated)
+            throw new ForbiddenException("Not authenticated.");
     }
 }

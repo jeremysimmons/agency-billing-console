@@ -13,9 +13,6 @@ public static class DependencyInjection
         services.AddScoped<ClientService>();
         services.AddScoped<ProjectService>();
         services.AddScoped<TaskService>();
-        services.AddScoped<ClickUpImportService>();
-        services.AddScoped<MappingService>();
-        services.AddScoped<TimeService>();
         services.AddScoped<RollupService>();
         services.AddScoped<WorkReviewService>();
         return services;

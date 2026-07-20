@@ -27,7 +27,6 @@ async function logout() {
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/agency">Agency</RouterLink>
         <RouterLink to="/clients">Clients</RouterLink>
-        <RouterLink to="/mappings">Mappings</RouterLink>
         <RouterLink to="/work">Work</RouterLink>
       </nav>
       <div class="spacer" />

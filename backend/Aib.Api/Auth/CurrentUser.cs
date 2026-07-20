@@ -22,7 +22,7 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
     public IReadOnlyCollection<string> Roles =>
         Principal?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray() ?? [];
 
-    public bool IsContractorSide => Roles.Any(Domain.Roles.ContractorSide.Contains);
+    public bool IsContractorSide => Roles.Contains(Domain.Roles.Contractor);
 
     public string? IpAddress => accessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 

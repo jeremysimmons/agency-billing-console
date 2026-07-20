@@ -77,83 +77,7 @@ public sealed record TaskDto(
     RollupMode EstimateRollupMode, RollupMode ActualRollupMode, BillingRollupMode BillingRollupMode,
     DateOnly? DueDate, DateTimeOffset? CompletedAt, DateTimeOffset? FinalizedAt, int SortOrder);
 
-// ---- ClickUp integration ----
-public sealed record ExternalConnectionDto(
-    Guid Id, string ProviderType, string Name, string? ExternalWorkspaceId,
-    ExternalConnectionStatus Status, DateTimeOffset? LastSuccessfulSyncAt,
-    DateTimeOffset? LastAttemptedSyncAt);
-
-public sealed record TriggerImportRequest(Guid? ConnectionId, bool FullResync);
-
-public sealed record ImportRunDto(
-    Guid Id, Guid ExternalConnectionId, ImportType ImportType, ImportStatus Status,
-    DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, DateTimeOffset? SourceUpdatedAfter,
-    int RecordsFetched, int RecordsCreated, int RecordsUpdated, int RecordsUnchanged, int RecordsFailed,
-    string? ErrorSummary);
-
-// ---- Mapping ----
-public sealed record UnmappedContainerDto(
-    Guid ContainerId, string ExternalId, ContainerType ContainerType, string Name, string? Url,
-    string? ParentExternalId, string? ParentName, ContainerType? ParentContainerType,
-    Guid? MappingId, MappingStatus? MappingStatus,
-    Guid? SuggestedClientId, string? SuggestedClientName,
-    Guid? SuggestedProjectId, string? SuggestedProjectName);
-
-public sealed record UnmappedWorkItemDto(
-    Guid WorkItemId, string ExternalId, string Name, string? StatusName, string? Url,
-    string? ParentExternalId, Guid? ContainerId, string? ContainerName,
-    Guid? MappingId, MappingStatus? MappingStatus,
-    Guid? SuggestedTaskId, string? SuggestedTaskTitle,
-    Guid? SuggestedClientId, Guid? SuggestedProjectId);
-
-public sealed record ContainerMappingDto(
-    Guid Id, Guid ExternalContainerId, string ContainerName, ContainerType ContainerType,
-    Guid? ClientId, string? ClientName, Guid? ProjectId, string? ProjectName,
-    MappingStatus MappingStatus, MappingSource MappingSource, string? Notes, DateTimeOffset? MappedAt);
-
-public sealed record TaskMappingDto(
-    Guid Id, Guid ExternalWorkItemId, string WorkItemName, string? Url,
-    Guid? TaskId, string? TaskTitle, MappingStatus MappingStatus, MappingSource MappingSource,
-    string? Notes, DateTimeOffset? MappedAt);
-
-public sealed record StatusMappingDto(
-    Guid Id, string ExternalStatusName, string? ExternalStatusType,
-    WorkStatus InternalStatus, bool TreatedAsCompleted, bool TreatedAsBillable, bool Active);
-
-public sealed record ConfirmContainerMappingRequest(
-    Guid? ClientId, Guid? ProjectId, bool CreateClient, bool CreateProject, string? Notes);
-
-public sealed record ConfirmTaskMappingRequest(
-    Guid? TaskId, bool CreateTask, string? Notes);
-
-public sealed record IgnoreMappingRequest(string? Notes);
-
-public sealed record UpsertStatusMappingRequest(
-    string ExternalStatusName, string? ExternalStatusType,
-    WorkStatus InternalStatus, bool TreatedAsCompleted, bool TreatedAsBillable, bool Active);
-
-public sealed record SuggestMappingsResult(int ContainerSuggestions, int TaskSuggestions, int StatusSeeded);
-public sealed record ImportFoldersAsClientsResult(int Created, int Skipped);
-public sealed record ImportListsAsProjectsResult(int Created, int Skipped);
-
-public sealed record ApplyMappedStatusesResult(int Updated);
-
-// ---- Time & rollups ----
-public sealed record CreateTimeEntryRequest(
-    Guid TaskId, DateOnly WorkDate, int DurationMinutes,
-    string? Description, bool? Billable, decimal? HourlyRate,
-    DateTimeOffset? StartedAt, DateTimeOffset? EndedAt);
-
-public sealed record UpdateTimeEntryRequest(
-    DateOnly WorkDate, int DurationMinutes, string? Description, bool Billable,
-    decimal? HourlyRate, DateTimeOffset? StartedAt, DateTimeOffset? EndedAt);
-
-public sealed record TimeEntryDto(
-    Guid Id, Guid TaskId, Guid ContractorId, DateOnly WorkDate, int DurationMinutes,
-    string? Description, bool Billable, ApprovalStatus ApprovalStatus,
-    decimal? HourlyRate, decimal? BillingAmount,
-    DateTimeOffset? StartedAt, DateTimeOffset? EndedAt, bool FromImport);
-
+// ---- Rollups & work review ----
 public sealed record TaskRollupDto(
     Guid TaskId, string Title, RollupMode EstimateRollupMode, RollupMode ActualRollupMode,
     int? DirectEstimateMinutes, int RolledUpEstimateMinutes,
@@ -163,11 +87,7 @@ public sealed record TaskRollupDto(
 public sealed record WorkItemReviewDto(
     Guid TaskId, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
     string Title, WorkStatus WorkStatus, BillingStatus BillingStatus,
-    DateTimeOffset? CompletedAt, int? EstimatedMinutes,
-    int ActualMinutes, int BillableMinutes, decimal? BillingAmountEstimate,
-    string? ClickUpUrl, string? ClickUpStatus);
+    DateTimeOffset? CompletedAt, int? EstimatedMinutes);
 
 public sealed record FinalizeWorkRequest(string? Notes);
 public sealed record ExcludeWorkRequest(string? Reason);
-
-public sealed record SyncImportedTimeResult(int Linked, int Skipped, int Failed);

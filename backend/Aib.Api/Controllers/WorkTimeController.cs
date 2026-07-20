@@ -6,28 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace Aib.Api.Controllers;
 
 [ApiController]
-[Route("api/time-entries")]
-[Authorize]
-public sealed class TimeEntriesController(TimeService time) : ControllerBase
-{
-    [HttpGet]
-    public async Task<IActionResult> ListByTask([FromQuery] Guid taskId, CancellationToken ct)
-        => Ok(await time.ListByTaskAsync(taskId, ct));
-
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateTimeEntryRequest request, CancellationToken ct)
-        => Ok(await time.CreateAsync(request, ct));
-
-    [HttpPost("{id:guid}/approve")]
-    public async Task<IActionResult> Approve(Guid id, CancellationToken ct)
-        => Ok(await time.ApproveAsync(id, ct));
-
-    [HttpPost("sync-imported")]
-    public async Task<IActionResult> SyncImported([FromQuery] Guid? connectionId, CancellationToken ct)
-        => Ok(await time.SyncImportedAsync(connectionId, ct));
-}
-
-[ApiController]
 [Route("api/tasks")]
 [Authorize]
 public sealed class TaskRollupsController(RollupService rollups) : ControllerBase

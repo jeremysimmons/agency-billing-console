@@ -8,13 +8,6 @@ public enum UserStatus
     Disabled
 }
 
-public enum AccessLevel
-{
-    View,
-    Manage,
-    Billing
-}
-
 public enum AuthMethod
 {
     Password,
@@ -88,100 +81,4 @@ public enum MagicLinkPurpose
 {
     Login,
     Invitation
-}
-
-public enum ApprovalStatus
-{
-    Draft,
-    Submitted,
-    Approved,
-    Rejected,
-    Invoiced
-}
-
-// ---- ClickUp integration ----
-
-public enum ExternalConnectionStatus
-{
-    Active,
-    Disabled,
-    Error
-}
-
-/// <summary>ClickUp container hierarchy levels.</summary>
-public enum ContainerType
-{
-    Workspace,
-    Team,
-    Space,
-    Folder,
-    List
-}
-
-public enum WorkItemType
-{
-    Task,
-    Subtask
-}
-
-public enum ImportType
-{
-    Full,
-    Incremental,
-    Manual,
-    Retry
-}
-
-public enum ImportStatus
-{
-    Queued,
-    Running,
-    Completed,
-    CompletedWithErrors,
-    Failed
-}
-
-/// <summary>Kind of external record an import touched (also used for sync cursors).</summary>
-public enum ExternalEntityType
-{
-    Identity,
-    Container,
-    WorkItem,
-    TimeEntry
-}
-
-public enum ImportAction
-{
-    Created,
-    Updated,
-    Unchanged,
-    Failed,
-    Skipped
-}
-
-public enum ImportRecordStatus
-{
-    Success,
-    Failed,
-    Skipped
-}
-
-// ---- External ↔ internal mapping ----
-
-public enum MappingStatus
-{
-    Suggested,
-    Confirmed,
-    Ignored,
-    Conflict,
-    Unmapped
-}
-
-public enum MappingSource
-{
-    Manual,
-    Rule,
-    NameMatch,
-    ParentMapping,
-    ImportCreated
 }

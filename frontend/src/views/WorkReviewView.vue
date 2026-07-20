@@ -6,7 +6,6 @@ import {
   useFinalizedWork,
   useFinalizeWork,
   useExcludeWork,
-  useSyncImportedTime,
 } from '../queries/work'
 import type { WorkItemReview } from '../api/types'
 
@@ -17,9 +16,7 @@ const { data: finalized, isLoading: loadingFinalized } = useFinalizedWork()
 
 const finalize = useFinalizeWork()
 const exclude = useExcludeWork()
-const syncTime = useSyncImportedTime()
 
-const message = ref('')
 const error = ref('')
 
 const rows = () => {
@@ -38,16 +35,6 @@ function hours(mins: number | null | undefined) {
   return (mins / 60).toFixed(2)
 }
 
-async function runSync() {
-  error.value = ''; message.value = ''
-  try {
-    const r = await syncTime.mutateAsync()
-    message.value = `Linked ${r.linked} imported time entries (${r.skipped} skipped, ${r.failed} failed).`
-  } catch (e: any) {
-    error.value = e?.response?.data?.error ?? 'Sync failed.'
-  }
-}
-
 async function doFinalize(row: WorkItemReview) {
   error.value = ''
   try { await finalize.mutateAsync(row.taskId) }
@@ -64,12 +51,8 @@ async function doExclude(row: WorkItemReview) {
 <template>
   <section>
     <h1>Work review</h1>
-    <p class="lead">Pending / completed ClickUp work awaiting billing decisions. Finalize freezes the item for invoicing.</p>
+    <p class="lead">Pending / completed work awaiting billing decisions. Finalize freezes the item for invoicing.</p>
 
-    <div class="actions">
-      <button @click="runSync" :disabled="syncTime.isLoading.value">Sync imported time</button>
-    </div>
-    <p v-if="message" class="ok">{{ message }}</p>
     <p v-if="error" class="error">{{ error }}</p>
 
     <div class="tabs">
@@ -90,11 +73,7 @@ async function doExclude(row: WorkItemReview) {
         <tr v-for="r in rows()" :key="r.taskId">
           <td>{{ r.clientName }}</td>
           <td>{{ r.projectName ?? '—' }}</td>
-          <td>
-            <a v-if="r.clickUpUrl" :href="r.clickUpUrl" target="_blank" rel="noopener">{{ r.title }}</a>
-            <span v-else>{{ r.title }}</span>
-            <div v-if="r.clickUpStatus" class="meta">CU: {{ r.clickUpStatus }}</div>
-          </td>
+          <td>{{ r.title }}</td>
           <td>{{ r.workStatus }} / {{ r.billingStatus }}</td>
           <td>{{ hours(r.estimatedMinutes) }}</td>
           <td>{{ hours(r.actualMinutes) }}</td>
@@ -114,7 +93,6 @@ async function doExclude(row: WorkItemReview) {
 
 <style scoped>
 .lead { opacity: 0.8; }
-.actions { margin: 1rem 0; }
 .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .tabs button { background: #e5e7eb; color: #111; }
 .tabs button.active { background: #10b981; color: #fff; }
@@ -124,7 +102,5 @@ button { padding: 0.45rem 0.85rem; border: none; border-radius: 8px; background:
 .btns { display: flex; gap: 0.4rem; }
 .link { background: none; color: #10b981; padding: 0; }
 .link.danger { color: #dc2626; }
-.meta { font-size: 0.8rem; opacity: 0.65; }
-.ok { color: #047857; }
 .error { color: #dc2626; }
 </style>

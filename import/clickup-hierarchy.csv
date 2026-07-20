@@ -1,623 +1,622 @@
-type,id,name,status,import_type
-space,90140783717,Growth | TWELVE LEGS,ignore,
-folder,90141249640,TWELVE LEGS - Client Name,ignore,
-list,901402157215,1). Onboarding,ignore,
-list,901402157214,2). Advertising,ignore,
-list,901402157212,3). SEO,ignore,
-list,901402157211,4). Website Build,ignore,
-list,901402217009,5). Client Support,ignore,
-space,90141222492,Delivery,ignore,
-folder,90141883179,AAAPR - AAA Party Rentals,import,client
-list,901406646621,"Website Maintenance / Website Technical Issues ",import,project
-list,901406658894,Website Content Updates - https://aaapartyrent.com/,import,project
-list,901403203263,Website Design,import,project
-list,901403203947,Website Development,import,project
-list,901403935022,Admin/Others,import,project
-list,901406180129,Website Launch,import,project
-list,901406646914,Service Level Agreement Quota,import,project
-folder,90144764167,APLE - All Pro Lift and Equipment,ignore,
-list,901409526194,Admin/Others,ignore,
-list,901409526219,Google Ads,ignore,
-folder,90142201419,AP360 - AdPro 360 (General),ignore,
-list,901403712120,Admin/Others,ignore,
-folder,90149587656,AdPro 360: Luisa Graff Jewelers,ignore,
-list,901416678854,New Client Setup,ignore,
-list,901416677977,Admin/Others,ignore,
-list,901416679112,Website Design,ignore,
-list,901416679121,WP From Scratch,ignore,
-folder,90142140827,AdPro 360: Phil Long Careers,ignore,
-list,901403682519,Website Content Update,ignore,
-list,901403756584,Website Maintenance/ Website Technical Issues,ignore,
-folder,90141883186,AR - Alert Rental,import,client
-list,901406880266,AR - SEO Content Tracker,ignore,
-list,901403203998,Website Maintenance/ Website Technical Issues,import,project
-list,901403888231,Website Content Update,import,project
-list,901403203271,Google Ads (SEM),ignore,
-list,901403203969,Search Engine Optimization (SEO),ignore,
-list,901403203976,Display - Awareness,ignore,
-list,901403203981,Display - Retargeting,ignore,
-list,901403830684,Admin/Others,import,project
-list,901404173573,Design,ignore,
-list,901404615985,Video,ignore,
-list,901407264155,Programmatic,ignore,
-list,901414254205,"Knowledgebase Marketing ",ignore,
-folder,901410134362,AMC Landscaping,ignore,
-list,901417361937,Admin/Others,ignore,
-folder,90144429992,Après Event Décor & Tent Rental,ignore,
-list,901413283200,New Client Setup,ignore,
-list,901408442327,Admin/Others,ignore,
-list,901413296374,Website Design,ignore,
-list,901413507831,Volatile <> WP - Website Migration,ignore,
-list,901415057703,Website Pre-Launch Checklist,ignore,
-folder,90147642371,ARV - Arvada Rent-Alls,ignore,
-list,901414252468,New Client Setup,ignore,
-list,901414248347,Admin/Others,ignore,
-list,901414252479,WP From Scratch,ignore,
-list,901414411462,Website Pre-Launch Checklist,ignore,
-list,901414970811,Website Launch/Publishing,ignore,
-list,901415054132,Website Maintenance/Technical Issue,ignore,
-list,901415054134,Website Content Update,ignore,
-folder,90144176082,AWA - 406 Golf Carts,ignore,
-list,901407715261,Website Design,ignore,
-list,901407715270,WP From Scratch,ignore,
-list,901407715274,Website Pre-Launch Checklist,ignore,
-list,901407715284,Website Launch/Publishing,ignore,
-list,901409975799,Website Maintenance/Website Technical Issues,ignore,
-folder,90142182706,AWA_AR - Allen Rental,ignore,
-list,901403685175,Website Maintenance/ Website Technical Issues,ignore,
-list,901403935029,Website Content Update,ignore,
-list,901403935031,Admin/Others,ignore,
-list,901406092530,Service Level Agreement Quota,ignore,
-folder,90147685320,AWA_BCR - Black Canyon Rentals,ignore,
-list,901414322492,New Client Setup,ignore,
-list,901414322403,Admin/Others,ignore,
-list,901414419913,Website Design,ignore,
-list,901414325438,WP From Scratch,ignore,
-list,901415425328,Website Pre-Launch Checklist,ignore,
-list,901415426148,Website Launch/Publishing,ignore,
-list,901417456246,Website Maintenance/Technical Issue,ignore,
-list,901417456271,Website Content Update,ignore,
-folder,90147685321,AWA_VR - Viking Rentals,ignore,
-list,901414322509,New Client Setup,ignore,
-list,901414322404,Admin/Others,ignore,
-list,901414423722,Website Design,ignore,
-list,901414325451,WP From Scratch,ignore,
-list,901415425911,Website Pre-Launch Checklist,ignore,
-list,901415427007,Website Launch/Publishing,ignore,
-list,901417456299,Website Maintenance/Technical Issue,ignore,
-list,901417456309,Website Content Update,ignore,
-folder,90142185250,AWA_HRA - Harvey's Rent All,ignore,
-list,901403688956,Website Maintenance/ Website Technical Issues,ignore,
-list,901403935439,Admin/Others,ignore,
-folder,90142201554,AWA and Rover,ignore,
-list,901406817398,AWA & Rover - SEO Content Tracker,ignore,
-list,901403712335,Admin/Others,ignore,
-folder,90141883196,CH - Campbell Homes,ignore,
-list,901406873881,CH - SEO Content Tracker,ignore,
-list,901403203282,Website Design,ignore,
-list,901403215568,Website Development,ignore,
-list,901403216527,Search Engine Optimization (SEO),ignore,
-list,901403631485,Website Content Update,ignore,
-list,901404201947,Website Launch,ignore,
-list,901404005690,Website Maintenance/ Website Technical Issue,ignore,
-list,901403689071,Admin/Others,ignore,
-list,901406566487,SEM,ignore,
-list,901406870764,Digital Campaign,ignore,
-folder,901410261923,CRG - Carolina Rental Group,ignore,
-list,901417516576,New Client Setup,ignore,
-list,901417516566,Admin/Others,ignore,
-list,901417516667,Design,ignore,
-list,901417516669,Logo Vectorization,ignore,
-list,901417517710,WP From Scratch,ignore,
-folder,901410063067,Colorado College,ignore,
-list,901417272732,Admin/Others,ignore,
-folder,90147693685,Colorado Springs Chamber and EDC,ignore,
-list,901414339788,Asmin/Others,ignore,
-folder,90142346651,COSA - Colorado Springs Airport,ignore,
-list,901403934244,Animations,ignore,
-list,901403967914,Admin/Others,ignore,
-list,901404060127,Email Animation Test,ignore,
-list,901409357612,Hill Climb Update,ignore,
-folder,90146961623,COSH - COS Hauling,ignore,
-list,901412650731,"New Client Setup ",ignore,
-list,901412618882,Admin/Others,ignore,
-list,901412639625,"Google Ads ",ignore,
-list,901413195764,Design/Development,ignore,
-folder,90142336654,COPPeR (Peak Radar),ignore,
-list,901403919463,Admin/Others,ignore,
-list,901404182001,Arts Month Campaign,ignore,
-list,901404182751,Peak Radar,ignore,
-folder,901410792507,Custom 19 Woodworks,ignore,
-list,901418182665,New Client Setup,ignore,
-list,901418158679,Admin/Others,ignore,
-folder,90141883210,DET - Diamond Event and Tent,ignore,
-list,901403680952,Website Content Update,ignore,
-list,901403935254,Admin/Others,ignore,
-list,901403967135,Website Maintenance / Website Technical Issues,ignore,
-list,901405076192,Website Development,ignore,
-list,901405209402,Service Level Agreement Quota (copy),ignore,
-list,901412749593,Website Design,ignore,
-list,901412913528,WP <> WP - Website Migration & Build,ignore,
-list,901413623257,Website Pre-Launch Checklist,ignore,
-list,901413780065,Website Launch/Publishing,ignore,
-folder,90144431740,DSC - DiStefano Sales Company,ignore,
-list,901408447021,Admin/Others,ignore,
-list,901408732059,Facebook Organic Management,ignore,
-list,901408732069,LinkedIn Organic Management,ignore,
-list,901408732071,Facebook Ads,ignore,
-list,901408732081,LinkedIn Ads,ignore,
-list,901409514184,Social Media,ignore,
-folder,90147600645,DPTR - Doucette's Party and Tent Rental,ignore,
-list,901414196248,New Client Setup,ignore,
-list,901414196165,Admin/Others,ignore,
-list,901414196168,WP From Scratch,ignore,
-list,901414261419,Website Pre-Launch Checklist,ignore,
-list,901414284623,Website Launch/Publishing,ignore,
-list,901414300365,Website Maintenance/Technical Issue,ignore,
-list,901414196173,Website Hosting,ignore,
-list,901414196176,Google Ads,ignore,
-list,901414196184,Retargeting,ignore,
-list,901414403867,Website Content Update,ignore,
-folder,90142184939,EBA - Elevated by Art,ignore,
-list,901403688519,Website Maintenance/ Website Technical Issues,ignore,
-list,901403935320,Website Content Update,ignore,
-list,901403935325,Admin/Others,ignore,
-folder,90142340906,EER - Encore Events Rentals,ignore,
-list,901407334792,WP <> WP - Website Migration & Build,ignore,
-list,901404396025,Website Development,ignore,
-list,901404396046,Website Content Update,ignore,
-list,901403926238,Admin/Others,ignore,
-list,901408340480,Website Maintenance,ignore,
-list,901406132163,Service Level Agreement Quota,ignore,
-folder,90144770171,EER Equipment - Elevated Equipment Rentals,ignore,
-list,901409554092,Admin/Others,ignore,
-list,901409621039,Website Design,ignore,
-list,901409554114,WP From Scratch,ignore,
-list,901409777916,Website Pre-Launch Checklist,ignore,
-list,901409988990,"Website Launch/Publishing ",ignore,
-list,901410035100,Website Maintenance/Technical Issue,ignore,
-list,901416577932,Website Content Update,ignore,
-folder,90149672203,EP Event Rentals,ignore,
-list,901416783952,New Client Setup,ignore,
-list,901416783902,Admin/Others,ignore,
-list,901416783961,WP <> WP - Website Migration & Build,ignore,
-list,901417168470,Website Pre-Launch Checklist,ignore,
-list,901417288956,Website Launch/Publishing,ignore,
-list,901417289132,Website Maintenance/Technical Issue,ignore,
-list,901417289240,Website Content Update,ignore,
-folder,90141883221,ER - EventRent,ignore,
-list,901406642007,ER - SEO Content Tracker,ignore,
-list,901403203320,Search Engine Optimization (SEO),ignore,
-list,901403965619,Website Maintenance/Website Technical Issues,ignore,
-list,901403935340,Website Content Update,ignore,
-list,901403749039,Website Design,ignore,
-list,901403935352,Admin/Others,ignore,
-list,901405207756,Service Level Agreement Quota,ignore,
-folder,90142336531,FAC - Fine Art Center,ignore,
-list,901403935390,Admin/Others,ignore,
-list,901404695052,Display Awareness,ignore,
-folder,90141883338,FTSC - First Tee Of Southern Colorado,ignore,
-list,901403203479,Facebook Ads,ignore,
-list,901403203651,Display - Awareness,ignore,
-list,901403935412,Admin/Others,ignore,
-folder,90147418775,FP - Flexx Productions,ignore,
-list,901413790426,New Client Setup,ignore,
-list,901413790406,Admin/Others,ignore,
-list,901413790521,Search Engine Optimization (SEO),ignore,
-list,901414199515,Website Development,ignore,
-list,901414296766,Digital Display - Always 72 dpi,ignore,
-list,901414989700,Website Backend Updates,ignore,
-list,901417554304,FP - SEO Content Tracker,ignore,
-list,901417683796,Website Content Updates,ignore,
-folder,90144066428,Flow Right,ignore,
-list,901407264207,List,ignore,
-folder,90146961504,GL - Ganderton Law,ignore,
-list,901412650738,"New Client Setup ",ignore,
-list,901412618545,Admin/Others,ignore,
-list,901412618580,Video Production,ignore,
-list,901412618602,Programmatic,ignore,
-folder,90141883235,GK - Goodwin Knight,ignore,
-list,901403203340,Website Maintenance/ Website Technical Issues,ignore,
-list,901403682664,Website Content Update,ignore,
-list,901403689077,Admin/Others,ignore,
-list,901403746433,Video/Photography,ignore,
-list,901414258492,Graphic Design,ignore,
-folder,90144839859,GC - Gotcha Covered,ignore,
-list,901409890900,WP From Scratch,ignore,
-list,901409891389,Admin/Others,ignore,
-list,901409892371,Google Ads,ignore,
-list,901409892419,Website Pre-Launch Checklist,ignore,
-list,901409892434,Website Launch/Publishing,ignore,
-list,901412845652,Website Content Update,ignore,
-list,901413472037,Website Development,ignore,
-folder,901410493154,HE - Highlift Equipment,ignore,
-list,901417806702,New Client Setup,ignore,
-list,901417806653,Admin/Others,ignore,
-list,901417806697,Marketing Audit,ignore,
-folder,90141883239,HSPPR - Humane Society of the Pikes Peak Region,ignore,
-list,901404004692,Google Ads (SEM),ignore,
-list,901403203347,Admin/Others,ignore,
-folder,90141883249,IL - Illusions Rentals,ignore,
-list,901403967216,Website Maintenance / Website Technical Issues,ignore,
-list,901403203366,Website Development,ignore,
-list,901403939402,Admin/Others,ignore,
-folder,90142450911,KS - Kimberley Sherwood,ignore,
-list,901404688043,Onboarding,ignore,
-list,901407761406,Admin,ignore,
-list,901408132245,Newsletters,ignore,
-list,901404097448,August Newsletter,ignore,
-list,901404892364,September Newsletter,ignore,
-list,901405945777,"October Newsletter ",ignore,
-list,901406463890,November Newsletter,ignore,
-list,901406616087,"December Newsletter ",ignore,
-list,901406985959,January'25 Newsletter,ignore,
-list,901407299334,February'25 Newsletter,ignore,
-list,901407711511,March'25 Newsletter,ignore,
-folder,90142555599,KL - Koopman Lumber,ignore,
-list,901404280059,Website Content Update,ignore,
-list,901406487789,Website Maintenance / Website Technical Issue,ignore,
+type,id,name,parent_type,parent_id
+space,90140783717,Growth | TWELVE LEGS,workspace,9014205398
+folder,90141249640,TWELVE LEGS - Client Name,space,90140783717
+list,901402157215,1). Onboarding,folder,90141249640
+list,901402157214,2). Advertising,folder,90141249640
+list,901402157212,3). SEO,folder,90141249640
+list,901402157211,4). Website Build,folder,90141249640
+list,901402217009,5). Client Support,folder,90141249640
+space,90141222492,Delivery,workspace,9014205398
+folder,90141883179,AAAPR - AAA Party Rentals,space,90141222492
+list,901406646621,Website Maintenance / Website Technical Issues ,folder,90141883179
+list,901406658894,Website Content Updates - https://aaapartyrent.com/,folder,90141883179
+list,901403203263,Website Design,folder,90141883179
+list,901403203947,Website Development,folder,90141883179
+list,901403935022,Admin/Others,folder,90141883179
+list,901406180129,Website Launch,folder,90141883179
+list,901406646914,Service Level Agreement Quota,folder,90141883179
+folder,90144764167,APLE - All Pro Lift and Equipment,space,90141222492
+list,901409526194,Admin/Others,folder,90144764167
+list,901409526219,Google Ads,folder,90144764167
+folder,90142201419,AP360 - AdPro 360 (General),space,90141222492
+list,901403712120,Admin/Others,folder,90142201419
+folder,90149587656,AdPro 360: Luisa Graff Jewelers,space,90141222492
+list,901416678854,New Client Setup,folder,90149587656
+list,901416677977,Admin/Others,folder,90149587656
+list,901416679112,Website Design,folder,90149587656
+list,901416679121,WP From Scratch,folder,90149587656
+folder,90142140827,AdPro 360: Phil Long Careers,space,90141222492
+list,901403682519,Website Content Update,folder,90142140827
+list,901403756584,Website Maintenance/ Website Technical Issues,folder,90142140827
+folder,90141883186,AR - Alert Rental,space,90141222492
+list,901406880266,AR - SEO Content Tracker,folder,90141883186
+list,901403203998,Website Maintenance/ Website Technical Issues,folder,90141883186
+list,901403888231,Website Content Update,folder,90141883186
+list,901403203271,Google Ads (SEM),folder,90141883186
+list,901403203969,Search Engine Optimization (SEO),folder,90141883186
+list,901403203976,Display - Awareness,folder,90141883186
+list,901403203981,Display - Retargeting,folder,90141883186
+list,901403830684,Admin/Others,folder,90141883186
+list,901404173573,Design,folder,90141883186
+list,901404615985,Video,folder,90141883186
+list,901407264155,Programmatic,folder,90141883186
+list,901414254205,Knowledgebase Marketing ,folder,90141883186
+folder,901410134362,AMC Landscaping,space,90141222492
+list,901417361937,Admin/Others,folder,901410134362
+folder,90144429992,Après Event Décor & Tent Rental,space,90141222492
+list,901413283200,New Client Setup,folder,90144429992
+list,901408442327,Admin/Others,folder,90144429992
+list,901413296374,Website Design,folder,90144429992
+list,901413507831,Volatile <> WP - Website Migration,folder,90144429992
+list,901415057703,Website Pre-Launch Checklist,folder,90144429992
+folder,90147642371,ARV - Arvada Rent-Alls,space,90141222492
+list,901414252468,New Client Setup,folder,90147642371
+list,901414248347,Admin/Others,folder,90147642371
+list,901414252479,WP From Scratch,folder,90147642371
+list,901414411462,Website Pre-Launch Checklist,folder,90147642371
+list,901414970811,Website Launch/Publishing,folder,90147642371
+list,901415054132,Website Maintenance/Technical Issue,folder,90147642371
+list,901415054134,Website Content Update,folder,90147642371
+folder,90144176082,AWA - 406 Golf Carts,space,90141222492
+list,901407715261,Website Design,folder,90144176082
+list,901407715270,WP From Scratch,folder,90144176082
+list,901407715274,Website Pre-Launch Checklist,folder,90144176082
+list,901407715284,Website Launch/Publishing,folder,90144176082
+list,901409975799,Website Maintenance/Website Technical Issues,folder,90144176082
+folder,90142182706,AWA_AR - Allen Rental,space,90141222492
+list,901403685175,Website Maintenance/ Website Technical Issues,folder,90142182706
+list,901403935029,Website Content Update,folder,90142182706
+list,901403935031,Admin/Others,folder,90142182706
+list,901406092530,Service Level Agreement Quota,folder,90142182706
+folder,90147685320,AWA_BCR - Black Canyon Rentals,space,90141222492
+list,901414322492,New Client Setup,folder,90147685320
+list,901414322403,Admin/Others,folder,90147685320
+list,901414419913,Website Design,folder,90147685320
+list,901414325438,WP From Scratch,folder,90147685320
+list,901415425328,Website Pre-Launch Checklist,folder,90147685320
+list,901415426148,Website Launch/Publishing,folder,90147685320
+list,901417456246,Website Maintenance/Technical Issue,folder,90147685320
+list,901417456271,Website Content Update,folder,90147685320
+folder,90147685321,AWA_VR - Viking Rentals,space,90141222492
+list,901414322509,New Client Setup,folder,90147685321
+list,901414322404,Admin/Others,folder,90147685321
+list,901414423722,Website Design,folder,90147685321
+list,901414325451,WP From Scratch,folder,90147685321
+list,901415425911,Website Pre-Launch Checklist,folder,90147685321
+list,901415427007,Website Launch/Publishing,folder,90147685321
+list,901417456299,Website Maintenance/Technical Issue,folder,90147685321
+list,901417456309,Website Content Update,folder,90147685321
+folder,90142185250,AWA_HRA - Harvey's Rent All,space,90141222492
+list,901403688956,Website Maintenance/ Website Technical Issues,folder,90142185250
+list,901403935439,Admin/Others,folder,90142185250
+folder,90142201554,AWA and Rover,space,90141222492
+list,901406817398,AWA & Rover - SEO Content Tracker,folder,90142201554
+list,901403712335,Admin/Others,folder,90142201554
+folder,90141883196,CH - Campbell Homes,space,90141222492
+list,901406873881,CH - SEO Content Tracker,folder,90141883196
+list,901403203282,Website Design,folder,90141883196
+list,901403215568,Website Development,folder,90141883196
+list,901403216527,Search Engine Optimization (SEO),folder,90141883196
+list,901403631485,Website Content Update,folder,90141883196
+list,901404201947,Website Launch,folder,90141883196
+list,901404005690,Website Maintenance/ Website Technical Issue,folder,90141883196
+list,901403689071,Admin/Others,folder,90141883196
+list,901406566487,SEM,folder,90141883196
+list,901406870764,Digital Campaign,folder,90141883196
+folder,901410261923,CRG - Carolina Rental Group,space,90141222492
+list,901417516576,New Client Setup,folder,901410261923
+list,901417516566,Admin/Others,folder,901410261923
+list,901417516667,Design,folder,901410261923
+list,901417516669,Logo Vectorization,folder,901410261923
+list,901417517710,WP From Scratch,folder,901410261923
+folder,901410063067,Colorado College,space,90141222492
+list,901417272732,Admin/Others,folder,901410063067
+folder,90147693685,Colorado Springs Chamber and EDC,space,90141222492
+list,901414339788,Asmin/Others,folder,90147693685
+folder,90142346651,COSA - Colorado Springs Airport,space,90141222492
+list,901403934244,Animations,folder,90142346651
+list,901403967914,Admin/Others,folder,90142346651
+list,901404060127,Email Animation Test,folder,90142346651
+list,901409357612,Hill Climb Update,folder,90142346651
+folder,90146961623,COSH - COS Hauling,space,90141222492
+list,901412650731,New Client Setup ,folder,90146961623
+list,901412618882,Admin/Others,folder,90146961623
+list,901412639625,Google Ads ,folder,90146961623
+list,901413195764,Design/Development,folder,90146961623
+folder,90142336654,COPPeR (Peak Radar),space,90141222492
+list,901403919463,Admin/Others,folder,90142336654
+list,901404182001,Arts Month Campaign,folder,90142336654
+list,901404182751,Peak Radar,folder,90142336654
+folder,901410792507,Custom 19 Woodworks,space,90141222492
+list,901418182665,New Client Setup,folder,901410792507
+list,901418158679,Admin/Others,folder,901410792507
+folder,90141883210,DET - Diamond Event and Tent,space,90141222492
+list,901403680952,Website Content Update,folder,90141883210
+list,901403935254,Admin/Others,folder,90141883210
+list,901403967135,Website Maintenance / Website Technical Issues,folder,90141883210
+list,901405076192,Website Development,folder,90141883210
+list,901405209402,Service Level Agreement Quota (copy),folder,90141883210
+list,901412749593,Website Design,folder,90141883210
+list,901412913528,WP <> WP - Website Migration & Build,folder,90141883210
+list,901413623257,Website Pre-Launch Checklist,folder,90141883210
+list,901413780065,Website Launch/Publishing,folder,90141883210
+folder,90144431740,DSC - DiStefano Sales Company,space,90141222492
+list,901408447021,Admin/Others,folder,90144431740
+list,901408732059,Facebook Organic Management,folder,90144431740
+list,901408732069,LinkedIn Organic Management,folder,90144431740
+list,901408732071,Facebook Ads,folder,90144431740
+list,901408732081,LinkedIn Ads,folder,90144431740
+list,901409514184,Social Media,folder,90144431740
+folder,90147600645,DPTR - Doucette's Party and Tent Rental,space,90141222492
+list,901414196248,New Client Setup,folder,90147600645
+list,901414196165,Admin/Others,folder,90147600645
+list,901414196168,WP From Scratch,folder,90147600645
+list,901414261419,Website Pre-Launch Checklist,folder,90147600645
+list,901414284623,Website Launch/Publishing,folder,90147600645
+list,901414300365,Website Maintenance/Technical Issue,folder,90147600645
+list,901414196173,Website Hosting,folder,90147600645
+list,901414196176,Google Ads,folder,90147600645
+list,901414196184,Retargeting,folder,90147600645
+list,901414403867,Website Content Update,folder,90147600645
+folder,90142184939,EBA - Elevated by Art,space,90141222492
+list,901403688519,Website Maintenance/ Website Technical Issues,folder,90142184939
+list,901403935320,Website Content Update,folder,90142184939
+list,901403935325,Admin/Others,folder,90142184939
+folder,90142340906,EER - Encore Events Rentals,space,90141222492
+list,901407334792,WP <> WP - Website Migration & Build,folder,90142340906
+list,901404396025,Website Development,folder,90142340906
+list,901404396046,Website Content Update,folder,90142340906
+list,901403926238,Admin/Others,folder,90142340906
+list,901408340480,Website Maintenance,folder,90142340906
+list,901406132163,Service Level Agreement Quota,folder,90142340906
+folder,90144770171,EER Equipment - Elevated Equipment Rentals,space,90141222492
+list,901409554092,Admin/Others,folder,90144770171
+list,901409621039,Website Design,folder,90144770171
+list,901409554114,WP From Scratch,folder,90144770171
+list,901409777916,Website Pre-Launch Checklist,folder,90144770171
+list,901409988990,Website Launch/Publishing ,folder,90144770171
+list,901410035100,Website Maintenance/Technical Issue,folder,90144770171
+list,901416577932,Website Content Update,folder,90144770171
+folder,90149672203,EP Event Rentals,space,90141222492
+list,901416783952,New Client Setup,folder,90149672203
+list,901416783902,Admin/Others,folder,90149672203
+list,901416783961,WP <> WP - Website Migration & Build,folder,90149672203
+list,901417168470,Website Pre-Launch Checklist,folder,90149672203
+list,901417288956,Website Launch/Publishing,folder,90149672203
+list,901417289132,Website Maintenance/Technical Issue,folder,90149672203
+list,901417289240,Website Content Update,folder,90149672203
+folder,90141883221,ER - EventRent,space,90141222492
+list,901406642007,ER - SEO Content Tracker,folder,90141883221
+list,901403203320,Search Engine Optimization (SEO),folder,90141883221
+list,901403965619,Website Maintenance/Website Technical Issues,folder,90141883221
+list,901403935340,Website Content Update,folder,90141883221
+list,901403749039,Website Design,folder,90141883221
+list,901403935352,Admin/Others,folder,90141883221
+list,901405207756,Service Level Agreement Quota,folder,90141883221
+folder,90142336531,FAC - Fine Art Center,space,90141222492
+list,901403935390,Admin/Others,folder,90142336531
+list,901404695052,Display Awareness,folder,90142336531
+folder,90141883338,FTSC - First Tee Of Southern Colorado,space,90141222492
+list,901403203479,Facebook Ads,folder,90141883338
+list,901403203651,Display - Awareness,folder,90141883338
+list,901403935412,Admin/Others,folder,90141883338
+folder,90147418775,FP - Flexx Productions,space,90141222492
+list,901413790426,New Client Setup,folder,90147418775
+list,901413790406,Admin/Others,folder,90147418775
+list,901413790521,Search Engine Optimization (SEO),folder,90147418775
+list,901414199515,Website Development,folder,90147418775
+list,901414296766,Digital Display - Always 72 dpi,folder,90147418775
+list,901414989700,Website Backend Updates,folder,90147418775
+list,901417554304,FP - SEO Content Tracker,folder,90147418775
+list,901417683796,Website Content Updates,folder,90147418775
+folder,90144066428,Flow Right,space,90141222492
+list,901407264207,List,folder,90144066428
+folder,90146961504,GL - Ganderton Law,space,90141222492
+list,901412650738,New Client Setup ,folder,90146961504
+list,901412618545,Admin/Others,folder,90146961504
+list,901412618580,Video Production,folder,90146961504
+list,901412618602,Programmatic,folder,90146961504
+folder,90141883235,GK - Goodwin Knight,space,90141222492
+list,901403203340,Website Maintenance/ Website Technical Issues,folder,90141883235
+list,901403682664,Website Content Update,folder,90141883235
+list,901403689077,Admin/Others,folder,90141883235
+list,901403746433,Video/Photography,folder,90141883235
+list,901414258492,Graphic Design,folder,90141883235
+folder,90144839859,GC - Gotcha Covered,space,90141222492
+list,901409890900,WP From Scratch,folder,90144839859
+list,901409891389,Admin/Others,folder,90144839859
+list,901409892371,Google Ads,folder,90144839859
+list,901409892419,Website Pre-Launch Checklist,folder,90144839859
+list,901409892434,Website Launch/Publishing,folder,90144839859
+list,901412845652,Website Content Update,folder,90144839859
+list,901413472037,Website Development,folder,90144839859
+folder,901410493154,HE - Highlift Equipment,space,90141222492
+list,901417806702,New Client Setup,folder,901410493154
+list,901417806653,Admin/Others,folder,901410493154
+list,901417806697,Marketing Audit,folder,901410493154
+folder,90141883239,HSPPR - Humane Society of the Pikes Peak Region,space,90141222492
+list,901404004692,Google Ads (SEM),folder,90141883239
+list,901403203347,Admin/Others,folder,90141883239
+folder,90141883249,IL - Illusions Rentals,space,90141222492
+list,901403967216,Website Maintenance / Website Technical Issues,folder,90141883249
+list,901403203366,Website Development,folder,90141883249
+list,901403939402,Admin/Others,folder,90141883249
+folder,90142450911,KS - Kimberley Sherwood,space,90141222492
+list,901404688043,Onboarding,folder,90142450911
+list,901407761406,Admin,folder,90142450911
+list,901408132245,Newsletters,folder,90142450911
+list,901404097448,August Newsletter,folder,90142450911
+list,901404892364,September Newsletter,folder,90142450911
+list,901405945777,October Newsletter ,folder,90142450911
+list,901406463890,November Newsletter,folder,90142450911
+list,901406616087,December Newsletter ,folder,90142450911
+list,901406985959,January'25 Newsletter,folder,90142450911
+list,901407299334,February'25 Newsletter,folder,90142450911
+list,901407711511,March'25 Newsletter,folder,90142450911
+folder,90142555599,KL - Koopman Lumber,space,90141222492
+list,901404280059,Website Content Update,folder,90142555599
+list,901406487789,Website Maintenance / Website Technical Issue,folder,90142555599
 list,901404278342,"KL - 
-Customer Information",ignore,
-list,901408828969,Website Development,ignore,
-folder,90144615679,OHS - Omnicare Health Services,ignore,
-list,901408940224,Video Production,ignore,
-list,901409560081,Design,ignore,
-list,901409895052,Admin/Others,ignore,
-folder,90142185018,POC - People of Colorado,ignore,
-list,901403688643,Website Maintenance/ Website Technical Issues,ignore,
-list,901403935562,Admin/Others,ignore,
-folder,90141883278,PPWFC - Pikes Peak Workforce Center,ignore,
-list,901403935615,Admin/Others,ignore,
-folder,90148662091,PPSBDC - Pikes Peak Small Business Development Center,ignore,
-list,901415544084,Admin/Others,ignore,
-folder,90142402856,RAE - Rent-All Equipment,ignore,
-list,901404075347,Website Design,ignore,
-list,901404021244,Website Migration,ignore,
-list,901404021838,Website Development,ignore,
-list,901404202144,Website Launch,ignore,
-list,901405127651,Website Maintenance/Website Technical Issues,ignore,
-list,901404019608,Admin/Others,ignore,
-folder,901410792601,RSO - Rental Stop Ohio,ignore,
-list,901418182674,New Client Setup,ignore,
-list,901418158807,Admin/Others,ignore,
-folder,90141883299,RMAC - Rocky Mountain Athletic Conference,ignore,
-list,901403936311,Admin/Others,ignore,
-list,901404099288,2024 RMAC Hall of Fame,ignore,
-folder,90147013897,SER - Sage Equipment Rentals,ignore,
-list,901412740528,New Client Setup,ignore,
-list,901412740439,Admin/Others,ignore,
-list,901412767989,Website Content Update,ignore,
-list,901412796169,Google Ads,ignore,
-list,901413130127,Search Engine Optimization,ignore,
-list,901418188020,Website Development,ignore,
-folder,90142362564,SRS - Service Rentals and Supplies,ignore,
-list,901403957939,Admin/Others,ignore,
-list,901407298164,Website Design,ignore,
-list,901407312176,Volatile <> WP - Website Migration,ignore,
-list,901408844696,Website Pre-Launch Checklist,ignore,
-list,901410002870,Website Launch/Publishing,ignore,
-list,901408937893,Website Maintenance/Website Technical Issues,ignore,
-list,901406992304,Website Content Update,ignore,
-list,901406992321,Service Level Agreement,ignore,
-folder,90141883313,SR - Suburban Rental,ignore,
-list,901406732204,SR - SEO Content Tracker,ignore,
-list,901403203450,Search Engine Optimization (SEO),ignore,
-list,901403684755,Website Maintenance/ Website Technical Issues,ignore,
-list,901403628592,Website Management/Updates,ignore,
-list,901403937571,Admin/Others,ignore,
-list,901403996689,Suburban Rental - Keyword Competitor Research,ignore,
-list,901403998513,Suburban Rental - Google Ads Competitor Research,ignore,
-list,901404045951,Suburban Rental - Google Ads,ignore,
-list,901404284478,Suburban Rental - Upload & Launch Tool Campaign,ignore,
-list,901404322649,SR - Tools - Google Ads,ignore,
-list,901406132943,Service Level Agreement Quota,ignore,
-list,901409460776,Suburban Rental - SEO Content,ignore,
-folder,90141883330,SWECU - SunWest Educational Credit Union,ignore,
-list,901403937594,Admin/Others,ignore,
-list,901404732221,Design,ignore,
-folder,90141883333,TER - Tablescapes Event Rentals,ignore,
-list,901403682706,Website Maintenance/ Website Technical Issues,ignore,
-list,901403203471,Website Content Update,ignore,
-list,901403937608,Admin/Others,ignore,
-list,901404639131,Website Development,ignore,
-list,901405206800,Service Level Agreement Quota,ignore,
-list,901408802087,Design,ignore,
-list,901414370938,WebReservations,ignore,
-folder,90141883337,TF - Taylor Fence,ignore,
-list,901403203476,Website Maintenance/ Website Technical Issues,ignore,
-list,901403682712,Website Content Update,ignore,
-list,901403689056,Admin/Others,ignore,
-list,901403713317,Social (past service),ignore,
-list,901403811302,Design,ignore,
-list,901404014824,Email Marketing (past service),ignore,
-list,901404639799,Video,ignore,
-list,901404695331,Display Retargeting,ignore,
-list,901404695347,Display Geo-Fencing,ignore,
-list,901404718925,Print/Marketing Collateral,ignore,
-list,901407318925,SEM,ignore,
-list,901406095124,Service Level Agreement Quota,ignore,
-folder,90144102289,TRNJ - Taylor Rental of NJ,ignore,
-list,901407374833,Admin/Others,ignore,
-list,901409653224,Google Ads,ignore,
-folder,90147952555,TTREN - Top Tier Real Estate and Notary,ignore,
-list,901414691232,New Client Setup,ignore,
-list,901414681338,Admin/Others,ignore,
-list,901414681375,Website Design,ignore,
-list,901414681398,WP From Scratch,ignore,
-list,901415309899,Website Pre-Launch Checklist,ignore,
-list,901415352600,Website Launch/Publishing,ignore,
-list,901415352932,Website Maintenance/Technical Issue,ignore,
-list,901415353010,Website Content Update,ignore,
-folder,90141883342,TTAT - Trans Tech Auto & Truck,ignore,
-list,901406859899,TTAT - SEO Content Tracker,ignore,
-list,901403203483,Website Maintenance/ Website Technical Issues,ignore,
-list,901405770090,Search Engine Optimization (SEO),ignore,
-list,901403937710,Admin/Others,ignore,
-list,901405371261,Google Ads,ignore,
-list,901406817885,Website Development,ignore,
-list,901408030003,Service Level Agreement Quota (copy),ignore,
-list,901414372783,Website Content Updates,ignore,
-folder,90142182731,TLM - Twelve Legs Marketing,ignore,
-list,901406882693,TLM - SEO Content Tracker,ignore,
-list,901405158848,Search Engine Optimization (SEO),ignore,
-list,901403685204,Website Maintenance/ Website Technical Issues,ignore,
-list,901403685785,Website Content Update,ignore,
-list,901403821826,Admin/Others,ignore,
-list,901409266478,Social Media,ignore,
-list,901403917801,Website Design,ignore,
-list,901404322699,Google Ads,ignore,
-list,901404588565,Website Development,ignore,
-list,901406792692,Communication Plan,ignore,
-list,901406931399,Graphic Design,ignore,
-list,901407010795,Email Marketing,ignore,
-list,901407152363,DEMO SITE - Website Development,ignore,
-list,901407642726,Programatic/Digital Display,ignore,
-list,901407821023,Looker Studio Integrations,ignore,
-list,901413041771,TLM Sports Corp Resource Guide Ad,ignore,
-list,901414015785,Tablescapes Builder,ignore,
-list,901414094528,Shop The Look Plugin,ignore,
-list,901415657235,Demo Websites,ignore,
-folder,90144880127,VER - Vault Event Rentals,ignore,
-list,901410035013,Admin/Others,ignore,
-list,901412749697,New Client Setup,ignore,
-list,901412749665,Website Design,ignore,
-list,901412913442,WP From Scratch,ignore,
-list,901413473229,Website Pre-Launch Checklist,ignore,
-list,901413780049,Website Launch/Publishing,ignore,
-list,901414273042,Website Updates/Edits/Management,ignore,
-folder,90149224698,VMS - Viking Metal Supply,ignore,
-list,901416237319,New Client Setup,ignore,
-list,901416237309,Admin/Others,ignore,
-list,901416637621,IP Campaign,ignore,
-folder,90147915679,TapGoods,ignore,
-list,901414639356,Admin/Others,ignore,
-folder,90143001995,Demo Website,ignore,
-list,901405042036,Website Development,ignore,
-list,901405899871,Website Maintenance / Technical issues,ignore,
-space,90140906925,TEMPLATES,ignore,
-folder,90142447768,Complete Local SEO Checklist,ignore,
-list,901404031286,SEO - Onboarding,ignore,
-list,901404216148,SEO - Initial Local SEO Setup,ignore,
-list,901403818682,SEO - Keyword Competitors Research,ignore,
-list,901403992561,SEO - Competitor Analysis,ignore,
-list,901404031308,Conversion Rate Optimization,ignore,
-list,901404031312,SEO - Content,ignore,
-list,901404031322,SEO - On page (Monthly),ignore,
-list,901404031331,SEO - Hosting,ignore,
-list,901403818830,SEO - Monthly SEO Tasks,ignore,
-list,901404216808,SEO - Technical,ignore,
-list,901404280442,Local SEO Template,ignore,
-folder,90142449356,Complete Google Ads Checklist,ignore,
-list,901404213524,General Google Ads Account Setup / Onboard Existing Account,ignore,
-list,901404213620,Google Search Campaigns Setup,ignore,
-list,901404213704,Google Display Campaigns Setup,ignore,
-list,901404213735,Landing Page Optimization,ignore,
-list,901406720518,Create Google Ad Campaign,ignore,
-list,901406721118,Using Google Keyword Planner for Free,ignore,
-list,901406721278,Find the Best Google Display Network Placements for Your Ads,ignore,
-list,901409892452,Google Ads,ignore,
-folder,90141976201,Website Template,ignore,
-list,901403555970,[INT USE] List of Standard Plugins,ignore,
-list,901403359985,Website Design,ignore,
-list,901406550385,WP From Scratch,ignore,
-list,901406224169,WP <> WP - Website Migration & Build,ignore,
-list,901403362472,Volatile <> WP - Website Migration,ignore,
-list,901406634095,Website Pre-Launch Checklist,ignore,
-list,901403537067,Website Launch/Publishing,ignore,
-list,901403610945,Website Content Update,ignore,
-list,901407057818,Website Monthly Updates,ignore,
-list,901412875441,Hosting Migration,ignore,
-list,901415690122,WebRequest Setup,ignore,
-list,901416835729,Goodshuffle Website,ignore,
-folder,90142447963,Admin Template,ignore,
-list,901404092919,New Client Setup,ignore,
-folder,90142450960,SEO Templates,ignore,
-list,901403818874,SEO - Twelve Legs,ignore,
-list,901405689030,SEO - Eight Legs,ignore,
-list,901403818805,SEO - Four Legs,ignore,
-list,901406813024,[CLIENT ABBREVIATION] - SEO Content Tracker,ignore,
-folder,90142451015,Design Templates and Standards,ignore,
-list,901403818375,Digital Display - Always 72 dpi,ignore,
-folder,90143846425,Campaigns,ignore,
-list,901406643520,Display Campaign Setup,ignore,
-folder,90142552303,New Client Setup,ignore,
-list,901404277685,New Client Setup,ignore,
-folder,90143876809,BNI Market Research Template,ignore,
-list,901406725746,BNI Market Research,ignore,
-folder,90144019014,Project Management Template,ignore,
-list,901407104543,Project Management,ignore,
-folder,90144522336,Onboard New Client,ignore,
-list,901408740850,Admin,ignore,
-list,901409031685,"Complete Facebook Ads Checklist ",ignore,
-list,901409088640,Complete Social Media Onboarding Checklist,ignore,
-folder,90144574678,Newsletter Template,ignore,
-list,901408830074,Newsletter Process,ignore,
-folder,90144445131,Website Template,ignore,
-list,901408492412,[INT USE] List of Standard Plugins,ignore,
-list,901408492405,Website Design,ignore,
-list,901408492414,WP From Scratch,ignore,
-list,901408492406,WP <> WP - Website Migration & Build,ignore,
-list,901408492394,Volatile <> WP - Website Migration,ignore,
-list,901408492391,Website Pre-Launch Checklist,ignore,
-list,901408492411,Website Launch/Publishing,ignore,
-list,901408492393,Website Content Update,ignore,
-list,901408492404,Website Monthly Updates,ignore,
-space,90141388088,TLM - Internal,ignore,
-folder,90142139013,Team Directory,ignore,
-list,901403611226,Twelve Legs Marketing Team,ignore,
-folder,90149856430,Internal Meetings,ignore,
-folder,90144416284,CJ <> Rali Check-ins,ignore,
-list,901408385256,Topics to Discuss,ignore,
-space,90141496075,Resources,ignore,
-folder,90142572306,Process Flowchart,ignore,
-list,901404499711,Swimlane Template,ignore,
-list,901402452045,Sitemap Whiteboard Template,ignore,
-list,901403876543,Team Training,ignore,
-list,901403870836,SOPs,ignore,
-list,901404152317,Client Training,ignore,
-space,90141432627,New Business Prospects,ignore,
-folder,90147425740,DR - Durants Rentals,ignore,
-list,901413806912,Admin/Others,ignore,
-folder,90142482849,	Palatium Lux,ignore,
-list,901404146345,Admin/Others,ignore,
-folder,90142515791,Building Performance Online Course,ignore,
-list,901404201219,Admin/Others,ignore,
-folder,90142630792,Clarity Quest Coaching,ignore,
-list,901404408556,Admin/Others,ignore,
-folder,90142910138,Après Event Décor & Tent Rental,ignore,
-list,901404889786,List,ignore,
-folder,90143019018,Net At Work - Acumatica,ignore,
-list,901405070405,List,ignore,
-folder,90143389601,A Better Contractor,ignore,
-list,901405678967,Admin/Others,ignore,
-folder,90143626074,Colorado Springs Philharmonic,ignore,
-list,901406134485,Admin/Others,ignore,
-folder,90143805050,AAA Coaching,ignore,
-list,901406558451,Admin/Others,ignore,
-folder,90143881111,"Fader Equipment, Inc",ignore,
-list,901406736881,Admin/Others,ignore,
-folder,90143899030,Drift Designs,ignore,
-list,901406790353,Admin/Others,ignore,
-folder,90143903359,Delux Rentals,ignore,
-list,901406799988,Admin/Others,ignore,
-folder,90143903378,Able Rental,ignore,
-list,901406800011,Admin/Others,ignore,
-folder,90143921974,BNI - Big Easy Events,ignore,
-list,901406858529,Admin/Others,ignore,
-folder,90143902626,BNI - Kennebec Equipment Rental,ignore,
-list,901406798735,List,ignore,
-folder,90143922094,BNI - Once Upon a Chair Rental,ignore,
-list,901406858825,List,ignore,
-folder,90143906007,BNI - We Amaze2,ignore,
-list,901406805021,List,ignore,
-folder,90144016634,Ward's Rental,ignore,
-list,901407094507,List,ignore,
-folder,90144077366,DiStefano Sales Company,ignore,
-list,901407298713,List,ignore,
-folder,90144092060,IH Rental,ignore,
-list,901407339378,List,ignore,
-folder,90144103838,"Purcell Orthopedic Institute, PC",ignore,
-list,901407379794,List,ignore,
-folder,90144107428,Salem Sports Events,ignore,
-list,901407391417,List,ignore,
-folder,90144111013,We Buy Houses Colorado Springs,ignore,
-list,901407399070,List,ignore,
-folder,90144160730,Cardinal Rental & Sales,ignore,
-list,901407531770,List,ignore,
-folder,90144258066,MJ Belluz,ignore,
-list,901407851681,List,ignore,
-folder,90144261006,Atlas Machinery Rentals,ignore,
-list,901407857963,List,ignore,
-folder,90144263365,Taylor Rental North Kingstown,ignore,
-list,901407864803,List,ignore,
-folder,90144264616,Allison's Fun Inc.,ignore,
-list,901407867666,List,ignore,
-folder,90144271041,Zenith Equipment Rental,ignore,
-list,901407884155,List,ignore,
-folder,90144351372,Party Time Rentals and Events,ignore,
-list,901408155859,List,ignore,
-folder,90144521784,Vanguard Skin Clinic,ignore,
-list,901408740013,List,ignore,
-folder,90144720137,Elevated Equipment Rentals,ignore,
-list,901409326779,List,ignore,
-folder,90144720216,Housing and Building Association,ignore,
-list,901409327055,List,ignore,
-folder,90144744689,SEM Research,ignore,
-list,901409433034,List,ignore,
-list,901409433372,SEM Research,ignore,
-folder,90144770580,Jernigan Equipment Rentals,ignore,
-list,901409555019,List,ignore,
-folder,90144862900,Ganderton Law,ignore,
-list,901409995754,List,ignore,
-folder,90146400644,Andrew - COS Hauling,ignore,
-list,901411924691,List,ignore,
-folder,90147482265,"Doucette's Special Events, Party & Tent Rental",ignore,
-list,901413971343,Website Development,ignore,
-folder,90147484004,Bighorn Rentals,ignore,
-list,901413979318,Website Development,ignore,
-folder,90147528725,Arvada Rent-Alls,ignore,
-list,901414096342,List,ignore,
-folder,90147528990,A&H Hose and Fittings,ignore,
-list,901414096884,List,ignore,
-folder,90147697814,Story by RM Soap Market,ignore,
-list,901414347393,List,ignore,
-folder,90147740890,Michael Harvey - Awareness Group and Mainkore,ignore,
-list,901414426797,List,ignore,
-folder,90149159110,AdPro 360 - Luisa Graff Jewelers,ignore,
-list,901416151884,List,ignore,
-space,90141846679,Alert Rental - WebRequest,ignore,
-list,901406153018,WebRequest Documentation,ignore,
-list,901405305528,WebRequest PLUS,ignore,
-list,901404777094,WebRequest Roadmap,ignore,
-list,901404777151,WebRequest STANDARD,ignore,
-space,90141846712,Alert Rental - Customer Portal,ignore,
-list,901404777141,Customer Portal Documentation,ignore,
-space,90141847151,Twelve Legs Marketing Tech,ignore,
-list,901404778177,List,ignore,
-space,90142031514,Alert Rental - Product&PriceSync,ignore,
-list,901407618546,Product & Price Sync - Roadmap,ignore,
-list,901405284433,Price and Product Sync - Documentation,ignore,
-space,90142427124,TLM - Case Studies,ignore,
-folder,90142140620,AdPro 360: Phil Long Subaru,ignore,
-list,901403682297,Website Content Update,ignore,
-list,901406570456,AAA Party Rentals,ignore,
-list,901406570585,Rent-All Equipment,ignore,
-list,901406570587,DJ Services,ignore,
-list,901406570623,Diamond Event & Tent,ignore,
-space,90142444568,Search Engine Optimization,ignore,
-list,901406868106,What's Included for Each Client,ignore,
-list,901406747288,SEO Training Calls,ignore,
-list,901407693832,SEO Reports,ignore,
-space,90142494053,Alert Rover / Alert Sign,ignore,
-list,901407315363,Alert Rover,ignore,
-list,901409585028,AlertSign,ignore,
-space,90142591590,Alert Rental - WebReservations,ignore,
-list,901408385606,WebReservations - Documentation,ignore,
-list,901408385607,WebReservations - Roadmap,ignore,
-space,90142676271,Archived Clients,ignore,
-folder,90141883215,DTCS - Downtown Partnership of Colorado Springs,ignore,
-list,901403935293,Admin/Others,ignore,
-list,901404694925,Display Geo-Fencing,ignore,
-list,901406136283,Holiday shopping,ignore,
-list,901406136354,Skate in the Park,ignore,
-list,901406136396,Streaming Audio,ignore,
-folder,90144381660,"GHCA - Gaddis, Herd, Craw & Adams",ignore,
-list,901408264221,Admin/Others,ignore,
-folder,90142399897,Playtime Pet Sitters,ignore,
-list,901404014830,Admin/Others,ignore,
-folder,90144173159,Done Right Painting and Construction,ignore,
-list,901407567457,List,ignore,
-folder,90144084747,Dellables Floral Artistry,ignore,
-list,901407319254,List,ignore,
-folder,90143949904,The Marketing Group - went with another provider,ignore,
-list,901406931137,List,ignore,
-folder,90143927611,The Warnick Group,ignore,
-list,901406872903,List,ignore,
-folder,90143506900,Blue Dog Equipment,ignore,
-list,901405889170,List,ignore,
-folder,90142704577,Biggs Kofford,ignore,
-folder,90144101612,Alpha International Ministries (AIM),ignore,
-list,901407373574,List,ignore,
-folder,90144322365,CineVisuals,ignore,
-list,901408050806,List,ignore,
-,,,ignore,
+Customer Information",folder,90142555599
+list,901408828969,Website Development,folder,90142555599
+folder,90144615679,OHS - Omnicare Health Services,space,90141222492
+list,901408940224,Video Production,folder,90144615679
+list,901409560081,Design,folder,90144615679
+list,901409895052,Admin/Others,folder,90144615679
+folder,90142185018,POC - People of Colorado,space,90141222492
+list,901403688643,Website Maintenance/ Website Technical Issues,folder,90142185018
+list,901403935562,Admin/Others,folder,90142185018
+folder,90141883278,PPWFC - Pikes Peak Workforce Center,space,90141222492
+list,901403935615,Admin/Others,folder,90141883278
+folder,90148662091,PPSBDC - Pikes Peak Small Business Development Center,space,90141222492
+list,901415544084,Admin/Others,folder,90148662091
+folder,90142402856,RAE - Rent-All Equipment,space,90141222492
+list,901404075347,Website Design,folder,90142402856
+list,901404021244,Website Migration,folder,90142402856
+list,901404021838,Website Development,folder,90142402856
+list,901404202144,Website Launch,folder,90142402856
+list,901405127651,Website Maintenance/Website Technical Issues,folder,90142402856
+list,901404019608,Admin/Others,folder,90142402856
+folder,901410792601,RSO - Rental Stop Ohio,space,90141222492
+list,901418182674,New Client Setup,folder,901410792601
+list,901418158807,Admin/Others,folder,901410792601
+folder,90141883299,RMAC - Rocky Mountain Athletic Conference,space,90141222492
+list,901403936311,Admin/Others,folder,90141883299
+list,901404099288,2024 RMAC Hall of Fame,folder,90141883299
+folder,90147013897,SER - Sage Equipment Rentals,space,90141222492
+list,901412740528,New Client Setup,folder,90147013897
+list,901412740439,Admin/Others,folder,90147013897
+list,901412767989,Website Content Update,folder,90147013897
+list,901412796169,Google Ads,folder,90147013897
+list,901413130127,Search Engine Optimization,folder,90147013897
+list,901418188020,Website Development,folder,90147013897
+folder,90142362564,SRS - Service Rentals and Supplies,space,90141222492
+list,901403957939,Admin/Others,folder,90142362564
+list,901407298164,Website Design,folder,90142362564
+list,901407312176,Volatile <> WP - Website Migration,folder,90142362564
+list,901408844696,Website Pre-Launch Checklist,folder,90142362564
+list,901410002870,Website Launch/Publishing,folder,90142362564
+list,901408937893,Website Maintenance/Website Technical Issues,folder,90142362564
+list,901406992304,Website Content Update,folder,90142362564
+list,901406992321,Service Level Agreement,folder,90142362564
+folder,90141883313,SR - Suburban Rental,space,90141222492
+list,901406732204,SR - SEO Content Tracker,folder,90141883313
+list,901403203450,Search Engine Optimization (SEO),folder,90141883313
+list,901403684755,Website Maintenance/ Website Technical Issues,folder,90141883313
+list,901403628592,Website Management/Updates,folder,90141883313
+list,901403937571,Admin/Others,folder,90141883313
+list,901403996689,Suburban Rental - Keyword Competitor Research,folder,90141883313
+list,901403998513,Suburban Rental - Google Ads Competitor Research,folder,90141883313
+list,901404045951,Suburban Rental - Google Ads,folder,90141883313
+list,901404284478,Suburban Rental - Upload & Launch Tool Campaign,folder,90141883313
+list,901404322649,SR - Tools - Google Ads,folder,90141883313
+list,901406132943,Service Level Agreement Quota,folder,90141883313
+list,901409460776,Suburban Rental - SEO Content,folder,90141883313
+folder,90141883330,SWECU - SunWest Educational Credit Union,space,90141222492
+list,901403937594,Admin/Others,folder,90141883330
+list,901404732221,Design,folder,90141883330
+folder,90141883333,TER - Tablescapes Event Rentals,space,90141222492
+list,901403682706,Website Maintenance/ Website Technical Issues,folder,90141883333
+list,901403203471,Website Content Update,folder,90141883333
+list,901403937608,Admin/Others,folder,90141883333
+list,901404639131,Website Development,folder,90141883333
+list,901405206800,Service Level Agreement Quota,folder,90141883333
+list,901408802087,Design,folder,90141883333
+list,901414370938,WebReservations,folder,90141883333
+folder,90141883337,TF - Taylor Fence,space,90141222492
+list,901403203476,Website Maintenance/ Website Technical Issues,folder,90141883337
+list,901403682712,Website Content Update,folder,90141883337
+list,901403689056,Admin/Others,folder,90141883337
+list,901403713317,Social (past service),folder,90141883337
+list,901403811302,Design,folder,90141883337
+list,901404014824,Email Marketing (past service),folder,90141883337
+list,901404639799,Video,folder,90141883337
+list,901404695331,Display Retargeting,folder,90141883337
+list,901404695347,Display Geo-Fencing,folder,90141883337
+list,901404718925,Print/Marketing Collateral,folder,90141883337
+list,901407318925,SEM,folder,90141883337
+list,901406095124,Service Level Agreement Quota,folder,90141883337
+folder,90144102289,TRNJ - Taylor Rental of NJ,space,90141222492
+list,901407374833,Admin/Others,folder,90144102289
+list,901409653224,Google Ads,folder,90144102289
+folder,90147952555,TTREN - Top Tier Real Estate and Notary,space,90141222492
+list,901414691232,New Client Setup,folder,90147952555
+list,901414681338,Admin/Others,folder,90147952555
+list,901414681375,Website Design,folder,90147952555
+list,901414681398,WP From Scratch,folder,90147952555
+list,901415309899,Website Pre-Launch Checklist,folder,90147952555
+list,901415352600,Website Launch/Publishing,folder,90147952555
+list,901415352932,Website Maintenance/Technical Issue,folder,90147952555
+list,901415353010,Website Content Update,folder,90147952555
+folder,90141883342,TTAT - Trans Tech Auto & Truck,space,90141222492
+list,901406859899,TTAT - SEO Content Tracker,folder,90141883342
+list,901403203483,Website Maintenance/ Website Technical Issues,folder,90141883342
+list,901405770090,Search Engine Optimization (SEO),folder,90141883342
+list,901403937710,Admin/Others,folder,90141883342
+list,901405371261,Google Ads,folder,90141883342
+list,901406817885,Website Development,folder,90141883342
+list,901408030003,Service Level Agreement Quota (copy),folder,90141883342
+list,901414372783,Website Content Updates,folder,90141883342
+folder,90142182731,TLM - Twelve Legs Marketing,space,90141222492
+list,901406882693,TLM - SEO Content Tracker,folder,90142182731
+list,901405158848,Search Engine Optimization (SEO),folder,90142182731
+list,901403685204,Website Maintenance/ Website Technical Issues,folder,90142182731
+list,901403685785,Website Content Update,folder,90142182731
+list,901403821826,Admin/Others,folder,90142182731
+list,901409266478,Social Media,folder,90142182731
+list,901403917801,Website Design,folder,90142182731
+list,901404322699,Google Ads,folder,90142182731
+list,901404588565,Website Development,folder,90142182731
+list,901406792692,Communication Plan,folder,90142182731
+list,901406931399,Graphic Design,folder,90142182731
+list,901407010795,Email Marketing,folder,90142182731
+list,901407152363,DEMO SITE - Website Development,folder,90142182731
+list,901407642726,Programatic/Digital Display,folder,90142182731
+list,901407821023,Looker Studio Integrations,folder,90142182731
+list,901413041771,TLM Sports Corp Resource Guide Ad,folder,90142182731
+list,901414015785,Tablescapes Builder,folder,90142182731
+list,901414094528,Shop The Look Plugin,folder,90142182731
+list,901415657235,Demo Websites,folder,90142182731
+folder,90144880127,VER - Vault Event Rentals,space,90141222492
+list,901410035013,Admin/Others,folder,90144880127
+list,901412749697,New Client Setup,folder,90144880127
+list,901412749665,Website Design,folder,90144880127
+list,901412913442,WP From Scratch,folder,90144880127
+list,901413473229,Website Pre-Launch Checklist,folder,90144880127
+list,901413780049,Website Launch/Publishing,folder,90144880127
+list,901414273042,Website Updates/Edits/Management,folder,90144880127
+folder,90149224698,VMS - Viking Metal Supply,space,90141222492
+list,901416237319,New Client Setup,folder,90149224698
+list,901416237309,Admin/Others,folder,90149224698
+list,901416637621,IP Campaign,folder,90149224698
+folder,90147915679,TapGoods,space,90141222492
+list,901414639356,Admin/Others,folder,90147915679
+folder,90143001995,Demo Website,space,90141222492
+list,901405042036,Website Development,folder,90143001995
+list,901405899871,Website Maintenance / Technical issues,folder,90143001995
+space,90140906925,TEMPLATES,workspace,9014205398
+folder,90142447768,Complete Local SEO Checklist,space,90140906925
+list,901404031286,SEO - Onboarding,folder,90142447768
+list,901404216148,SEO - Initial Local SEO Setup,folder,90142447768
+list,901403818682,SEO - Keyword Competitors Research,folder,90142447768
+list,901403992561,SEO - Competitor Analysis,folder,90142447768
+list,901404031308,Conversion Rate Optimization,folder,90142447768
+list,901404031312,SEO - Content,folder,90142447768
+list,901404031322,SEO - On page (Monthly),folder,90142447768
+list,901404031331,SEO - Hosting,folder,90142447768
+list,901403818830,SEO - Monthly SEO Tasks,folder,90142447768
+list,901404216808,SEO - Technical,folder,90142447768
+list,901404280442,Local SEO Template,folder,90142447768
+folder,90142449356,Complete Google Ads Checklist,space,90140906925
+list,901404213524,General Google Ads Account Setup / Onboard Existing Account,folder,90142449356
+list,901404213620,Google Search Campaigns Setup,folder,90142449356
+list,901404213704,Google Display Campaigns Setup,folder,90142449356
+list,901404213735,Landing Page Optimization,folder,90142449356
+list,901406720518,Create Google Ad Campaign,folder,90142449356
+list,901406721118,Using Google Keyword Planner for Free,folder,90142449356
+list,901406721278,Find the Best Google Display Network Placements for Your Ads,folder,90142449356
+list,901409892452,Google Ads,folder,90142449356
+folder,90141976201,Website Template,space,90140906925
+list,901403555970,[INT USE] List of Standard Plugins,folder,90141976201
+list,901403359985,Website Design,folder,90141976201
+list,901406550385,WP From Scratch,folder,90141976201
+list,901406224169,WP <> WP - Website Migration & Build,folder,90141976201
+list,901403362472,Volatile <> WP - Website Migration,folder,90141976201
+list,901406634095,Website Pre-Launch Checklist,folder,90141976201
+list,901403537067,Website Launch/Publishing,folder,90141976201
+list,901403610945,Website Content Update,folder,90141976201
+list,901407057818,Website Monthly Updates,folder,90141976201
+list,901412875441,Hosting Migration,folder,90141976201
+list,901415690122,WebRequest Setup,folder,90141976201
+list,901416835729,Goodshuffle Website,folder,90141976201
+folder,90142447963,Admin Template,space,90140906925
+list,901404092919,New Client Setup,folder,90142447963
+folder,90142450960,SEO Templates,space,90140906925
+list,901403818874,SEO - Twelve Legs,folder,90142450960
+list,901405689030,SEO - Eight Legs,folder,90142450960
+list,901403818805,SEO - Four Legs,folder,90142450960
+list,901406813024,[CLIENT ABBREVIATION] - SEO Content Tracker,folder,90142450960
+folder,90142451015,Design Templates and Standards,space,90140906925
+list,901403818375,Digital Display - Always 72 dpi,folder,90142451015
+folder,90143846425,Campaigns,space,90140906925
+list,901406643520,Display Campaign Setup,folder,90143846425
+folder,90142552303,New Client Setup,space,90140906925
+list,901404277685,New Client Setup,folder,90142552303
+folder,90143876809,BNI Market Research Template,space,90140906925
+list,901406725746,BNI Market Research,folder,90143876809
+folder,90144019014,Project Management Template,space,90140906925
+list,901407104543,Project Management,folder,90144019014
+folder,90144522336,Onboard New Client,space,90140906925
+list,901408740850,Admin,folder,90144522336
+list,901409031685,Complete Facebook Ads Checklist ,folder,90144522336
+list,901409088640,Complete Social Media Onboarding Checklist,folder,90144522336
+folder,90144574678,Newsletter Template,space,90140906925
+list,901408830074,Newsletter Process,folder,90144574678
+folder,90144445131,Website Template,space,90140906925
+list,901408492412,[INT USE] List of Standard Plugins,folder,90144445131
+list,901408492405,Website Design,folder,90144445131
+list,901408492414,WP From Scratch,folder,90144445131
+list,901408492406,WP <> WP - Website Migration & Build,folder,90144445131
+list,901408492394,Volatile <> WP - Website Migration,folder,90144445131
+list,901408492391,Website Pre-Launch Checklist,folder,90144445131
+list,901408492411,Website Launch/Publishing,folder,90144445131
+list,901408492393,Website Content Update,folder,90144445131
+list,901408492404,Website Monthly Updates,folder,90144445131
+space,90141388088,TLM - Internal,workspace,9014205398
+folder,90142139013,Team Directory,space,90141388088
+list,901403611226,Twelve Legs Marketing Team,folder,90142139013
+folder,90149856430,Internal Meetings,space,90141388088
+folder,90144416284,CJ <> Rali Check-ins,space,90141388088
+list,901408385256,Topics to Discuss,folder,90144416284
+space,90141496075,Resources,workspace,9014205398
+folder,90142572306,Process Flowchart,space,90141496075
+list,901404499711,Swimlane Template,folder,90142572306
+list,901402452045,Sitemap Whiteboard Template,folder,90142572306
+list,901403876543,Team Training,space,90141496075
+list,901403870836,SOPs,space,90141496075
+list,901404152317,Client Training,space,90141496075
+space,90141432627,New Business Prospects,workspace,9014205398
+folder,90147425740,DR - Durants Rentals,space,90141432627
+list,901413806912,Admin/Others,folder,90147425740
+folder,90142482849,	Palatium Lux,space,90141432627
+list,901404146345,Admin/Others,folder,90142482849
+folder,90142515791,Building Performance Online Course,space,90141432627
+list,901404201219,Admin/Others,folder,90142515791
+folder,90142630792,Clarity Quest Coaching,space,90141432627
+list,901404408556,Admin/Others,folder,90142630792
+folder,90142910138,Après Event Décor & Tent Rental,space,90141432627
+list,901404889786,List,folder,90142910138
+folder,90143019018,Net At Work - Acumatica,space,90141432627
+list,901405070405,List,folder,90143019018
+folder,90143389601,A Better Contractor,space,90141432627
+list,901405678967,Admin/Others,folder,90143389601
+folder,90143626074,Colorado Springs Philharmonic,space,90141432627
+list,901406134485,Admin/Others,folder,90143626074
+folder,90143805050,AAA Coaching,space,90141432627
+list,901406558451,Admin/Others,folder,90143805050
+folder,90143881111,"Fader Equipment, Inc",space,90141432627
+list,901406736881,Admin/Others,folder,90143881111
+folder,90143899030,Drift Designs,space,90141432627
+list,901406790353,Admin/Others,folder,90143899030
+folder,90143903359,Delux Rentals,space,90141432627
+list,901406799988,Admin/Others,folder,90143903359
+folder,90143903378,Able Rental,space,90141432627
+list,901406800011,Admin/Others,folder,90143903378
+folder,90143921974,BNI - Big Easy Events,space,90141432627
+list,901406858529,Admin/Others,folder,90143921974
+folder,90143902626,BNI - Kennebec Equipment Rental,space,90141432627
+list,901406798735,List,folder,90143902626
+folder,90143922094,BNI - Once Upon a Chair Rental,space,90141432627
+list,901406858825,List,folder,90143922094
+folder,90143906007,BNI - We Amaze2,space,90141432627
+list,901406805021,List,folder,90143906007
+folder,90144016634,Ward's Rental,space,90141432627
+list,901407094507,List,folder,90144016634
+folder,90144077366,DiStefano Sales Company,space,90141432627
+list,901407298713,List,folder,90144077366
+folder,90144092060,IH Rental,space,90141432627
+list,901407339378,List,folder,90144092060
+folder,90144103838,"Purcell Orthopedic Institute, PC",space,90141432627
+list,901407379794,List,folder,90144103838
+folder,90144107428,Salem Sports Events,space,90141432627
+list,901407391417,List,folder,90144107428
+folder,90144111013,We Buy Houses Colorado Springs,space,90141432627
+list,901407399070,List,folder,90144111013
+folder,90144160730,Cardinal Rental & Sales,space,90141432627
+list,901407531770,List,folder,90144160730
+folder,90144258066,MJ Belluz,space,90141432627
+list,901407851681,List,folder,90144258066
+folder,90144261006,Atlas Machinery Rentals,space,90141432627
+list,901407857963,List,folder,90144261006
+folder,90144263365,Taylor Rental North Kingstown,space,90141432627
+list,901407864803,List,folder,90144263365
+folder,90144264616,Allison's Fun Inc.,space,90141432627
+list,901407867666,List,folder,90144264616
+folder,90144271041,Zenith Equipment Rental,space,90141432627
+list,901407884155,List,folder,90144271041
+folder,90144351372,Party Time Rentals and Events,space,90141432627
+list,901408155859,List,folder,90144351372
+folder,90144521784,Vanguard Skin Clinic,space,90141432627
+list,901408740013,List,folder,90144521784
+folder,90144720137,Elevated Equipment Rentals,space,90141432627
+list,901409326779,List,folder,90144720137
+folder,90144720216,Housing and Building Association,space,90141432627
+list,901409327055,List,folder,90144720216
+folder,90144744689,SEM Research,space,90141432627
+list,901409433034,List,folder,90144744689
+list,901409433372,SEM Research,folder,90144744689
+folder,90144770580,Jernigan Equipment Rentals,space,90141432627
+list,901409555019,List,folder,90144770580
+folder,90144862900,Ganderton Law,space,90141432627
+list,901409995754,List,folder,90144862900
+folder,90146400644,Andrew - COS Hauling,space,90141432627
+list,901411924691,List,folder,90146400644
+folder,90147482265,"Doucette's Special Events, Party & Tent Rental",space,90141432627
+list,901413971343,Website Development,folder,90147482265
+folder,90147484004,Bighorn Rentals,space,90141432627
+list,901413979318,Website Development,folder,90147484004
+folder,90147528725,Arvada Rent-Alls,space,90141432627
+list,901414096342,List,folder,90147528725
+folder,90147528990,A&H Hose and Fittings,space,90141432627
+list,901414096884,List,folder,90147528990
+folder,90147697814,Story by RM Soap Market,space,90141432627
+list,901414347393,List,folder,90147697814
+folder,90147740890,Michael Harvey - Awareness Group and Mainkore,space,90141432627
+list,901414426797,List,folder,90147740890
+folder,90149159110,AdPro 360 - Luisa Graff Jewelers,space,90141432627
+list,901416151884,List,folder,90149159110
+space,90141846679,Alert Rental - WebRequest,workspace,9014205398
+list,901406153018,WebRequest Documentation,space,90141846679
+list,901405305528,WebRequest PLUS,space,90141846679
+list,901404777094,WebRequest Roadmap,space,90141846679
+list,901404777151,WebRequest STANDARD,space,90141846679
+space,90141846712,Alert Rental - Customer Portal,workspace,9014205398
+list,901404777141,Customer Portal Documentation,space,90141846712
+space,90141847151,Twelve Legs Marketing Tech,workspace,9014205398
+list,901404778177,List,space,90141847151
+space,90142031514,Alert Rental - Product&PriceSync,workspace,9014205398
+list,901407618546,Product & Price Sync - Roadmap,space,90142031514
+list,901405284433,Price and Product Sync - Documentation,space,90142031514
+space,90142427124,TLM - Case Studies,workspace,9014205398
+folder,90142140620,AdPro 360: Phil Long Subaru,space,90142427124
+list,901403682297,Website Content Update,folder,90142140620
+list,901406570456,AAA Party Rentals,space,90142427124
+list,901406570585,Rent-All Equipment,space,90142427124
+list,901406570587,DJ Services,space,90142427124
+list,901406570623,Diamond Event & Tent,space,90142427124
+space,90142444568,Search Engine Optimization,workspace,9014205398
+list,901406868106,What's Included for Each Client,space,90142444568
+list,901406747288,SEO Training Calls,space,90142444568
+list,901407693832,SEO Reports,space,90142444568
+space,90142494053,Alert Rover / Alert Sign,workspace,9014205398
+list,901407315363,Alert Rover,space,90142494053
+list,901409585028,AlertSign,space,90142494053
+space,90142591590,Alert Rental - WebReservations,workspace,9014205398
+list,901408385606,WebReservations - Documentation,space,90142591590
+list,901408385607,WebReservations - Roadmap,space,90142591590
+space,90142676271,Archived Clients,workspace,9014205398
+folder,90141883215,DTCS - Downtown Partnership of Colorado Springs,space,90142676271
+list,901403935293,Admin/Others,folder,90141883215
+list,901404694925,Display Geo-Fencing,folder,90141883215
+list,901406136283,Holiday shopping,folder,90141883215
+list,901406136354,Skate in the Park,folder,90141883215
+list,901406136396,Streaming Audio,folder,90141883215
+folder,90144381660,"GHCA - Gaddis, Herd, Craw & Adams",space,90142676271
+list,901408264221,Admin/Others,folder,90144381660
+folder,90142399897,Playtime Pet Sitters,space,90142676271
+list,901404014830,Admin/Others,folder,90142399897
+folder,90144173159,Done Right Painting and Construction,space,90142676271
+list,901407567457,List,folder,90144173159
+folder,90144084747,Dellables Floral Artistry,space,90142676271
+list,901407319254,List,folder,90144084747
+folder,90143949904,The Marketing Group - went with another provider,space,90142676271
+list,901406931137,List,folder,90143949904
+folder,90143927611,The Warnick Group,space,90142676271
+list,901406872903,List,folder,90143927611
+folder,90143506900,Blue Dog Equipment,space,90142676271
+list,901405889170,List,folder,90143506900
+folder,90142704577,Biggs Kofford,space,90142676271
+folder,90144101612,Alpha International Ministries (AIM),space,90142676271
+list,901407373574,List,folder,90144101612
+folder,90144322365,CineVisuals,space,90142676271
+list,901408050806,List,folder,90144322365

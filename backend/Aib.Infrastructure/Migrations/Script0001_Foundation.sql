@@ -69,13 +69,6 @@ create table client (
 );
 create index ix_client_agency on client (agency_id);
 
-create table client_access (
-    user_id      uuid not null references app_user (id) on delete cascade,
-    client_id    uuid not null references client (id) on delete cascade,
-    access_level text not null default 'View',
-    primary key (user_id, client_id)
-);
-
 create table local_credential (
     id                   uuid primary key,
     user_id              uuid not null unique references app_user (id) on delete cascade,
@@ -151,20 +144,6 @@ create table user_session (
 );
 create unique index ux_user_session_hash on user_session (session_token_hash);
 create index ix_user_session_user on user_session (user_id);
-
-create table auth_event (
-    id                    uuid primary key,
-    user_id               uuid references app_user (id) on delete set null,
-    event_type            text not null,
-    authentication_method text,
-    success               boolean not null,
-    detail                text,
-    ip_address            text,
-    user_agent            text,
-    created_at            timestamptz not null
-);
-create index ix_auth_event_user on auth_event (user_id);
-create index ix_auth_event_created on auth_event (created_at);
 
 create table project (
     id             uuid primary key,
