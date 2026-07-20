@@ -1,37 +1,26 @@
 <script setup lang="ts">
-import { useRouter, RouterView, RouterLink } from 'vue-router'
-import { useAuthStore } from './stores/auth'
+import { RouterView, RouterLink } from 'vue-router'
 import { useAgency } from './queries/agency'
 
-const auth = useAuthStore()
-const router = useRouter()
 const { data: agency } = useAgency()
-
-async function logout() {
-  await auth.logout()
-  router.push({ name: 'login' })
-}
 </script>
 
 <template>
   <div class="app">
-    <header v-if="auth.user" class="topbar">
+    <header class="topbar">
       <div class="brand-block">
-        <div class="brand">Agency Billing Console</div>
-        <RouterLink v-if="agency" to="/agency" class="agency-context" title="Edit agency">
+        <div class="brand">ClickUp Billing Prep</div>
+        <div v-if="agency" class="agency-context">
           <span class="agency-label">Agency</span>
           <span class="agency-name">{{ agency.name }}</span>
-        </RouterLink>
+        </div>
       </div>
       <nav>
-        <RouterLink to="/">Dashboard</RouterLink>
-        <RouterLink to="/agency">Agency</RouterLink>
+        <RouterLink to="/tasks">Tasks</RouterLink>
         <RouterLink to="/clients">Clients</RouterLink>
-        <RouterLink to="/work">Work</RouterLink>
+        <RouterLink to="/hierarchy">Hierarchy</RouterLink>
+        <RouterLink to="/sync">Sync</RouterLink>
       </nav>
-      <div class="spacer" />
-      <span class="user">{{ auth.user.displayName }}</span>
-      <button class="link" @click="logout">Sign out</button>
     </header>
     <main class="content">
       <RouterView />
@@ -55,8 +44,6 @@ async function logout() {
   display: inline-flex;
   align-items: baseline;
   gap: 0.4rem;
-  text-decoration: none;
-  color: inherit;
   max-width: 18rem;
 }
 .agency-label {
@@ -77,8 +64,5 @@ async function logout() {
 nav { display: flex; gap: 1rem; }
 nav a { text-decoration: none; color: #374151; }
 nav a.router-link-active { color: #059669; font-weight: 600; }
-.spacer { flex: 1; }
-.user { color: #6b7280; }
-.link { background: none; border: none; cursor: pointer; color: #059669; }
-.content { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+.content { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 </style>

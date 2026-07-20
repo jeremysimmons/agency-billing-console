@@ -1,4 +1,5 @@
 using Aib.Application.Abstractions;
+using Aib.Application.Contracts;
 using Aib.Domain;
 using Aib.Domain.Entities;
 using Dapper;
@@ -19,10 +20,11 @@ public sealed class AgencyRepository(IDbConnectionFactory factory) : IAgencyRepo
     {
         var builder = SimpleBuilder.Create($"""
             insert into agency
-                (id, name, billing_email, billing_address, currency, payment_terms_days, active, created_at, updated_at)
+                (id, name, billing_email, billing_address, currency, payment_terms_days, active,
+                 last_clickup_sync_at, last_clickup_sync_summary, created_at, updated_at)
             values
                 ({a.Id}, {a.Name}, {a.BillingEmail}, {a.BillingAddress}, {a.Currency}, {a.PaymentTermsDays},
-                 {a.Active}, {a.CreatedAt}, {a.UpdatedAt})
+                 {a.Active}, {a.LastClickUpSyncAt}, {a.LastClickUpSyncSummary}, {a.CreatedAt}, {a.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -39,46 +41,26 @@ public sealed class AgencyRepository(IDbConnectionFactory factory) : IAgencyRepo
                 currency = {a.Currency},
                 payment_terms_days = {a.PaymentTermsDays},
                 active = {a.Active},
+                last_clickup_sync_at = {a.LastClickUpSyncAt},
+                last_clickup_sync_summary = {a.LastClickUpSyncSummary},
                 updated_at = {a.UpdatedAt}
             where id = {a.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
-}
 
-public sealed class ContractorRepository(IDbConnectionFactory factory) : IContractorRepository
-{
-    public async Task<Contractor?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        var builder = SimpleBuilder.Create($"select * from contractor where id = {id}");
-        using var conn = await factory.OpenAsync(ct);
-        return await conn.QuerySingleOrDefaultAsync<Contractor>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-    }
-
-    public async Task<Contractor?> GetDefaultAsync(CancellationToken ct = default)
-    {
-        using var conn = await factory.OpenAsync(ct);
-        return await conn.QuerySingleOrDefaultAsync<Contractor>(
-            new CommandDefinition("select * from contractor order by created_at limit 1", cancellationToken: ct));
-    }
-
-    public async Task<Contractor?> GetByEmailAsync(string email, CancellationToken ct = default)
-    {
-        var builder = SimpleBuilder.Create($"select * from contractor where lower(email) = lower({email})");
-        using var conn = await factory.OpenAsync(ct);
-        return await conn.QuerySingleOrDefaultAsync<Contractor>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-    }
-
-    public async Task<Guid> InsertAsync(Contractor c, CancellationToken ct = default)
+    public async Task UpdateSyncSummaryAsync(Guid id, DateTimeOffset syncedAt, string summary, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            insert into contractor (id, name, email, default_hourly_rate, active, created_at, updated_at)
-            values ({c.Id}, {c.Name}, {c.Email}, {c.DefaultHourlyRate}, {c.Active}, {c.CreatedAt}, {c.UpdatedAt})
+            update agency set
+                last_clickup_sync_at = {syncedAt},
+                last_clickup_sync_summary = {summary},
+                updated_at = {syncedAt}
+            where id = {id}
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-        return c.Id;
     }
 }
 
@@ -91,16 +73,16 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         return await conn.QuerySingleOrDefaultAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<Client>> ListAsync(Guid agencyId, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default)
+    public async Task<Client?> GetByClickUpFolderIdAsync(string folderId, CancellationToken ct = default)
     {
-        var builder = SimpleBuilder.Create($"select * from client where agency_id = {agencyId}");
-        if (restrictToClientIds is not null)
-        {
-            if (restrictToClientIds.Count == 0)
-                return [];
-            builder.AppendNewLine($"and id in {restrictToClientIds}");
-        }
-        builder.AppendNewLine($"order by name");
+        var builder = SimpleBuilder.Create($"select * from client where clickup_folder_id = {folderId}");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<Client>> ListAsync(Guid agencyId, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"select * from client where agency_id = {agencyId} order by name");
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
         return rows.ToList();
@@ -109,8 +91,11 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     public async Task<Guid> InsertAsync(Client c, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            insert into client (id, agency_id, name, code, original_name, description, status, active, created_at, updated_at)
-            values ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.Description}, {c.Status}, {c.Active}, {c.CreatedAt}, {c.UpdatedAt})
+            insert into client
+                (id, agency_id, name, code, original_name, clickup_folder_id, description, status, active, created_at, updated_at)
+            values
+                ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.ClickUpFolderId}, {c.Description},
+                 {c.Status}, {c.Active}, {c.CreatedAt}, {c.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -120,7 +105,8 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     public async Task UpdateAsync(Client c, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName}, description = {c.Description},
+            update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName},
+                clickup_folder_id = {c.ClickUpFolderId}, description = {c.Description},
                 status = {c.Status}, active = {c.Active}, updated_at = {c.UpdatedAt}
             where id = {c.Id}
             """);
@@ -130,9 +116,9 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var deleteClient = SimpleBuilder.Create($"delete from client where id = {id}");
+        var builder = SimpleBuilder.Create($"delete from client where id = {id}");
         using var conn = await factory.OpenAsync(ct);
-        await conn.ExecuteAsync(new CommandDefinition(deleteClient.Sql, deleteClient.Parameters, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 }
 
@@ -157,11 +143,9 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
     {
         var builder = SimpleBuilder.Create($"""
             insert into project
-                (id, client_id, name, code, description, status, billing_type, hourly_rate, fixed_fee,
-                 budget_minutes, budget_amount, start_date, end_date, active, created_at, updated_at)
+                (id, client_id, name, code, description, status, billing_type, active, created_at, updated_at)
             values
-                ({p.Id}, {p.ClientId}, {p.Name}, {p.Code}, {p.Description}, {p.Status}, {p.BillingType},
-                 {p.HourlyRate}, {p.FixedFee}, {p.BudgetMinutes}, {p.BudgetAmount}, {p.StartDate}, {p.EndDate},
+                ({p.Id}, {p.ClientId}, {p.Name}, {p.Code}, {p.Description}, 'Active', 'Hourly',
                  {p.Active}, {p.CreatedAt}, {p.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
@@ -173,9 +157,7 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
     {
         var builder = SimpleBuilder.Create($"""
             update project set name = {p.Name}, code = {p.Code}, description = {p.Description},
-                status = {p.Status}, billing_type = {p.BillingType}, hourly_rate = {p.HourlyRate},
-                fixed_fee = {p.FixedFee}, budget_minutes = {p.BudgetMinutes}, budget_amount = {p.BudgetAmount},
-                start_date = {p.StartDate}, end_date = {p.EndDate}, active = {p.Active}, updated_at = {p.UpdatedAt}
+                active = {p.Active}, updated_at = {p.UpdatedAt}
             where id = {p.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
@@ -192,41 +174,50 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         return await conn.QuerySingleOrDefaultAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<WorkTask>> ListByClientAsync(Guid clientId, CancellationToken ct = default)
+    public async Task<WorkTask?> GetByClickUpUrlAsync(string url, CancellationToken ct = default)
     {
-        var builder = SimpleBuilder.Create($"select * from task where client_id = {clientId} order by sort_order, created_at");
+        var builder = SimpleBuilder.Create($"select * from task where clickup_url = {url}");
         using var conn = await factory.OpenAsync(ct);
-        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-        return rows.ToList();
+        return await conn.QuerySingleOrDefaultAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<WorkTask>> ListByWorkStatusAsync(IReadOnlyCollection<WorkStatus> statuses, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default)
+    public async Task<WorkTask?> GetByClickUpTaskIdAsync(string taskId, CancellationToken ct = default)
     {
-        var statusValues = statuses.Select(s => ((int)s).ToString()).ToArray();
-        var builder = SimpleBuilder.Create($"select * from task where work_status in {statusValues}");
-        if (restrictToClientIds is not null)
-        {
-            if (restrictToClientIds.Count == 0) return [];
-            builder.Append($" and client_id in {restrictToClientIds}");
-        }
-        builder.AppendNewLine($"order by completed_at nulls last, updated_at desc");
+        var builder = SimpleBuilder.Create($"select * from task where clickup_task_id = {taskId}");
         using var conn = await factory.OpenAsync(ct);
-        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-        return rows.ToList();
+        return await conn.QuerySingleOrDefaultAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<WorkTask>> ListByBillingStatusAsync(BillingStatus status, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default)
+    public async Task<IReadOnlyList<WorkTask>> ListAsync(Guid? clientId, bool? missingOnly, CancellationToken ct = default)
     {
-        var statusVal = ((int)status).ToString();
-        var builder = SimpleBuilder.Create($"select * from task where billing_status = {statusVal}");
-        if (restrictToClientIds is not null)
+        var sql = """
+            select * from task
+            where 1=1
+            """;
+        var parameters = new DynamicParameters();
+
+        if (clientId is { } cid)
         {
-            if (restrictToClientIds.Count == 0) return [];
-            builder.Append($" and client_id in {restrictToClientIds}");
+            sql += " and client_id = @clientId";
+            parameters.Add("clientId", cid);
         }
-        builder.AppendNewLine($"order by completed_at nulls last, updated_at desc");
+
+        if (missingOnly == true)
+        {
+            sql += """
+                 and (
+                    project_id is null
+                    or bill is null
+                    or (lower(bill) = 'yes' and (billable_hours is null or billable_hours = 0))
+                    or invoice_label is null or trim(invoice_label) = ''
+                 )
+                """;
+        }
+
+        sql += " order by date_done desc nulls last, date_created desc nulls last, title";
+
         using var conn = await factory.OpenAsync(ct);
-        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(sql, parameters, cancellationToken: ct));
         return rows.ToList();
     }
 
@@ -234,15 +225,18 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     {
         var builder = SimpleBuilder.Create($"""
             insert into task
-                (id, client_id, project_id, parent_task_id, title, description, work_status, billing_status,
-                 billing_type, billable, hourly_rate, fixed_fee, estimated_minutes, estimate_rollup_mode,
-                 actual_rollup_mode, billing_rollup_mode, due_date, completed_at, finalized_at,
-                 finalized_by_user_id, sort_order, created_at, updated_at)
+                (id, client_id, project_id, bill, billable_hours, non_billable_hours, invoice_label, note,
+                 clickup_url, clickup_task_id, clickup_parent_id, clickup_folder_id, clickup_folder_name,
+                 clickup_list_id, clickup_list_name, title, description, clickup_status, tags,
+                 date_created, due_date, date_done, date_closed, order_index, estimated_hours, actual_hours,
+                 created_at, updated_at)
             values
-                ({t.Id}, {t.ClientId}, {t.ProjectId}, {t.ParentTaskId}, {t.Title}, {t.Description}, {t.WorkStatus},
-                 {t.BillingStatus}, {t.BillingType}, {t.Billable}, {t.HourlyRate}, {t.FixedFee}, {t.EstimatedMinutes},
-                 {t.EstimateRollupMode}, {t.ActualRollupMode}, {t.BillingRollupMode}, {t.DueDate}, {t.CompletedAt},
-                 {t.FinalizedAt}, {t.FinalizedByUserId}, {t.SortOrder}, {t.CreatedAt}, {t.UpdatedAt})
+                ({t.Id}, {t.ClientId}, {t.ProjectId}, {t.Bill}, {t.BillableHours}, {t.NonBillableHours},
+                 {t.InvoiceLabel}, {t.Note}, {t.ClickUpUrl}, {t.ClickUpTaskId}, {t.ClickUpParentId},
+                 {t.ClickUpFolderId}, {t.ClickUpFolderName}, {t.ClickUpListId}, {t.ClickUpListName},
+                 {t.Title}, {t.Description}, {t.ClickUpStatus}, {t.Tags}, {t.DateCreated}, {t.DueDate},
+                 {t.DateDone}, {t.DateClosed}, {t.OrderIndex}, {t.EstimatedHours}, {t.ActualHours},
+                 {t.CreatedAt}, {t.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -252,50 +246,73 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     public async Task UpdateAsync(WorkTask t, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            update task set project_id = {t.ProjectId}, parent_task_id = {t.ParentTaskId}, title = {t.Title},
-                description = {t.Description}, work_status = {t.WorkStatus}, billing_status = {t.BillingStatus},
-                billing_type = {t.BillingType}, billable = {t.Billable}, hourly_rate = {t.HourlyRate},
-                fixed_fee = {t.FixedFee}, estimated_minutes = {t.EstimatedMinutes},
-                estimate_rollup_mode = {t.EstimateRollupMode}, actual_rollup_mode = {t.ActualRollupMode},
-                billing_rollup_mode = {t.BillingRollupMode}, due_date = {t.DueDate}, completed_at = {t.CompletedAt},
-                finalized_at = {t.FinalizedAt}, finalized_by_user_id = {t.FinalizedByUserId},
-                sort_order = {t.SortOrder}, updated_at = {t.UpdatedAt}
+            update task set
+                client_id = {t.ClientId}, project_id = {t.ProjectId},
+                bill = {t.Bill}, billable_hours = {t.BillableHours}, non_billable_hours = {t.NonBillableHours},
+                invoice_label = {t.InvoiceLabel}, note = {t.Note},
+                clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
+                clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
+                clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},
+                title = {t.Title}, description = {t.Description}, clickup_status = {t.ClickUpStatus}, tags = {t.Tags},
+                date_created = {t.DateCreated}, due_date = {t.DueDate}, date_done = {t.DateDone},
+                date_closed = {t.DateClosed}, order_index = {t.OrderIndex},
+                estimated_hours = {t.EstimatedHours}, actual_hours = {t.ActualHours},
+                updated_at = {t.UpdatedAt}
             where id = {t.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<Guid>> GetAncestorIdsAsync(Guid taskId, CancellationToken ct = default)
+    public async Task UpdateApiFieldsAsync(WorkTask t, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            with recursive ancestors as (
-                select parent_task_id as id from task where id = {taskId}
-                union all
-                select t.parent_task_id from task t
-                join ancestors a on t.id = a.id
-                where t.parent_task_id is not null
-            )
-            select id from ancestors where id is not null
+            update task set
+                client_id = {t.ClientId},
+                clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
+                clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
+                clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},
+                title = {t.Title}, description = {t.Description}, clickup_status = {t.ClickUpStatus}, tags = {t.Tags},
+                date_created = {t.DateCreated}, due_date = {t.DueDate}, date_done = {t.DateDone},
+                date_closed = {t.DateClosed}, order_index = {t.OrderIndex},
+                estimated_hours = {t.EstimatedHours}, actual_hours = {t.ActualHours},
+                updated_at = {t.UpdatedAt}
+            where id = {t.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
-        var rows = await conn.QueryAsync<Guid>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
-        return rows.ToList();
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+}
+
+public sealed class ClickUpContainerRepository(IDbConnectionFactory factory) : IClickUpContainerRepository
+{
+    public async Task UpsertManyAsync(IReadOnlyList<ClickUpContainer> containers, CancellationToken ct = default)
+    {
+        if (containers.Count == 0) return;
+        using var conn = await factory.OpenAsync(ct);
+        foreach (var c in containers)
+        {
+            var builder = SimpleBuilder.Create($"""
+                insert into clickup_container
+                    (id, container_type, external_id, name, parent_type, parent_external_id, updated_at)
+                values
+                    ({c.Id}, {c.ContainerType}, {c.ExternalId}, {c.Name}, {c.ParentType}, {c.ParentExternalId}, {c.UpdatedAt})
+                on conflict (external_id) do update set
+                    container_type = excluded.container_type,
+                    name = excluded.name,
+                    parent_type = excluded.parent_type,
+                    parent_external_id = excluded.parent_external_id,
+                    updated_at = excluded.updated_at
+                """);
+            await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        }
     }
 
-    public async Task<IReadOnlyList<WorkTask>> GetSubtreeAsync(Guid rootTaskId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ClickUpContainer>> ListAllAsync(CancellationToken ct = default)
     {
-        var builder = SimpleBuilder.Create($"""
-            with recursive tree as (
-                select * from task where id = {rootTaskId}
-                union all
-                select t.* from task t
-                join tree p on t.parent_task_id = p.id
-            )
-            select * from tree
-            """);
         using var conn = await factory.OpenAsync(ct);
-        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        var rows = await conn.QueryAsync<ClickUpContainer>(
+            new CommandDefinition("select * from clickup_container order by container_type, name", cancellationToken: ct));
         return rows.ToList();
     }
 }

@@ -1,26 +1,23 @@
-AIB database schema (PostgreSQL)
-Source: backend/Aib.Infrastructure/Migrations/Script0001_Foundation.sql,
-         Script0005_ClientOriginalName.sql
+AIB database schema (PostgreSQL) — slim ClickUp billing prep
+Source: Script0001_Foundation.sql, Script0005_ClientOriginalName.sql, Script0006_SlimClickUp.sql
 Enum-like columns stored as text (PascalCase, matching C# enums).
 PK = primary key · FK = foreign key · UQ = unique · * = nullable
+
+Auth tables may still exist from Script0001 but are unused (no login).
 
 ================================================================================
 OVERVIEW
 ================================================================================
 
-  agency ──┬── client ──┬── project
-           │            └── task ──── task (parent)
+  agency ──┬── client ──┬── project   (you define)
+           │            └── task      (ClickUp sync + manual prep cols)
            │
-           ├── app_user ──┬── user_role ── role   (agency | contractor)
-           │              ├── local_credential
-           │              ├── magic_link_token
-           │              ├── social_identity ── identity_provider
-           │              └── user_session ── identity_provider
-           │
-           └── contractor ── app_user
+           └── last_clickup_sync_*
+
+  clickup_container   (space / folder / list lookup; refreshed on sync)
 
 ================================================================================
-1. ORGANIZATION & WORK HIERARCHY  (Script0001 + Script0005)
+1. ORGANIZATION
 ================================================================================
 
 ┌─────────────────────────────┐
@@ -33,10 +30,11 @@ OVERVIEW
 │     currency           text │  default 'USD'
 │     payment_terms_days int  │  default 30
 │     active             bool │
+│  *  last_clickup_sync_at    │  (Script0006)
+│  *  last_clickup_sync_summary│
 │     created_at / updated_at │
 └──────────────┬──────────────┘
                │ 1
-               │
                │ N
 ┌──────────────▼──────┐
 │ client              │
@@ -45,6 +43,7 @@ OVERVIEW
 │ FK  agency_id       │
 │     name, code*     │
 │  *  original_name   │  (Script0005)
+│  *  clickup_folder_id│ UQ where not null (Script0006)
 │  *  description     │
 │     status, active  │
 │     created_at / updated_at │
@@ -57,124 +56,66 @@ OVERVIEW
 │─────────────────────│  │─────────────────────────────────────│
 │ PK  id              │  │ PK  id                              │
 │ FK  client_id       │  │ FK  client_id                       │
-│     name, code*     │  │ FK* project_id ─────────────────────┤
-│     description*    │  │ FK* parent_task_id ──┐ (self)       │
-│     status          │  │     title, description*             │
-│     billing_type    │  │     work_status, billing_status     │
-│  *  hourly_rate     │  │     billing_type, billable          │
-│  *  fixed_fee       │  │  *  hourly_rate, fixed_fee          │
-│  *  budget_minutes  │  │  *  estimated_minutes               │
-│  *  budget_amount   │  │     estimate/actual/billing_rollup  │
-│  *  start_date/end  │  │  *  due_date, completed_at          │
-│     active          │  │  *  finalized_at                    │
-│     created/updated │  │ FK* finalized_by_user_id → app_user │
-└─────────────────────┘  │     sort_order                      │
+│     name, code*     │  │ FK* project_id (your project)       │
+│     description*    │  │                                     │
+│     status          │  │ Manual (never overwritten by sync): │
+│     billing_type    │  │  * bill (yes/no)                    │
+│  *  hourly_rate     │  │  * billable_hours                   │
+│  *  fixed_fee       │  │  * non_billable_hours               │
+│  *  budget_*        │  │  * invoice_label                    │
+│  *  start/end date  │  │  * note                             │
+│     active          │  │                                     │
+│     created/updated │  │ ClickUp API (overwrite on sync):    │
+└─────────────────────┘  │  * clickup_url UQ                   │
+                         │  * clickup_task_id UQ               │
+                         │  * clickup_parent_id                │
+                         │  * clickup_folder_id / _name        │
+                         │  * clickup_list_id / _name          │
+                         │     title, description*             │
+                         │  * clickup_status, tags             │
+                         │  * date_created, due_date           │
+                         │  * date_done, date_closed           │
+                         │  * order_index                      │
+                         │  * estimated_hours, actual_hours    │
                          │     created_at / updated_at         │
                          └─────────────────────────────────────┘
 
+================================================================================
+2. CLICKUP LOOKUP  (Script0006)
+================================================================================
+
 ┌─────────────────────────────┐
-│ contractor                  │
+│ clickup_container           │
 │─────────────────────────────│
 │ PK  id                 uuid │
+│     container_type     text │  space | folder | list
+│     external_id        text │  UQ
 │     name               text │
-│     email              text │  UQ lower(email)
-│  *  default_hourly_rate     │
-│     active, created/updated │
-└──────────────┬──────────────┘
-               │
-               └── app_user.contractor_id
-
-================================================================================
-2. IDENTITY & AUTH  (Script0001)
-================================================================================
-
-┌─────────────────────────────┐       ┌─────────────────────────────┐
-│ agency                      │       │ contractor                  │
-└──────────────┬──────────────┘       └──────────────┬──────────────┘
-               │ *                                   │ *
-               │                                     │
-┌──────────────▼─────────────────────────────────────▼──────────────┐
-│ app_user                                                          │
-│───────────────────────────────────────────────────────────────────│
-│ PK  id                       uuid                                 │
-│ FK* agency_id                → agency                             │
-│ FK* contractor_id            → contractor                         │
-│     username / normalized_username   UQ(normalized_username)      │
-│     email / normalized_email         UQ(normalized_email)         │
-│     display_name, status                                          │
-│  *  email_verified_at, last_login_at                              │
-│     password/magic_link/social_login_enabled                      │
-│     created_at / updated_at                                       │
-└──┬────┬────┬────┬────┬────────────────────────────────────────────┘
-   │    │    │    │    │
-   │    │    │    │    └───────── user_session
-   │    │    │    │                   FK  user_id
-   │    │    │    │                   FK* identity_provider_id
-   │    │    │    │                   UQ  session_token_hash
-   │    │    │    │
-   │    │    │    └────────────── social_identity
-   │    │    │                        FK  user_id
-   │    │    │                        FK  identity_provider_id
-   │    │    │                        UQ (identity_provider_id, provider_subject)
-   │    │    │
-   │    │    └─────────────────── magic_link_token
-   │    │                             FK  user_id
-   │    │                             UQ  token_hash
-   │    │
-   │    └──────────────────────── local_credential
-   │                                  FK  user_id  UQ
-   │                                  password_hash, lockout fields
-   │
-   └───────────────────────────── user_role
-                                       PK (user_id, role_id)
-                                       FK  user_id → app_user
-                                       FK  role_id → role
-
-┌─────────────────────────────┐       ┌─────────────────────────────┐
-│ role                        │       │ identity_provider           │
-│─────────────────────────────│       │─────────────────────────────│
-│ PK  id              serial  │       │ PK  id                 uuid │
-│ UQ  name            text    │       │ UQ  provider_type      text │
-│     values: agency,         │       │     name, issuer, client_id │
-│             contractor      │       │  *  secret_reference        │
-└─────────────────────────────┘       │  *  hosted_domain           │
-                                      │     enabled, created/updated│
-                                      └─────────────────────────────┘
-
-  Access: agency and contractor users both see the full agency.
-  Only contractor users may create/update/delete resources.
+│  *  parent_type        text │
+│  *  parent_external_id text │
+│     updated_at              │
+└─────────────────────────────┘
 
 ================================================================================
 TABLE INDEX (alphabetical)
 ================================================================================
 
   agency
-  app_user
-  auth_event
   client
-  contractor
-  identity_provider
-  local_credential
-  magic_link_token
+  clickup_container
   project
-  role
-  social_identity
   task
-  user_role
-  user_session
+
+  (unused legacy from Script0001: app_user, contractor, role, user_role,
+   local_credential, identity_provider, social_identity, user_session)
 
 ================================================================================
 RELATIONSHIP CHEAT SHEET
 ================================================================================
 
-  agency            1──N  client, app_user*
+  agency            1──N  client
   client            1──N  project, task
   project           1──N  task*
-  task              1──N  task* (parent)
-  contractor        1──N  app_user*
-  app_user          1──N  user_role, sessions, tokens, identities, events
-  role              1──N  user_role
-  identity_provider 1──N  social_identity, user_session*
+  clickup_container     lookup only (no FK from task)
 
   * = optional FK (nullable)
-)

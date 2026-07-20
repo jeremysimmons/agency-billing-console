@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { http, ensureCsrf } from '../api/http'
+import { http } from '../api/http'
 import type { Client } from '../api/types'
 
 export interface ClientInput {
@@ -21,10 +21,7 @@ export function useClients() {
 export function useCreateClient() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async (input: ClientInput) => {
-      await ensureCsrf()
-      return (await http.post<Client>('/clients', input)).data
-    },
+    mutation: async (input: ClientInput) => (await http.post<Client>('/clients', input)).data,
     onSettled: () => cache.invalidateQueries({ key: ['clients'] }),
   })
 }
@@ -32,10 +29,8 @@ export function useCreateClient() {
 export function useUpdateClient() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async ({ id, input }: { id: string; input: ClientInput }) => {
-      await ensureCsrf()
-      return (await http.put<Client>(`/clients/${id}`, input)).data
-    },
+    mutation: async ({ id, input }: { id: string; input: ClientInput }) =>
+      (await http.put<Client>(`/clients/${id}`, input)).data,
     onSettled: () => cache.invalidateQueries({ key: ['clients'] }),
   })
 }
@@ -44,7 +39,6 @@ export function useDeleteClient() {
   const cache = useQueryCache()
   return useMutation({
     mutation: async (id: string) => {
-      await ensureCsrf()
       await http.delete(`/clients/${id}`)
     },
     onSettled: () => cache.invalidateQueries({ key: ['clients'] }),

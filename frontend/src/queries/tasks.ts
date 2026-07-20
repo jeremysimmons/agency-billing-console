@@ -1,41 +1,39 @@
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
-import { http, ensureCsrf } from '../api/http'
+import { http } from '../api/http'
 import type { WorkTask } from '../api/types'
 
-export interface TaskInput {
-  clientId: string
-  projectId?: string | null
-  parentTaskId?: string | null
-  title: string
-  description?: string | null
-  billingType?: string
-  billable?: boolean
-  hourlyRate?: number | null
-  fixedFee?: number | null
-  estimatedMinutes?: number | null
-  estimateRollupMode?: string
-  actualRollupMode?: string
-  billingRollupMode?: string
-  dueDate?: string | null
-}
-
-export function useTasks(clientId: MaybeRefOrGetter<string | undefined>) {
-  const id = computed(() => toValue(clientId))
+export function useTasks(
+  clientId: MaybeRefOrGetter<string | undefined>,
+  missingOnly: MaybeRefOrGetter<boolean> = false,
+) {
+  const cid = computed(() => toValue(clientId))
+  const missing = computed(() => toValue(missingOnly))
   return useQuery({
-    key: () => ['tasks', id.value ?? 'none'],
-    query: async () => (await http.get<WorkTask[]>('/tasks', { params: { clientId: id.value } })).data,
-    enabled: () => !!id.value,
+    key: () => ['tasks', cid.value ?? 'all', missing.value ? 'missing' : 'all'],
+    query: async () => {
+      const params: Record<string, string | boolean> = {}
+      if (cid.value) params.clientId = cid.value
+      if (missing.value) params.missingOnly = true
+      return (await http.get<WorkTask[]>('/tasks', { params })).data
+    },
   })
 }
 
-export function useCreateTask() {
+export interface TaskPrepInput {
+  projectId?: string | null
+  bill?: string | null
+  billableHours?: number | null
+  nonBillableHours?: number | null
+  invoiceLabel?: string | null
+  note?: string | null
+}
+
+export function useUpdateTaskPrep() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async (input: TaskInput) => {
-      await ensureCsrf()
-      return (await http.post<WorkTask>('/tasks', input)).data
-    },
-    onSettled: (_d, _e, input) => cache.invalidateQueries({ key: ['tasks', input.clientId] }),
+    mutation: async ({ id, input }: { id: string; input: TaskPrepInput }) =>
+      (await http.patch<WorkTask>(`/tasks/${id}/prep`, input)).data,
+    onSettled: () => cache.invalidateQueries({ key: ['tasks'] }),
   })
 }

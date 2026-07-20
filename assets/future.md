@@ -20,3 +20,9 @@ mark work as ready to bill
 email on last day of billing period, finalize billing
 
 email agency users once a week with summary of client / project / task completed work. estimate of hours per scope / totalreco
+
+replace this abstraction with .net TimeProvider
+public sealed class SystemClock : IClock
+{
+    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+}

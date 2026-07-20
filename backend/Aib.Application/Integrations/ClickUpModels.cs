@@ -1,0 +1,34 @@
+namespace Aib.Application.Integrations;
+
+public sealed record ClickUpUser(string Id, string? Username, string? Email);
+
+public sealed record ClickUpTask
+{
+    public required string Id { get; init; }
+    public string? Name { get; init; }
+    public string? Description { get; init; }
+    public string? StatusName { get; init; }
+    public string? ParentId { get; init; }
+    public string? ListId { get; init; }
+    public string? ListName { get; init; }
+    public string? FolderId { get; init; }
+    public string? FolderName { get; init; }
+    public bool FolderHidden { get; init; }
+    public DateTimeOffset? DueDate { get; init; }
+    public DateTimeOffset? CompletedAt { get; init; }
+    public DateTimeOffset? ClosedAt { get; init; }
+    public DateTimeOffset? SourceCreatedAt { get; init; }
+    public long? OrderIndex { get; init; }
+    public decimal? EstimatedHours { get; init; }
+    public decimal? ActualHours { get; init; }
+    public string? Url { get; init; }
+    public IReadOnlyList<string> Tags { get; init; } = [];
+}
+
+public sealed record ClickUpTaskPage(IReadOnlyList<ClickUpTask> Tasks, bool LastPage);
+
+public interface IClickUpClient
+{
+    Task<ClickUpTaskPage> GetTasksAsync(
+        string teamId, string? assigneeExternalUserId, int page, CancellationToken ct = default);
+}

@@ -36,7 +36,6 @@ create table app_user (
     status                 text not null,
     email_verified_at      timestamptz,
     password_login_enabled boolean not null default true,
-    magic_link_enabled     boolean not null default true,
     social_login_enabled   boolean not null default true,
     last_login_at          timestamptz,
     created_at             timestamptz not null,
@@ -81,22 +80,6 @@ create table local_credential (
     created_at           timestamptz not null,
     updated_at           timestamptz not null
 );
-
-create table magic_link_token (
-    id                  uuid primary key,
-    user_id             uuid not null references app_user (id) on delete cascade,
-    token_hash          text not null,
-    purpose             text not null default 'Login',
-    requested_at        timestamptz not null,
-    expires_at          timestamptz not null,
-    consumed_at         timestamptz,
-    revoked_at          timestamptz,
-    request_ip          text,
-    request_user_agent  text,
-    created_at          timestamptz not null
-);
-create unique index ux_magic_link_token_hash on magic_link_token (token_hash);
-create index ix_magic_link_user on magic_link_token (user_id);
 
 create table identity_provider (
     id               uuid primary key,
