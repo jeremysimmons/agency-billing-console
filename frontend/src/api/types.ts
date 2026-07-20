@@ -21,6 +21,7 @@ export interface Client {
   id: string
   name: string
   code: string | null
+  originalName: string | null
   description: string | null
   status: string
   active: boolean

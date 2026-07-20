@@ -42,6 +42,7 @@ public sealed class ClientService(
             AgencyId = agency.Id,
             Name = request.Name.Trim(),
             Code = request.Code?.Trim(),
+            OriginalName = request.OriginalName?.Trim(),
             Description = request.Description,
             Status = request.Status ?? ClientStatus.Active,
             Active = true,
@@ -61,6 +62,7 @@ public sealed class ClientService(
 
         client.Name = request.Name.Trim();
         client.Code = request.Code?.Trim();
+        client.OriginalName = request.OriginalName?.Trim();
         client.Description = request.Description;
         client.Status = request.Status;
         client.Active = request.Active;
@@ -77,5 +79,5 @@ public sealed class ClientService(
     }
 
     private static ClientDto Map(Client c) =>
-        new(c.Id, c.Name, c.Code, c.Description, c.Status, c.Active);
+        new(c.Id, c.Name, c.Code, c.OriginalName, c.Description, c.Status, c.Active);
 }

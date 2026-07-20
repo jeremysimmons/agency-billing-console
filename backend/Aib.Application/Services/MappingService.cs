@@ -155,6 +155,83 @@ public sealed class MappingService(
         return new SuggestMappingsResult(containerSuggestions, taskSuggestions, statusSeeded);
     }
 
+    /// <summary>
+    /// Creates a client for every unmapped ClickUp Folder and confirms the mapping.
+    /// Folder titles are parsed into Code / Name; OriginalName keeps the full folder title.
+    /// </summary>
+    public async Task<ImportFoldersAsClientsResult> ImportFoldersAsClientsAsync(Guid? connectionId, CancellationToken ct = default)
+    {
+        access.EnsureCanManage();
+        var unmapped = await ListUnmappedContainersAsync(connectionId, ct);
+        var created = 0;
+        var skipped = 0;
+        foreach (var folder in unmapped.Where(c => c.ContainerType == ContainerType.Folder))
+        {
+            try
+            {
+                await ConfirmContainerAsync(folder.ContainerId, new ConfirmContainerMappingRequest(
+                    ClientId: null, ProjectId: null, CreateClient: true, CreateProject: false, Notes: null), ct);
+                created++;
+            }
+            catch (DomainException)
+            {
+                skipped++;
+            }
+        }
+
+        logger.LogInformation("Imported {Created} folders as clients ({Skipped} skipped)", created, skipped);
+        return new ImportFoldersAsClientsResult(created, skipped);
+    }
+
+    /// <summary>
+    /// Creates a project for every unmapped ClickUp List whose parent is a Folder,
+    /// attaching it to the client mapped from that folder.
+    /// </summary>
+    public async Task<ImportListsAsProjectsResult> ImportListsAsProjectsAsync(Guid? connectionId, CancellationToken ct = default)
+    {
+        access.EnsureCanManage();
+        var connection = await ResolveConnectionAsync(connectionId, ct);
+        var allContainers = await queries.ListContainersAsync(connection.Id, ct);
+        var byExternalId = allContainers.ToDictionary(c => c.ExternalId, StringComparer.Ordinal);
+        var confirmedMaps = (await containerMappings.ListByConnectionAsync(connection.Id, MappingStatus.Confirmed, ct))
+            .ToDictionary(m => m.ExternalContainerId);
+
+        var unmapped = await ListUnmappedContainersAsync(connectionId, ct);
+        var created = 0;
+        var skipped = 0;
+
+        foreach (var list in unmapped.Where(c => c.ContainerType == ContainerType.List))
+        {
+            if (list.ParentExternalId is null
+                || list.ParentContainerType is not ContainerType.Folder
+                || !byExternalId.TryGetValue(list.ParentExternalId, out var parentFolder)
+                || !confirmedMaps.TryGetValue(parentFolder.Id, out var folderMap)
+                || folderMap.ClientId is null)
+            {
+                skipped++;
+                continue;
+            }
+
+            try
+            {
+                await ConfirmContainerAsync(list.ContainerId, new ConfirmContainerMappingRequest(
+                    ClientId: folderMap.ClientId,
+                    ProjectId: null,
+                    CreateClient: false,
+                    CreateProject: true,
+                    Notes: null), ct);
+                created++;
+            }
+            catch (DomainException)
+            {
+                skipped++;
+            }
+        }
+
+        logger.LogInformation("Imported {Created} lists as projects ({Skipped} skipped)", created, skipped);
+        return new ImportListsAsProjectsResult(created, skipped);
+    }
+
     private async Task<int> SuggestContainersAsync(Guid connectionId, Guid agencyId, CancellationToken ct)
     {
         var containers = await queries.ListContainersAsync(connectionId, ct);
@@ -370,9 +447,16 @@ public sealed class MappingService(
 
         if (request.CreateClient)
         {
+            var (name, code, originalName) = container.ContainerType == ContainerType.Folder
+                ? ClickUpFolderNaming.Parse(container.Name)
+                : (container.Name.Trim(), (string?)null, container.Name.Trim());
+            if (string.IsNullOrWhiteSpace(name))
+                throw new DomainException("Client name is required.");
+
             var client = new Client
             {
-                Id = Guid.NewGuid(), AgencyId = agency.Id, Name = container.Name.Trim(),
+                Id = Guid.NewGuid(), AgencyId = agency.Id, Name = name, Code = code,
+                OriginalName = originalName,
                 Status = ClientStatus.Active, Active = true, CreatedAt = now, UpdatedAt = now
             };
             await clients.InsertAsync(client, ct);

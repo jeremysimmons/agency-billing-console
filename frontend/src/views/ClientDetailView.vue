@@ -51,6 +51,7 @@ async function saveRename() {
       input: {
         name: editName.value.trim(),
         code: c.code,
+        originalName: c.originalName,
         description: c.description,
         status: c.status,
         active: c.active,
@@ -129,6 +130,10 @@ async function removeClient() {
         <template v-else>
           <h1>{{ client?.name ?? 'Client' }}</h1>
           <button class="link" @click="startRename">Rename</button>
+          <p v-if="client?.code || client?.originalName" class="meta">
+            <span v-if="client.code">Code: {{ client.code }}</span>
+            <span v-if="client.originalName">Original: {{ client.originalName }}</span>
+          </p>
         </template>
       </div>
       <div class="danger-zone">
@@ -196,6 +201,7 @@ async function removeClient() {
 .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-top: 0.25rem; }
 .title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; min-width: 0; flex: 1; }
 .title h1 { margin: 0; }
+.meta { margin: 0; width: 100%; font-size: 0.9rem; color: #6b7280; display: flex; flex-wrap: wrap; gap: 0.75rem; }
 .rename { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .rename input { min-width: 12rem; font-size: 1.25rem; font-weight: 600; }
 button.link { background: none; color: #10b981; padding: 0; }

@@ -5,6 +5,7 @@ import type { Client } from '../api/types'
 export interface ClientInput {
   name: string
   code?: string | null
+  originalName?: string | null
   description?: string | null
   status?: string
   active?: boolean

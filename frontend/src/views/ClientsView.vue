@@ -49,11 +49,12 @@ async function remove(id: string) {
     <p v-if="isLoading">Loading…</p>
     <p v-else-if="error" class="error">Failed to load clients.</p>
     <table v-else class="grid">
-      <thead><tr><th>Name</th><th>Code</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Code</th><th>Original name</th><th>Status</th><th></th></tr></thead>
       <tbody>
         <tr v-for="c in clients" :key="c.id">
           <td><RouterLink :to="`/clients/${c.id}`">{{ c.name }}</RouterLink></td>
           <td>{{ c.code ?? '—' }}</td>
+          <td>{{ c.originalName ?? '—' }}</td>
           <td>{{ c.status }}</td>
           <td class="actions">
             <template v-if="confirmId === c.id">
@@ -63,7 +64,7 @@ async function remove(id: string) {
             <button v-else class="link danger" @click="confirmId = c.id">Delete</button>
           </td>
         </tr>
-        <tr v-if="clients && clients.length === 0"><td colspan="4">No clients yet.</td></tr>
+        <tr v-if="clients && clients.length === 0"><td colspan="5">No clients yet.</td></tr>
       </tbody>
     </table>
   </section>

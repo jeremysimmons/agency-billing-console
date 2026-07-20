@@ -109,8 +109,8 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     public async Task<Guid> InsertAsync(Client c, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            insert into client (id, agency_id, name, code, description, status, active, created_at, updated_at)
-            values ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.Description}, {c.Status}, {c.Active}, {c.CreatedAt}, {c.UpdatedAt})
+            insert into client (id, agency_id, name, code, original_name, description, status, active, created_at, updated_at)
+            values ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.Description}, {c.Status}, {c.Active}, {c.CreatedAt}, {c.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -120,7 +120,7 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     public async Task UpdateAsync(Client c, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            update client set name = {c.Name}, code = {c.Code}, description = {c.Description},
+            update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName}, description = {c.Description},
                 status = {c.Status}, active = {c.Active}, updated_at = {c.UpdatedAt}
             where id = {c.Id}
             """);

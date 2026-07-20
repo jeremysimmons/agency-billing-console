@@ -92,9 +92,10 @@ public sealed class ClickUpImportService(
 
         try
         {
-            // Task payloads usually omit space names — resolve once per run.
+            // Task payloads usually omit space names — resolve once per run and refresh staging rows.
             var spaceNames = (await clickUp.GetSpacesAsync(teamId, ct))
                 .ToDictionary(s => s.Id, s => s.Name, StringComparer.Ordinal);
+            await RefreshSpaceContainersAsync(connection.Id, spaceNames, diagnostics, ct);
 
             // ---- Tasks + containers ----
             var page = 0;
@@ -215,6 +216,15 @@ public sealed class ClickUpImportService(
         }
 
         return Map(run);
+    }
+
+    private async Task RefreshSpaceContainersAsync(
+        Guid connectionId, IReadOnlyDictionary<string, string> spaceNames,
+        List<ImportRecord> diag, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        foreach (var (externalId, name) in spaceNames)
+            await UpsertContainerAsync(connectionId, externalId, ContainerType.Space, name, null, "{}", now, diag, ct);
     }
 
     private async Task<Guid?> UpsertContainersAsync(

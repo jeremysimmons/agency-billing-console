@@ -30,9 +30,9 @@ public sealed record AgencyDto(
     Guid Id, string Name, string? BillingEmail, string? BillingAddress, string Currency, int PaymentTermsDays, bool Active);
 
 // ---- Clients ----
-public sealed record CreateClientRequest(string Name, string? Code, string? Description, ClientStatus? Status);
-public sealed record UpdateClientRequest(string Name, string? Code, string? Description, ClientStatus Status, bool Active);
-public sealed record ClientDto(Guid Id, string Name, string? Code, string? Description, ClientStatus Status, bool Active);
+public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status);
+public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
+public sealed record ClientDto(Guid Id, string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
 
 // ---- Projects ----
 public sealed record CreateProjectRequest(
@@ -132,6 +132,8 @@ public sealed record UpsertStatusMappingRequest(
     WorkStatus InternalStatus, bool TreatedAsCompleted, bool TreatedAsBillable, bool Active);
 
 public sealed record SuggestMappingsResult(int ContainerSuggestions, int TaskSuggestions, int StatusSeeded);
+public sealed record ImportFoldersAsClientsResult(int Created, int Skipped);
+public sealed record ImportListsAsProjectsResult(int Created, int Skipped);
 
 public sealed record ApplyMappedStatusesResult(int Updated);
 

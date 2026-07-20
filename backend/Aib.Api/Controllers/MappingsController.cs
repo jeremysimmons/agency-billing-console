@@ -31,6 +31,14 @@ public sealed class MappingsController(MappingService mappings) : ControllerBase
     public async Task<IActionResult> Suggest([FromQuery] Guid? connectionId, CancellationToken ct)
         => Ok(await mappings.SuggestAsync(connectionId, ct));
 
+    [HttpPost("mappings/import-folders")]
+    public async Task<IActionResult> ImportFolders([FromQuery] Guid? connectionId, CancellationToken ct)
+        => Ok(await mappings.ImportFoldersAsClientsAsync(connectionId, ct));
+
+    [HttpPost("mappings/import-lists")]
+    public async Task<IActionResult> ImportLists([FromQuery] Guid? connectionId, CancellationToken ct)
+        => Ok(await mappings.ImportListsAsProjectsAsync(connectionId, ct));
+
     [HttpPost("mappings/containers/{containerId:guid}/confirm")]
     public async Task<IActionResult> ConfirmContainer(Guid containerId, [FromBody] ConfirmContainerMappingRequest request, CancellationToken ct)
         => Ok(await mappings.ConfirmContainerAsync(containerId, request, ct));
