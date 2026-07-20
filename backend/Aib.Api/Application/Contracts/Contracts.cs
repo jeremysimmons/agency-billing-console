@@ -47,3 +47,13 @@ public sealed record TaskFilterOptionsDto(
     IReadOnlyList<string> CreatedMonths,
     IReadOnlyList<string> DoneMonths,
     IReadOnlyList<string> Statuses);
+
+public sealed record TaskClientCountDto(
+    Guid ClientId, string ClientName, int TaskCount, int MissingCount, int UninvoicedCount);
+
+public sealed record TaskMonthCountDto(
+    string Month, int TaskCount, int MissingCount, int UninvoicedCount);
+
+public sealed record TaskSummaryDto(
+    IReadOnlyList<TaskClientCountDto> ByClient,
+    IReadOnlyList<TaskMonthCountDto> ByDoneMonth);

@@ -3,6 +3,12 @@ using Aib.Domain.Entities;
 
 namespace Aib.Application.Abstractions;
 
+public sealed record TaskClientCountRow(
+    Guid ClientId, string ClientName, int TaskCount, int MissingCount, int UninvoicedCount);
+
+public sealed record TaskMonthCountRow(
+    string Month, int TaskCount, int MissingCount, int UninvoicedCount);
+
 public interface IClientRepository
 {
     Task<Client?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -30,7 +36,17 @@ public interface ITaskRepository
     Task<IReadOnlyList<WorkTask>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
-        bool? includeInvoiced,
+        string? invoiced,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        IReadOnlyList<string>? statuses,
+        CancellationToken ct = default);
+    Task<(IReadOnlyList<TaskClientCountRow> ByClient, IReadOnlyList<TaskMonthCountRow> ByDoneMonth)> GetSummaryAsync(
+        Guid? clientId,
+        bool? missingOnly,
+        string? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,

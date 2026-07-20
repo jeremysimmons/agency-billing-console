@@ -61,11 +61,25 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
     public async Task<IActionResult> FilterOptions([FromQuery] Guid? clientId, CancellationToken ct)
         => Ok(await tasks.GetFilterOptionsAsync(clientId, ct));
 
+    [HttpGet("summary")]
+    public async Task<IActionResult> Summary(
+        [FromQuery] Guid? clientId,
+        [FromQuery] bool? missingOnly,
+        [FromQuery] string? invoiced,
+        [FromQuery] Guid? projectId,
+        [FromQuery] bool? unassignedOnly,
+        [FromQuery] string? createdMonth,
+        [FromQuery] string? doneMonth,
+        [FromQuery] string[]? statuses,
+        CancellationToken ct)
+        => Ok(await tasks.GetSummaryAsync(
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
+
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] Guid? clientId,
         [FromQuery] bool? missingOnly,
-        [FromQuery] bool? includeInvoiced,
+        [FromQuery] string? invoiced,
         [FromQuery] Guid? projectId,
         [FromQuery] bool? unassignedOnly,
         [FromQuery] string? createdMonth,
@@ -73,7 +87,7 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
         [FromQuery] string[]? statuses,
         CancellationToken ct)
         => Ok(await tasks.ListAsync(
-            clientId, missingOnly, includeInvoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
 
     [HttpPatch("{id:guid}/prep")]
     public async Task<IActionResult> UpdatePrep(Guid id, [FromBody] UpdateTaskPrepRequest request, CancellationToken ct)

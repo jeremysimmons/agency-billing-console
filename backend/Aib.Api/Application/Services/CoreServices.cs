@@ -151,7 +151,7 @@ public sealed class TaskService(
     public async Task<IReadOnlyList<TaskDto>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
-        bool? includeInvoiced,
+        string? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -160,7 +160,7 @@ public sealed class TaskService(
         CancellationToken ct = default)
     {
         var list = await tasks.ListAsync(
-            clientId, missingOnly, includeInvoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct);
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct);
         var clientNames = new Dictionary<Guid, string>();
         var projectNames = new Dictionary<Guid, string>();
 
@@ -188,6 +188,24 @@ public sealed class TaskService(
             result.Add(Map(task, clientName, projectName));
         }
         return result;
+    }
+
+    public async Task<TaskSummaryDto> GetSummaryAsync(
+        Guid? clientId,
+        bool? missingOnly,
+        string? invoiced,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        IReadOnlyList<string>? statuses,
+        CancellationToken ct = default)
+    {
+        var (byClient, byDoneMonth) = await tasks.GetSummaryAsync(
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct);
+        return new TaskSummaryDto(
+            byClient.Select(r => new TaskClientCountDto(r.ClientId, r.ClientName, r.TaskCount, r.MissingCount, r.UninvoicedCount)).ToList(),
+            byDoneMonth.Select(r => new TaskMonthCountDto(r.Month, r.TaskCount, r.MissingCount, r.UninvoicedCount)).ToList());
     }
 
     public async Task<TaskFilterOptionsDto> GetFilterOptionsAsync(Guid? clientId, CancellationToken ct = default)
@@ -236,8 +254,7 @@ public sealed class TaskService(
             NeedsAttention(t));
 
     private static bool NeedsAttention(WorkTask t) =>
-        t.ProjectId is null
-        || string.IsNullOrWhiteSpace(t.Bill)
+        string.IsNullOrWhiteSpace(t.Bill)
         || (string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
             && (t.BillableHours is null or 0))
         || string.IsNullOrWhiteSpace(t.InvoiceLabel);

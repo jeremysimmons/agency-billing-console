@@ -193,7 +193,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     public async Task<IReadOnlyList<WorkTask>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
-        bool? includeInvoiced,
+        string? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -206,63 +206,141 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             where 1=1
             """;
         var parameters = new DynamicParameters();
-
-        if (clientId is { } cid)
-        {
-            sql += " and client_id = @clientId";
-            parameters.Add("clientId", cid);
-        }
-
-        if (projectId is { } pid)
-        {
-            sql += " and project_id = @projectId";
-            parameters.Add("projectId", pid);
-        }
-        else if (unassignedOnly == true)
-        {
-            sql += " and project_id is null";
-        }
-
-        if (!string.IsNullOrWhiteSpace(createdMonth))
-        {
-            sql += " and date_created is not null and to_char(date_created, 'YYYY-MM') = @createdMonth";
-            parameters.Add("createdMonth", createdMonth);
-        }
-
-        if (!string.IsNullOrWhiteSpace(doneMonth))
-        {
-            sql += " and date_done is not null and to_char(date_done, 'YYYY-MM') = @doneMonth";
-            parameters.Add("doneMonth", doneMonth);
-        }
-
-        if (statuses is { Count: > 0 })
-        {
-            sql += " and clickup_status = any(@statuses)";
-            parameters.Add("statuses", statuses);
-        }
-
-        if (missingOnly == true)
-        {
-            sql += """
-                 and (
-                    project_id is null
-                    or bill is null
-                    or (lower(bill) = 'yes' and (billable_hours is null or billable_hours = 0))
-                    or invoice_label is null or trim(invoice_label) = ''
-                 )
-                """;
-        }
-
-        if (includeInvoiced != true)
-        {
-            sql += " and (invoice_label is null or trim(invoice_label) = '')";
-        }
+        ApplyTaskFilters(ref sql, parameters, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses);
 
         sql += " order by date_done asc nulls last, date_created asc nulls last, title";
 
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(sql, parameters, cancellationToken: ct));
         return rows.ToList();
+    }
+
+    public async Task<(IReadOnlyList<TaskClientCountRow> ByClient, IReadOnlyList<TaskMonthCountRow> ByDoneMonth)> GetSummaryAsync(
+        Guid? clientId,
+        bool? missingOnly,
+        string? invoiced,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        IReadOnlyList<string>? statuses,
+        CancellationToken ct = default)
+    {
+        const string missingSql = """
+            t.bill is null
+            or (lower(t.bill) = 'yes' and (t.billable_hours is null or t.billable_hours = 0))
+            or t.invoice_label is null or trim(t.invoice_label) = ''
+            """;
+        const string uninvoicedSql = "t.invoice_label is null or trim(t.invoice_label) = ''";
+
+        var clientSql = $"""
+            select
+                t.client_id as ClientId,
+                c.name as ClientName,
+                count(*)::int as TaskCount,
+                count(*) filter (where {missingSql})::int as MissingCount,
+                count(*) filter (where {uninvoicedSql})::int as UninvoicedCount
+            from task t
+            join client c on c.id = t.client_id
+            where 1=1
+            """;
+        var clientParams = new DynamicParameters();
+        ApplyTaskFilters(ref clientSql, clientParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, "t.");
+        clientSql += """
+             group by t.client_id, c.name
+             order by c.name asc
+            """;
+
+        var monthSql = $"""
+            select
+                to_char(t.date_done, 'YYYY-MM') as Month,
+                count(*)::int as TaskCount,
+                count(*) filter (where {missingSql})::int as MissingCount,
+                count(*) filter (where {uninvoicedSql})::int as UninvoicedCount
+            from task t
+            where t.date_done is not null
+            """;
+        var monthParams = new DynamicParameters();
+        ApplyTaskFilters(ref monthSql, monthParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, "t.");
+        monthSql += """
+             group by to_char(t.date_done, 'YYYY-MM')
+             order by month asc
+            """;
+
+        using var conn = await factory.OpenAsync(ct);
+        var byClient = (await conn.QueryAsync<TaskClientCountRow>(
+            new CommandDefinition(clientSql, clientParams, cancellationToken: ct))).ToList();
+        var byDoneMonth = (await conn.QueryAsync<TaskMonthCountRow>(
+            new CommandDefinition(monthSql, monthParams, cancellationToken: ct))).ToList();
+        return (byClient, byDoneMonth);
+    }
+
+    private static void ApplyTaskFilters(
+        ref string sql,
+        DynamicParameters parameters,
+        Guid? clientId,
+        bool? missingOnly,
+        string? invoiced,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        IReadOnlyList<string>? statuses,
+        string prefix = "")
+    {
+        if (clientId is { } cid)
+        {
+            sql += $" and {prefix}client_id = @clientId";
+            parameters.Add("clientId", cid);
+        }
+
+        if (projectId is { } pid)
+        {
+            sql += $" and {prefix}project_id = @projectId";
+            parameters.Add("projectId", pid);
+        }
+        else if (unassignedOnly == true)
+        {
+            sql += $" and {prefix}project_id is null";
+        }
+
+        if (!string.IsNullOrWhiteSpace(createdMonth))
+        {
+            sql += $" and {prefix}date_created is not null and to_char({prefix}date_created, 'YYYY-MM') = @createdMonth";
+            parameters.Add("createdMonth", createdMonth);
+        }
+
+        if (!string.IsNullOrWhiteSpace(doneMonth))
+        {
+            sql += $" and {prefix}date_done is not null and to_char({prefix}date_done, 'YYYY-MM') = @doneMonth";
+            parameters.Add("doneMonth", doneMonth);
+        }
+
+        if (statuses is { Count: > 0 })
+        {
+            sql += $" and {prefix}clickup_status = any(@statuses)";
+            parameters.Add("statuses", statuses);
+        }
+
+        if (missingOnly == true)
+        {
+            sql += $"""
+                 and (
+                    {prefix}bill is null
+                    or (lower({prefix}bill) = 'yes' and ({prefix}billable_hours is null or {prefix}billable_hours = 0))
+                    or {prefix}invoice_label is null or trim({prefix}invoice_label) = ''
+                 )
+                """;
+        }
+
+        if (string.Equals(invoiced, "yes", StringComparison.OrdinalIgnoreCase))
+        {
+            sql += $" and ({prefix}invoice_label is not null and trim({prefix}invoice_label) <> '')";
+        }
+        else if (!string.Equals(invoiced, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            sql += $" and ({prefix}invoice_label is null or trim({prefix}invoice_label) = '')";
+        }
     }
 
     public async Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths, IReadOnlyList<string> Statuses)> ListFilterOptionsAsync(

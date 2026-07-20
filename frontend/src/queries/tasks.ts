@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 import { http } from '../api/http'
-import type { WorkTask } from '../api/types'
+import type { TaskSummary, WorkTask } from '../api/types'
 
 export interface TaskFilterOptions {
   createdMonths: string[]
@@ -9,10 +9,12 @@ export interface TaskFilterOptions {
   statuses: string[]
 }
 
+export type InvoicedFilter = 'all' | 'yes' | 'no'
+
 export interface TaskListFilters {
   clientId?: string
   missingOnly?: boolean
-  includeInvoiced?: boolean
+  invoiced?: InvoicedFilter
   projectFilter?: string
   createdMonth?: string
   doneMonth?: string
@@ -23,7 +25,7 @@ function taskListParams(filters: TaskListFilters): string {
   const params = new URLSearchParams()
   if (filters.clientId) params.set('clientId', filters.clientId)
   if (filters.missingOnly) params.set('missingOnly', 'true')
-  if (filters.includeInvoiced) params.set('includeInvoiced', 'true')
+  if (filters.invoiced) params.set('invoiced', filters.invoiced)
   if (filters.projectFilter === '__unassigned__') params.set('unassignedOnly', 'true')
   else if (filters.projectFilter) params.set('projectId', filters.projectFilter)
   if (filters.createdMonth) params.set('createdMonth', filters.createdMonth)
@@ -52,7 +54,7 @@ export function useTasks(filters: MaybeRefOrGetter<TaskListFilters>) {
       'tasks',
       f.value.clientId ?? 'all',
       f.value.missingOnly ? 'missing' : 'all',
-      f.value.includeInvoiced ? 'invoiced' : 'not-invoiced',
+      f.value.invoiced ?? 'no',
       f.value.projectFilter ?? 'all',
       f.value.createdMonth ?? 'all',
       f.value.doneMonth ?? 'all',
@@ -60,6 +62,34 @@ export function useTasks(filters: MaybeRefOrGetter<TaskListFilters>) {
     ],
     query: async () =>
       (await http.get<WorkTask[]>(`/tasks?${taskListParams(f.value)}`)).data,
+  })
+}
+
+function taskSummaryQueryKey(filters: TaskListFilters) {
+  return [
+    'tasks',
+    'summary',
+    filters.clientId ?? 'all',
+    filters.missingOnly ? 'missing' : 'all',
+    filters.invoiced ?? 'no',
+    filters.projectFilter ?? 'all',
+    filters.createdMonth ?? 'all',
+    filters.doneMonth ?? 'all',
+    filters.statuses?.slice().sort().join('|') ?? 'all',
+  ]
+}
+
+export function useTaskSummary(
+  filters: MaybeRefOrGetter<TaskListFilters>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
+  const f = computed(() => toValue(filters))
+  const on = computed(() => toValue(enabled))
+  return useQuery({
+    key: () => taskSummaryQueryKey(f.value),
+    enabled: () => on.value,
+    query: async () =>
+      (await http.get<TaskSummary>(`/tasks/summary?${taskListParams(f.value)}`)).data,
   })
 }
 

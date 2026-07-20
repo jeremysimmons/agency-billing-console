@@ -54,6 +54,26 @@ export interface WorkTask {
   needsAttention: boolean
 }
 
+export interface TaskClientCount {
+  clientId: string
+  clientName: string
+  taskCount: number
+  missingCount: number
+  uninvoicedCount: number
+}
+
+export interface TaskMonthCount {
+  month: string
+  taskCount: number
+  missingCount: number
+  uninvoicedCount: number
+}
+
+export interface TaskSummary {
+  byClient: TaskClientCount[]
+  byDoneMonth: TaskMonthCount[]
+}
+
 export interface ClickUpHierarchyNode {
   type: string
   id: string
