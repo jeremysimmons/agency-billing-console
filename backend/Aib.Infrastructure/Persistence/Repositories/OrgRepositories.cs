@@ -1,4 +1,5 @@
 using Aib.Application.Abstractions;
+using Aib.Domain;
 using Aib.Domain.Entities;
 using Dapper;
 using Dapper.SimpleSqlBuilder;
@@ -31,6 +32,20 @@ public sealed class AgencyRepository(IDbConnectionFactory factory) : IAgencyRepo
 
 public sealed class ContractorRepository(IDbConnectionFactory factory) : IContractorRepository
 {
+    public async Task<Contractor?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"select * from contractor where id = {id}");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Contractor>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<Contractor?> GetDefaultAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Contractor>(
+            new CommandDefinition("select * from contractor order by created_at limit 1", cancellationToken: ct));
+    }
+
     public async Task<Contractor?> GetByEmailAsync(string email, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"select * from contractor where lower(email) = lower({email})");
@@ -183,6 +198,36 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         return rows.ToList();
     }
 
+    public async Task<IReadOnlyList<WorkTask>> ListByWorkStatusAsync(IReadOnlyCollection<WorkStatus> statuses, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default)
+    {
+        var statusValues = statuses.Select(s => ((int)s).ToString()).ToArray();
+        var builder = SimpleBuilder.Create($"select * from task where work_status in {statusValues}");
+        if (restrictToClientIds is not null)
+        {
+            if (restrictToClientIds.Count == 0) return [];
+            builder.Append($" and client_id in {restrictToClientIds}");
+        }
+        builder.AppendNewLine($"order by completed_at nulls last, updated_at desc");
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<WorkTask>> ListByBillingStatusAsync(BillingStatus status, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default)
+    {
+        var statusVal = ((int)status).ToString();
+        var builder = SimpleBuilder.Create($"select * from task where billing_status = {statusVal}");
+        if (restrictToClientIds is not null)
+        {
+            if (restrictToClientIds.Count == 0) return [];
+            builder.Append($" and client_id in {restrictToClientIds}");
+        }
+        builder.AppendNewLine($"order by completed_at nulls last, updated_at desc");
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        return rows.ToList();
+    }
+
     public async Task<Guid> InsertAsync(WorkTask t, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
@@ -233,6 +278,22 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             """);
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<Guid>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<WorkTask>> GetSubtreeAsync(Guid rootTaskId, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            with recursive tree as (
+                select * from task where id = {rootTaskId}
+                union all
+                select t.* from task t
+                join tree p on t.parent_task_id = p.id
+            )
+            select * from tree
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
         return rows.ToList();
     }
 }

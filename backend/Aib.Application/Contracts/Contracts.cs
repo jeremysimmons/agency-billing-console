@@ -127,3 +127,37 @@ public sealed record UpsertStatusMappingRequest(
 public sealed record SuggestMappingsResult(int ContainerSuggestions, int TaskSuggestions, int StatusSeeded);
 
 public sealed record ApplyMappedStatusesResult(int Updated);
+
+// ---- Time & rollups ----
+public sealed record CreateTimeEntryRequest(
+    Guid TaskId, DateOnly WorkDate, int DurationMinutes,
+    string? Description, bool? Billable, decimal? HourlyRate,
+    DateTimeOffset? StartedAt, DateTimeOffset? EndedAt);
+
+public sealed record UpdateTimeEntryRequest(
+    DateOnly WorkDate, int DurationMinutes, string? Description, bool Billable,
+    decimal? HourlyRate, DateTimeOffset? StartedAt, DateTimeOffset? EndedAt);
+
+public sealed record TimeEntryDto(
+    Guid Id, Guid TaskId, Guid ContractorId, DateOnly WorkDate, int DurationMinutes,
+    string? Description, bool Billable, ApprovalStatus ApprovalStatus,
+    decimal? HourlyRate, decimal? BillingAmount,
+    DateTimeOffset? StartedAt, DateTimeOffset? EndedAt, bool FromImport);
+
+public sealed record TaskRollupDto(
+    Guid TaskId, string Title, RollupMode EstimateRollupMode, RollupMode ActualRollupMode,
+    int? DirectEstimateMinutes, int RolledUpEstimateMinutes,
+    int DirectActualMinutes, int RolledUpActualMinutes,
+    int DescendantCount);
+
+public sealed record WorkItemReviewDto(
+    Guid TaskId, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
+    string Title, WorkStatus WorkStatus, BillingStatus BillingStatus,
+    DateTimeOffset? CompletedAt, int? EstimatedMinutes,
+    int ActualMinutes, int BillableMinutes, decimal? BillingAmountEstimate,
+    string? ClickUpUrl, string? ClickUpStatus);
+
+public sealed record FinalizeWorkRequest(string? Notes);
+public sealed record ExcludeWorkRequest(string? Reason);
+
+public sealed record SyncImportedTimeResult(int Linked, int Skipped, int Failed);

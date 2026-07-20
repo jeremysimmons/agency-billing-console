@@ -19,6 +19,7 @@ async function logout() {
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/clients">Clients</RouterLink>
         <RouterLink to="/mappings">Mappings</RouterLink>
+        <RouterLink to="/work">Work</RouterLink>
       </nav>
       <div class="spacer" />
       <span class="user">{{ auth.user.displayName }}</span>
@@ -46,5 +47,5 @@ nav a.router-link-active { color: var(--p-primary-color, #10b981); font-weight: 
 .spacer { flex: 1; }
 .user { opacity: 0.8; }
 .link { background: none; border: none; cursor: pointer; color: var(--p-primary-color, #10b981); }
-.content { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.content { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
 </style>

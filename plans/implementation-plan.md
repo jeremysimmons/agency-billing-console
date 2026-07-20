@@ -1505,8 +1505,15 @@ Milestones map to Section 19 phases.
   - API: unmapped containers/tasks, suggest, confirm/ignore, status CRUD, apply-statuses
   - Vue `/mappings` review (Pinia Colada): suggest, accept, create client/project/task, ignore, status table
   - Verified: status seed 12; confirm folder→client + list→project; create task under mapped list; overwrite Confirmed → 400; re-suggest produced 6 container + 11 task suggestions
-- [ ] **M5 — Phase 4: Time & rollups** (NEXT)
-- [ ] **M6 — Phase 5: Billing** (billing periods/items, finalization, invoices, lines, expenses, payments, PDF)
+- [x] **M5 — Phase 4: Time & rollups** (DONE, verified)
+  - Schema: `time_entry`, `time_entry_source` (Script0004); rate resolve Time→Task→Project→Contractor; snapshot on approve
+  - `TimeService`: manual create, approve, sync imported ClickUp time → internal (idempotent via source link)
+  - `RollupService`: estimate/actual per `RollupMode` from source records + recursive subtree CTE
+  - `WorkReviewService`: pending / completed / finalized queues; finalize + exclude (billing-period attach deferred to M6)
+  - API: `/api/time-entries`, `/api/tasks/{id}/rollup`, `/api/work/{pending,completed,finalized,finalize,exclude}`
+  - Vue `/work` review + sync-imported action
+  - Verified: manual 90m entry @ $150 → $225; rollup actual 90; sync linked 1 then 0 on repeat; finalize → Finalized queue
+- [ ] **M6 — Phase 5: Billing** (NEXT)
 - [ ] **M7 — Phase 6: Agency portal** (pending/completed/finalized dashboards, invoice history, client authz, audit)
 - [ ] **M8 — Phase 7: Hardening + deploy** (tests, idempotency, security, indexes, monitoring, backup; AWS Lightsail + nginx + systemd bootstrap on Ubuntu 24)
 

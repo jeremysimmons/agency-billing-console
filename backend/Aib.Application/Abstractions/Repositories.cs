@@ -1,3 +1,4 @@
+using Aib.Domain;
 using Aib.Domain.Entities;
 
 namespace Aib.Application.Abstractions;
@@ -91,10 +92,13 @@ public interface ITaskRepository
 {
     Task<WorkTask?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<WorkTask>> ListByClientAsync(Guid clientId, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkTask>> ListByWorkStatusAsync(IReadOnlyCollection<WorkStatus> statuses, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkTask>> ListByBillingStatusAsync(BillingStatus status, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default);
     Task<Guid> InsertAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateAsync(WorkTask task, CancellationToken ct = default);
     /// <summary>Return the ancestor ids of a task using a recursive CTE (excludes the task itself).</summary>
     Task<IReadOnlyList<Guid>> GetAncestorIdsAsync(Guid taskId, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkTask>> GetSubtreeAsync(Guid rootTaskId, CancellationToken ct = default);
 }
 
 public interface IAgencyRepository
@@ -105,6 +109,31 @@ public interface IAgencyRepository
 
 public interface IContractorRepository
 {
+    Task<Contractor?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<Contractor?> GetDefaultAsync(CancellationToken ct = default);
     Task<Contractor?> GetByEmailAsync(string email, CancellationToken ct = default);
     Task<Guid> InsertAsync(Contractor contractor, CancellationToken ct = default);
+}
+
+public interface ITimeEntryRepository
+{
+    Task<TimeEntry?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<TimeEntry>> ListByTaskAsync(Guid taskId, CancellationToken ct = default);
+    Task<IReadOnlyList<TimeEntry>> ListByClientAsync(Guid clientId, CancellationToken ct = default);
+    Task<int> SumDurationMinutesAsync(Guid taskId, bool directOnly, CancellationToken ct = default);
+    Task<Guid> InsertAsync(TimeEntry entry, CancellationToken ct = default);
+    Task UpdateAsync(TimeEntry entry, CancellationToken ct = default);
+}
+
+public interface ITimeEntrySourceRepository
+{
+    Task<TimeEntrySource?> GetByExternalIdAsync(Guid externalTimeEntryId, CancellationToken ct = default);
+    Task<TimeEntrySource?> GetByTimeEntryIdAsync(Guid timeEntryId, CancellationToken ct = default);
+    Task InsertAsync(TimeEntrySource source, CancellationToken ct = default);
+}
+
+public interface IExternalTimeEntryQueryRepository
+{
+    Task<IReadOnlyList<ExternalTimeEntry>> ListUnlinkedForMappedTasksAsync(Guid connectionId, CancellationToken ct = default);
+    Task<ExternalTimeEntry?> GetByIdAsync(Guid id, CancellationToken ct = default);
 }

@@ -57,6 +57,7 @@ public static class DapperConfig
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ClientStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ProjectStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.MagicLinkPurpose>());
+        SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ApprovalStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ExternalConnectionStatus>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ContainerType>());
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.WorkItemType>());

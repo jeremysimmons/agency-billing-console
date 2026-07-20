@@ -52,6 +52,9 @@ public static class DependencyInjection
         services.AddScoped<IClientAccessRepository, ClientAccessRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
+        services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
+        services.AddScoped<ITimeEntrySourceRepository, TimeEntrySourceRepository>();
+        services.AddScoped<IExternalTimeEntryQueryRepository, ExternalTimeEntryQueryRepository>();
 
         // ClickUp integration repositories
         services.AddScoped<IExternalConnectionRepository, ExternalConnectionRepository>();

@@ -90,6 +90,15 @@ public enum MagicLinkPurpose
     Invitation
 }
 
+public enum ApprovalStatus
+{
+    Draft,
+    Submitted,
+    Approved,
+    Rejected,
+    Invoiced
+}
+
 // ---- ClickUp integration ----
 
 public enum ExternalConnectionStatus

@@ -102,3 +102,55 @@ export interface SuggestMappingsResult {
   taskSuggestions: number
   statusSeeded: number
 }
+
+export interface TimeEntry {
+  id: string
+  taskId: string
+  contractorId: string
+  workDate: string
+  durationMinutes: number
+  description: string | null
+  billable: boolean
+  approvalStatus: string
+  hourlyRate: number | null
+  billingAmount: number | null
+  startedAt: string | null
+  endedAt: string | null
+  fromImport: boolean
+}
+
+export interface TaskRollup {
+  taskId: string
+  title: string
+  estimateRollupMode: string
+  actualRollupMode: string
+  directEstimateMinutes: number | null
+  rolledUpEstimateMinutes: number
+  directActualMinutes: number
+  rolledUpActualMinutes: number
+  descendantCount: number
+}
+
+export interface WorkItemReview {
+  taskId: string
+  clientId: string
+  clientName: string
+  projectId: string | null
+  projectName: string | null
+  title: string
+  workStatus: string
+  billingStatus: string
+  completedAt: string | null
+  estimatedMinutes: number | null
+  actualMinutes: number
+  billableMinutes: number
+  billingAmountEstimate: number | null
+  clickUpUrl: string | null
+  clickUpStatus: string | null
+}
+
+export interface SyncImportedTimeResult {
+  linked: number
+  skipped: number
+  failed: number
+}
