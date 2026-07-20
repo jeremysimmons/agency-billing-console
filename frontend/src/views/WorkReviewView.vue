@@ -64,7 +64,7 @@ async function doExclude(row: WorkItemReview) {
 <template>
   <section>
     <h1>Work review</h1>
-    <p class="lead">Pending / completed ClickUp work awaiting billing decisions. Finalize freezes the item for invoicing (M6).</p>
+    <p class="lead">Pending / completed ClickUp work awaiting billing decisions. Finalize freezes the item for invoicing.</p>
 
     <div class="actions">
       <button @click="runSync" :disabled="syncTime.isLoading.value">Sync imported time</button>
