@@ -1,0 +1,369 @@
+AIB database schema (PostgreSQL)
+Source: backend/Aib.Infrastructure/Migrations/Script000{1..4}_*.sql
+Enum-like columns stored as text (PascalCase, matching C# enums).
+PK = primary key · FK = foreign key · UQ = unique · * = nullable
+
+================================================================================
+OVERVIEW
+================================================================================
+
+  agency ──┬── client ──┬── project
+           │            └── task ────┬── task (parent)
+           │                         └── time_entry ── time_entry_source
+           │
+           ├── app_user ──┬── user_role ── role
+           │              ├── client_access ── client
+           │              ├── local_credential
+           │              ├── magic_link_token
+           │              ├── social_identity ── identity_provider
+           │              ├── user_session ── identity_provider
+           │              └── auth_event
+           │
+           ├── contractor ──┬── app_user
+           │                └── time_entry
+           │
+           └── external_connection ──┬── external_identity ── app_user / contractor
+                                     ├── external_container ──┬── external_work_item
+                                     │                        └── external_container_mapping
+                                     │                              └── client / project
+                                     ├── external_work_item ──┬── external_time_entry
+                                     │                        └── external_task_mapping ── task
+                                     ├── external_time_entry ── time_entry_source
+                                     ├── external_status_mapping
+                                     ├── import_run ── import_record
+                                     └── sync_cursor
+
+================================================================================
+1. ORGANIZATION & WORK HIERARCHY  (Script0001)
+================================================================================
+
+┌─────────────────────────────┐
+│ agency                      │
+│─────────────────────────────│
+│ PK  id                 uuid │
+│     name               text │
+│  *  billing_email      text │
+│  *  billing_address    text │
+│     currency           text │  default 'USD'
+│     payment_terms_days int  │  default 30
+│     active             bool │
+│     created_at / updated_at │
+└──────────────┬──────────────┘
+               │ 1
+               │
+       ┌───────┴───────┐
+       │ N             │ N
+┌──────▼──────┐  ┌─────▼──────────────────┐
+│ client      │  │ external_connection    │  (see §3)
+│─────────────│  └────────────────────────┘
+│ PK  id      │
+│ FK  agency_id
+│     name, code*, description*
+│     status, active
+│     created_at / updated_at
+└──────┬──────┘
+       │ 1
+       ├────────────────────────┐
+       │ N                      │ N
+┌──────▼──────────────┐  ┌──────▼──────────────────────────────┐
+│ project             │  │ task                                │
+│─────────────────────│  │─────────────────────────────────────│
+│ PK  id              │  │ PK  id                              │
+│ FK  client_id       │  │ FK  client_id                       │
+│     name, code*     │  │ FK* project_id ─────────────────────┤
+│     description*    │  │ FK* parent_task_id ──┐ (self)       │
+│     status          │  │     title, description*             │
+│     billing_type    │  │     work_status, billing_status     │
+│  *  hourly_rate     │  │     billing_type, billable          │
+│  *  fixed_fee       │  │  *  hourly_rate, fixed_fee          │
+│  *  budget_minutes  │  │  *  estimated_minutes               │
+│  *  budget_amount   │  │     estimate/actual/billing_rollup  │
+│  *  start_date/end  │  │  *  due_date, completed_at          │
+│     active          │  │  *  finalized_at                    │
+│     created/updated │  │ FK* finalized_by_user_id → app_user │
+└─────────────────────┘  │     sort_order                      │
+                         │     created_at / updated_at         │
+                         └──────┬──────────────────────────────┘
+                                │ 1
+                                │ N
+                         ┌──────▼──────────────┐
+                         │ time_entry (§4)     │
+                         └─────────────────────┘
+
+┌─────────────────────────────┐
+│ contractor                  │
+│─────────────────────────────│
+│ PK  id                 uuid │
+│     name               text │
+│     email              text │  UQ lower(email)
+│  *  default_hourly_rate     │
+│     active, created/updated │
+└──────────────┬──────────────┘
+               │
+               ├── app_user.contractor_id
+               └── time_entry.contractor_id
+
+================================================================================
+2. IDENTITY & AUTH  (Script0001)
+================================================================================
+
+┌─────────────────────────────┐       ┌─────────────────────────────┐
+│ agency                      │       │ contractor                  │
+└──────────────┬──────────────┘       └──────────────┬──────────────┘
+               │ *                                   │ *
+               │                                     │
+┌──────────────▼─────────────────────────────────────▼──────────────┐
+│ app_user                                                          │
+│───────────────────────────────────────────────────────────────────│
+│ PK  id                       uuid                                 │
+│ FK* agency_id                → agency                             │
+│ FK* contractor_id            → contractor                         │
+│     username / normalized_username   UQ(normalized_username)      │
+│     email / normalized_email         UQ(normalized_email)         │
+│     display_name, status                                          │
+│  *  email_verified_at, last_login_at                              │
+│     password/magic_link/social_login_enabled                      │
+│     created_at / updated_at                                       │
+└──┬────┬────┬────┬────┬────┬────┬──────────────────────────────────┘
+   │    │    │    │    │    │    │
+   │    │    │    │    │    │    └──── auth_event (FK* user_id, set null)
+   │    │    │    │    │    │
+   │    │    │    │    │    └───────── user_session
+   │    │    │    │    │                   FK  user_id
+   │    │    │    │    │                   FK* identity_provider_id
+   │    │    │    │    │                   UQ  session_token_hash
+   │    │    │    │    │
+   │    │    │    │    └────────────── social_identity
+   │    │    │    │                        FK  user_id
+   │    │    │    │                        FK  identity_provider_id
+   │    │    │    │                        UQ (identity_provider_id, provider_subject)
+   │    │    │    │
+   │    │    │    └─────────────────── magic_link_token
+   │    │    │                             FK  user_id
+   │    │    │                             UQ  token_hash
+   │    │    │
+   │    │    └──────────────────────── local_credential
+   │    │                                  FK  user_id  UQ
+   │    │                                  password_hash, lockout fields
+   │    │
+   │    └───────────────────────────── client_access
+   │                                       PK (user_id, client_id)
+   │                                       FK  user_id, client_id
+   │                                       access_level
+   │
+   └────────────────────────────────── user_role
+                                           PK (user_id, role_id)
+                                           FK  user_id → app_user
+                                           FK  role_id → role
+
+┌─────────────────────────────┐       ┌─────────────────────────────┐
+│ role                        │       │ identity_provider           │
+│─────────────────────────────│       │─────────────────────────────│
+│ PK  id              serial  │       │ PK  id                 uuid │
+│ UQ  name            text    │       │ UQ  provider_type      text │
+└─────────────────────────────┘       │     name, issuer, client_id │
+                                      │  *  secret_reference        │
+                                      │  *  hosted_domain           │
+                                      │     enabled, created/updated│
+                                      └─────────────────────────────┘
+
+================================================================================
+3. CLICKUP / EXTERNAL STAGING  (Script0002)
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────┐
+│ external_connection                                             │
+│─────────────────────────────────────────────────────────────────│
+│ PK  id                       uuid                               │
+│ FK  agency_id                → agency                           │
+│     provider_type            text  default 'clickup'            │
+│     name                                                        │
+│  *  external_workspace_id        UQ (provider_type, workspace)  │
+│     authentication_reference                                    │
+│     status                                                      │
+│  *  last_successful_sync_at / last_attempted_sync_at            │
+│     created_at / updated_at                                     │
+└──┬──────────┬──────────┬──────────┬──────────┬──────────────────┘
+   │          │          │          │          │
+   │          │          │          │          └─ sync_cursor
+   │          │          │          │               UQ (connection_id, entity_type)
+   │          │          │          │
+   │          │          │          └──────────── import_run
+   │          │          │                            │
+   │          │          │                            └─ import_record
+   │          │          │
+   │          │          └─────────────────────────── external_status_mapping (§3b)
+   │          │
+   │          └────────────────────────────────────── external_identity
+   │                                                      FK* user_id → app_user
+   │                                                      FK* contractor_id
+   │                                                      UQ (connection_id, external_user_id)
+   │
+   ├───────────────────────────────────────────────── external_container
+   │                                                      UQ (connection_id, container_type, external_id)
+   │                                                      * external_parent_id (text, hierarchy)
+   │                                                      container_type, name, archived
+   │                                                      * raw_data_json (jsonb)
+   │                                                      │
+   │                                                      ├─ external_work_item.external_container_id
+   │                                                      └─ external_container_mapping (§3b)
+   │
+   └───────────────────────────────────────────────── external_work_item
+                                                          UQ (connection_id, external_id)
+                                                          * external_parent_work_item_id (text)
+                                                          item_type, name, status_*, dates, estimates
+                                                          * raw_data_json (jsonb)
+                                                          │
+                                                          ├─ external_time_entry.external_work_item_id
+                                                          └─ external_task_mapping (§3b)
+
+┌─────────────────────────────────────────────────────────────────┐
+│ external_time_entry                                             │
+│─────────────────────────────────────────────────────────────────│
+│ PK  id                       uuid                               │
+│ FK  external_connection_id                                      │
+│ FK* external_work_item_id                                       │
+│  *  external_work_item_external_id                              │
+│     external_user_id, external_id   UQ (connection_id, id)      │
+│     work_date, started_at*, ended_at*, duration_minutes         │
+│  *  description, billable                                       │
+│  *  raw_data_json (jsonb)                                       │
+│     last_synced_at                                              │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               └─ time_entry_source (§4)
+
+┌─────────────────────────────┐
+│ import_run                  │
+│─────────────────────────────│
+│ PK  id                      │
+│ FK  external_connection_id  │
+│     import_type, status     │
+│     started_at / completed* │
+│     record counters         │
+│ FK* triggered_by_user_id    │
+└──────────────┬──────────────┘
+               │ 1
+               │ N
+┌──────────────▼──────────────┐
+│ import_record               │
+│─────────────────────────────│
+│ PK  id                      │
+│ FK  import_run_id           │
+│     external_entity_type/id │
+│     action, status          │
+│  *  external_record_id      │
+│  *  error_message           │
+│     imported_at             │
+└─────────────────────────────┘
+
+================================================================================
+3b. EXTERNAL ↔ INTERNAL MAPPING  (Script0003)
+================================================================================
+
+  external_container ──1:1── external_container_mapping ──*──► client
+                                                          ──*──► project
+                                                          ──*──► app_user (mapped_by)
+
+  external_work_item  ──1:1── external_task_mapping      ──*──► task
+                                                          ──*──► app_user (mapped_by)
+
+  external_connection ──1:N── external_status_mapping
+                                UQ (connection_id, external_status_name)
+                                external_status_name/type → internal_status
+                                treated_as_completed / treated_as_billable
+
+  mapping_status / mapping_source stored as text (enum ordinals or names)
+
+================================================================================
+4. TIME  (Script0004)
+================================================================================
+
+┌─────────────────────────────┐
+│ contractor                  │
+└──────────────┬──────────────┘
+               │ 1
+               │ N
+┌──────────────▼──────────────────────────────────────────────┐
+│ time_entry                                                  │
+│─────────────────────────────────────────────────────────────│
+│ PK  id                 uuid                                 │
+│ FK  contractor_id      → contractor                         │
+│ FK  task_id            → task  ON DELETE CASCADE            │
+│  *  billing_period_id  uuid   (future FK; no table yet)     │
+│     work_date          date                                 │
+│  *  started_at / ended_at                                   │
+│     duration_minutes   int  CHECK >= 0                      │
+│  *  description                                             │
+│     billable, approval_status                               │
+│  *  hourly_rate, billing_amount                             │
+│  *  invoice_line_id    uuid   (future FK; no table yet)     │
+│     created_at / updated_at                                 │
+└──────────────┬──────────────────────────────────────────────┘
+               │ 1
+               │ 1
+┌──────────────▼──────────────────────────────────────────────┐
+│ time_entry_source                                           │
+│─────────────────────────────────────────────────────────────│
+│ PK  id                                                      │
+│ FK  time_entry_id           UQ → time_entry                 │
+│ FK  external_time_entry_id  UQ → external_time_entry        │
+│     imported_duration_minutes                               │
+│     imported_at                                             │
+└─────────────────────────────────────────────────────────────┘
+
+================================================================================
+TABLE INDEX (alphabetical)
+================================================================================
+
+  agency
+  app_user
+  auth_event
+  client
+  client_access
+  contractor
+  external_connection
+  external_container
+  external_container_mapping
+  external_identity
+  external_status_mapping
+  external_task_mapping
+  external_time_entry
+  external_work_item
+  identity_provider
+  import_record
+  import_run
+  local_credential
+  magic_link_token
+  project
+  role
+  social_identity
+  sync_cursor
+  task
+  time_entry
+  time_entry_source
+  user_role
+  user_session
+
+================================================================================
+RELATIONSHIP CHEAT SHEET
+================================================================================
+
+  agency            1──N  client, app_user*, external_connection
+  client            1──N  project, task, client_access
+  project           1──N  task*
+  task              1──N  task* (parent), time_entry
+  contractor        1──N  app_user*, time_entry, external_identity*
+  app_user          1──N  user_role, client_access, sessions, tokens, identities, events
+  role              1──N  user_role
+  identity_provider 1──N  social_identity, user_session*
+
+  external_connection 1──N  identity, container, work_item, time_entry,
+                             import_run, sync_cursor, status_mapping
+  external_container  1──1  container_mapping ; 1──N work_item*
+  external_work_item  1──1  task_mapping ; 1──N time_entry*
+  external_time_entry 1──1  time_entry_source ──1──1 time_entry
+  import_run          1──N  import_record
+
+  * = optional FK (nullable)
+)
