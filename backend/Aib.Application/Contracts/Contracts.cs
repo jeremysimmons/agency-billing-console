@@ -24,8 +24,10 @@ public sealed record AuthResult(bool Succeeded, AuthenticatedUser? User, string?
 }
 
 // ---- Agency ----
+public sealed record UpdateAgencyRequest(
+    string Name, string? BillingEmail, string? BillingAddress, string Currency, int PaymentTermsDays, bool Active);
 public sealed record AgencyDto(
-    Guid Id, string Name, string? BillingEmail, string Currency, int PaymentTermsDays, bool Active);
+    Guid Id, string Name, string? BillingEmail, string? BillingAddress, string Currency, int PaymentTermsDays, bool Active);
 
 // ---- Clients ----
 public sealed record CreateClientRequest(string Name, string? Code, string? Description, ClientStatus? Status);
@@ -91,7 +93,8 @@ public sealed record ImportRunDto(
 // ---- Mapping ----
 public sealed record UnmappedContainerDto(
     Guid ContainerId, string ExternalId, ContainerType ContainerType, string Name, string? Url,
-    string? ParentExternalId, Guid? MappingId, MappingStatus? MappingStatus,
+    string? ParentExternalId, string? ParentName, ContainerType? ParentContainerType,
+    Guid? MappingId, MappingStatus? MappingStatus,
     Guid? SuggestedClientId, string? SuggestedClientName,
     Guid? SuggestedProjectId, string? SuggestedProjectName);
 

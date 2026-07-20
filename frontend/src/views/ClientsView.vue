@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useClients, useCreateClient } from '../queries/clients'
+import { useClients, useCreateClient, useDeleteClient } from '../queries/clients'
 
 const router = useRouter()
 const { data: clients, isLoading, error } = useClients()
 const createClient = useCreateClient()
+const deleteClient = useDeleteClient()
 
 const name = ref('')
 const code = ref('')
 const formError = ref('')
+const confirmId = ref<string | null>(null)
+const deleteError = ref('')
 
 async function add() {
   formError.value = ''
@@ -18,6 +21,17 @@ async function add() {
     name.value = ''; code.value = ''
   } catch (e: any) {
     formError.value = e?.response?.data?.error ?? 'Could not create client.'
+  }
+}
+
+async function remove(id: string) {
+  deleteError.value = ''
+  try {
+    await deleteClient.mutateAsync(id)
+    confirmId.value = null
+  } catch (e: any) {
+    deleteError.value = e?.response?.data?.error ?? 'Could not delete client.'
+    confirmId.value = null
   }
 }
 </script>
@@ -32,6 +46,7 @@ async function add() {
       <button :disabled="createClient.isLoading.value">Add client</button>
     </form>
     <p v-if="formError" class="error">{{ formError }}</p>
+    <p v-if="deleteError" class="error">{{ deleteError }}</p>
 
     <p v-if="isLoading">Loading…</p>
     <p v-else-if="error" class="error">Failed to load clients.</p>
@@ -42,7 +57,14 @@ async function add() {
           <td>{{ c.name }}</td>
           <td>{{ c.code ?? '—' }}</td>
           <td>{{ c.status }}</td>
-          <td><button class="link" @click="router.push(`/clients/${c.id}`)">Open</button></td>
+          <td class="actions">
+            <button class="link" @click="router.push(`/clients/${c.id}`)">Open</button>
+            <template v-if="confirmId === c.id">
+              <button class="link danger" :disabled="deleteClient.isLoading.value" @click="remove(c.id)">Confirm</button>
+              <button class="link" :disabled="deleteClient.isLoading.value" @click="confirmId = null">Cancel</button>
+            </template>
+            <button v-else class="link danger" @click="confirmId = c.id">Delete</button>
+          </td>
         </tr>
         <tr v-if="clients && clients.length === 0"><td colspan="4">No clients yet.</td></tr>
       </tbody>
@@ -56,6 +78,8 @@ input { padding: 0.5rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; }
 button { padding: 0.5rem 0.9rem; border: none; border-radius: 8px; background: #10b981; color: #fff; cursor: pointer; }
 .grid { width: 100%; border-collapse: collapse; }
 .grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
-.link { background: none; color: #10b981; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.link { background: none; color: #10b981; padding: 0; }
+.link.danger { color: #dc2626; }
 .error { color: #dc2626; }
 </style>

@@ -72,6 +72,7 @@ public interface IClientRepository
     Task<IReadOnlyList<Client>> ListAsync(Guid agencyId, IReadOnlyCollection<Guid>? restrictToClientIds, CancellationToken ct = default);
     Task<Guid> InsertAsync(Client client, CancellationToken ct = default);
     Task UpdateAsync(Client client, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
 }
 
 public interface IClientAccessRepository
@@ -105,6 +106,7 @@ public interface IAgencyRepository
 {
     Task<Agency?> GetDefaultAsync(CancellationToken ct = default);
     Task<Guid> InsertAsync(Agency agency, CancellationToken ct = default);
+    Task UpdateAsync(Agency agency, CancellationToken ct = default);
 }
 
 public interface IContractorRepository

@@ -18,13 +18,14 @@ async function logout() {
     <header v-if="auth.user" class="topbar">
       <div class="brand-block">
         <div class="brand">Agency Billing Console</div>
-        <RouterLink v-if="agency" to="/" class="agency-context" :title="'Top-level agency'">
+        <RouterLink v-if="agency" to="/agency" class="agency-context" title="Edit agency">
           <span class="agency-label">Agency</span>
           <span class="agency-name">{{ agency.name }}</span>
         </RouterLink>
       </div>
       <nav>
         <RouterLink to="/">Dashboard</RouterLink>
+        <RouterLink to="/agency">Agency</RouterLink>
         <RouterLink to="/clients">Clients</RouterLink>
         <RouterLink to="/mappings">Mappings</RouterLink>
         <RouterLink to="/work">Work</RouterLink>

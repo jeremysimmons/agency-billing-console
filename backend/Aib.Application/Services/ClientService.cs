@@ -69,6 +69,13 @@ public sealed class ClientService(
         return Map(client);
     }
 
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        access.EnsureCanManage();
+        _ = await clients.GetByIdAsync(id, ct) ?? throw new NotFoundException("Client not found.");
+        await clients.DeleteAsync(id, ct);
+    }
+
     private static ClientDto Map(Client c) =>
         new(c.Id, c.Name, c.Code, c.Description, c.Status, c.Active);
 }

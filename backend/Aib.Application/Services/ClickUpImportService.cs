@@ -92,6 +92,10 @@ public sealed class ClickUpImportService(
 
         try
         {
+            // Task payloads usually omit space names — resolve once per run.
+            var spaceNames = (await clickUp.GetSpacesAsync(teamId, ct))
+                .ToDictionary(s => s.Id, s => s.Name, StringComparer.Ordinal);
+
             // ---- Tasks + containers ----
             var page = 0;
             while (true)
@@ -102,7 +106,7 @@ public sealed class ClickUpImportService(
                     run.RecordsFetched++;
                     try
                     {
-                        var containerId = await UpsertContainersAsync(connection.Id, task, diagnostics, ct);
+                        var containerId = await UpsertContainersAsync(connection.Id, task, spaceNames, diagnostics, ct);
                         await UpsertAssigneesAsync(connection.Id, task, seenUsers, diagnostics, ct);
                         var action = await UpsertWorkItemAsync(connection.Id, task, containerId, ct);
                         Tally(run, action);
@@ -213,19 +217,26 @@ public sealed class ClickUpImportService(
         return Map(run);
     }
 
-    private async Task<Guid?> UpsertContainersAsync(Guid connectionId, ClickUpTask task, List<ImportRecord> diag, CancellationToken ct)
+    private async Task<Guid?> UpsertContainersAsync(
+        Guid connectionId, ClickUpTask task, IReadOnlyDictionary<string, string> spaceNames,
+        List<ImportRecord> diag, CancellationToken ct)
     {
         var now = clock.UtcNow;
         Guid? spaceId = null, folderId = null, listId = null;
 
         if (!string.IsNullOrEmpty(task.SpaceId))
-            spaceId = (await UpsertContainerAsync(connectionId, task.SpaceId!, ContainerType.Space, $"Space {task.SpaceId}", null, task.RawJson, now, diag, ct));
+        {
+            var spaceName = task.SpaceName
+                ?? (spaceNames.TryGetValue(task.SpaceId, out var n) ? n : null)
+                ?? $"Space {task.SpaceId}";
+            spaceId = await UpsertContainerAsync(connectionId, task.SpaceId!, ContainerType.Space, spaceName, null, task.RawJson, now, diag, ct);
+        }
 
         if (!string.IsNullOrEmpty(task.FolderId) && !task.FolderHidden)
-            folderId = (await UpsertContainerAsync(connectionId, task.FolderId!, ContainerType.Folder, task.FolderName ?? "Folder", task.SpaceId, task.RawJson, now, diag, ct));
+            folderId = await UpsertContainerAsync(connectionId, task.FolderId!, ContainerType.Folder, task.FolderName ?? "Folder", task.SpaceId, task.RawJson, now, diag, ct);
 
         if (!string.IsNullOrEmpty(task.ListId))
-            listId = (await UpsertContainerAsync(connectionId, task.ListId!, ContainerType.List, task.ListName ?? "List", task.FolderId ?? task.SpaceId, task.RawJson, now, diag, ct));
+            listId = await UpsertContainerAsync(connectionId, task.ListId!, ContainerType.List, task.ListName ?? "List", task.FolderId ?? task.SpaceId, task.RawJson, now, diag, ct);
 
         return listId ?? folderId ?? spaceId;
     }

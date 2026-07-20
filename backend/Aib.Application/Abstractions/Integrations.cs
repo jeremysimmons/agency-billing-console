@@ -14,6 +14,9 @@ public interface IClickUpClient
     /// <summary>Fetch time entries for a team within an optional start window (ms epoch).</summary>
     Task<IReadOnlyList<ClickUpTimeEntry>> GetTimeEntriesAsync(
         string teamId, long? startDateMs, CancellationToken ct = default);
+
+    /// <summary>List spaces in a team (task payloads only include space id, not name).</summary>
+    Task<IReadOnlyList<ClickUpSpace>> GetSpacesAsync(string teamId, CancellationToken ct = default);
 }
 
 /// <summary>Outcome of a staging upsert, used to drive import diagnostics.</summary>

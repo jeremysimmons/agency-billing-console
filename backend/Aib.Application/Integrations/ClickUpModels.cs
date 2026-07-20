@@ -3,6 +3,9 @@ namespace Aib.Application.Integrations;
 /// <summary>Normalized ClickUp user (assignee/creator).</summary>
 public sealed record ClickUpUser(string Id, string? Username, string? Email);
 
+/// <summary>Normalized ClickUp space (workspace subdivision).</summary>
+public sealed record ClickUpSpace(string Id, string Name);
+
 /// <summary>Normalized ClickUp task/subtask as returned by the team task query.</summary>
 public sealed record ClickUpTask
 {
@@ -21,6 +24,7 @@ public sealed record ClickUpTask
     public string? FolderName { get; init; }
     public bool FolderHidden { get; init; }
     public string? SpaceId { get; init; }
+    public string? SpaceName { get; init; }
 
     public string? AssigneeExternalUserId { get; init; }
     public IReadOnlyList<ClickUpUser> Assignees { get; init; } = [];

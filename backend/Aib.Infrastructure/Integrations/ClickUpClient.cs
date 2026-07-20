@@ -60,6 +60,27 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
         return entries;
     }
 
+    public async Task<IReadOnlyList<ClickUpSpace>> GetSpacesAsync(string teamId, CancellationToken ct = default)
+    {
+        var query = $"team/{Uri.EscapeDataString(teamId)}/space?archived=false";
+        using var doc = await GetJsonAsync(query, ct);
+        var root = doc.RootElement;
+
+        var spaces = new List<ClickUpSpace>();
+        if (root.TryGetProperty("spaces", out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in arr.EnumerateArray())
+            {
+                var id = GetString(el, "id");
+                var name = GetString(el, "name");
+                if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(name))
+                    spaces.Add(new ClickUpSpace(id, name));
+            }
+        }
+
+        return spaces;
+    }
+
     private static ClickUpTask ParseTask(JsonElement el)
     {
         var status = el.TryGetProperty("status", out var s) && s.ValueKind == JsonValueKind.Object ? s : (JsonElement?)null;
@@ -91,6 +112,7 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
             FolderName = folder is { } f2 ? GetString(f2, "name") : null,
             FolderHidden = folder is { } f3 && GetBool(f3, "hidden"),
             SpaceId = space is { } sp ? GetString(sp, "id") : null,
+            SpaceName = space is { } spaceEl ? GetString(spaceEl, "name") : null,
             AssigneeExternalUserId = assignees.Count > 0 ? assignees[0].Id : null,
             Assignees = assignees,
             Creator = el.TryGetProperty("creator", out var cr) && cr.ValueKind == JsonValueKind.Object ? ParseUser(cr) : null,

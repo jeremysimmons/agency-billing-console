@@ -28,6 +28,23 @@ public sealed class AgencyRepository(IDbConnectionFactory factory) : IAgencyRepo
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
         return a.Id;
     }
+
+    public async Task UpdateAsync(Agency a, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            update agency set
+                name = {a.Name},
+                billing_email = {a.BillingEmail},
+                billing_address = {a.BillingAddress},
+                currency = {a.Currency},
+                payment_terms_days = {a.PaymentTermsDays},
+                active = {a.Active},
+                updated_at = {a.UpdatedAt}
+            where id = {a.Id}
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
 }
 
 public sealed class ContractorRepository(IDbConnectionFactory factory) : IContractorRepository
@@ -109,6 +126,32 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        var clearMappings = SimpleBuilder.Create($"""
+            update external_container_mapping
+            set client_id = null, project_id = null
+            where client_id = {id}
+               or project_id in (select id from project where client_id = {id})
+            """);
+        await conn.ExecuteAsync(new CommandDefinition(clearMappings.Sql, clearMappings.Parameters, tx, cancellationToken: ct));
+
+        var clearTaskMappings = SimpleBuilder.Create($"""
+            update external_task_mapping
+            set task_id = null
+            where task_id in (select id from task where client_id = {id})
+            """);
+        await conn.ExecuteAsync(new CommandDefinition(clearTaskMappings.Sql, clearTaskMappings.Parameters, tx, cancellationToken: ct));
+
+        var deleteClient = SimpleBuilder.Create($"delete from client where id = {id}");
+        await conn.ExecuteAsync(new CommandDefinition(deleteClient.Sql, deleteClient.Parameters, tx, cancellationToken: ct));
+
+        tx.Commit();
     }
 }
 

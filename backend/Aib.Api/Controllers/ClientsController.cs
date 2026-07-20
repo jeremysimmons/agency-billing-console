@@ -26,4 +26,11 @@ public sealed class ClientsController(ClientService clients) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClientRequest request, CancellationToken ct)
         => Ok(await clients.UpdateAsync(id, request, ct));
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await clients.DeleteAsync(id, ct);
+        return NoContent();
+    }
 }

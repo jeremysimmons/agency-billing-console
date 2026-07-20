@@ -38,3 +38,14 @@ export function useUpdateClient() {
     onSettled: () => cache.invalidateQueries({ key: ['clients'] }),
   })
 }
+
+export function useDeleteClient() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: async (id: string) => {
+      await ensureCsrf()
+      await http.delete(`/clients/${id}`)
+    },
+    onSettled: () => cache.invalidateQueries({ key: ['clients'] }),
+  })
+}

@@ -3,3 +3,5 @@ google-auth-client-secret.json
 certs/
 
 backend/Aib.Api/appsettings.Development.json
+
+.DS_Store

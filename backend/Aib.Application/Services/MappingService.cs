@@ -52,15 +52,25 @@ public sealed class MappingService(
         var projectById = (await queries.ListProjectsByAgencyAsync(agency.Id, ct)).ToDictionary(p => p.Id);
 
         var result = new List<UnmappedContainerDto>();
+        var byExternalId = containers.ToDictionary(c => c.ExternalId, StringComparer.Ordinal);
         foreach (var c in containers.Where(x => x.ContainerType is ContainerType.Folder or ContainerType.List or ContainerType.Space))
         {
             mappings.TryGetValue(c.Id, out var m);
             if (m?.MappingStatus is MappingStatus.Confirmed or MappingStatus.Ignored) continue;
 
+            string? parentName = null;
+            ContainerType? parentType = null;
+            if (c.ExternalParentId is { } parentExt
+                && byExternalId.TryGetValue(parentExt, out var parent))
+            {
+                parentName = parent.Name;
+                parentType = parent.ContainerType;
+            }
+
             result.Add(new UnmappedContainerDto(
                 c.Id, c.ExternalId, c.ContainerType, c.Name,
                 ClickUpUrls.Container(connection.ExternalWorkspaceId, c.ContainerType, c.ExternalId),
-                c.ExternalParentId,
+                c.ExternalParentId, parentName, parentType,
                 m?.Id, m?.MappingStatus,
                 m?.ClientId, m?.ClientId is { } cid && clientById.TryGetValue(cid, out var cl) ? cl.Name : null,
                 m?.ProjectId, m?.ProjectId is { } pid && projectById.TryGetValue(pid, out var pr) ? pr.Name : null));

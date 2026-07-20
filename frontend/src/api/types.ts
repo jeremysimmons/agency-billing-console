@@ -11,6 +11,7 @@ export interface Agency {
   id: string
   name: string
   billingEmail: string | null
+  billingAddress: string | null
   currency: string
   paymentTermsDays: number
   active: boolean
@@ -72,6 +73,8 @@ export interface UnmappedContainer {
   name: string
   url: string | null
   parentExternalId: string | null
+  parentName: string | null
+  parentContainerType: string | null
   mappingId: string | null
   mappingStatus: string | null
   suggestedClientId: string | null

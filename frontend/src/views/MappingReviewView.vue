@@ -113,7 +113,7 @@ async function runApplyStatuses() {
     <p v-if="loadingContainers">Loading…</p>
     <table v-else class="grid">
       <thead>
-        <tr><th>Type</th><th>Name</th><th>Status</th><th>Suggestion</th><th></th></tr>
+        <tr><th>Type</th><th>Name</th><th>Parent</th><th>Status</th><th>Suggestion</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="c in containers" :key="c.containerId">
@@ -121,6 +121,10 @@ async function runApplyStatuses() {
           <td>
             <a v-if="c.url" :href="c.url" target="_blank" rel="noopener">{{ c.name }}</a>
             <span v-else>{{ c.name }}</span>
+          </td>
+          <td>
+            <span v-if="c.parentName">{{ c.parentName }}</span>
+            <span v-else class="muted">—</span>
           </td>
           <td>{{ c.mappingStatus ?? '—' }}</td>
           <td>
@@ -139,7 +143,7 @@ async function runApplyStatuses() {
             <button class="link danger" @click="ignoreContainer.mutateAsync(c.containerId)">Ignore</button>
           </td>
         </tr>
-        <tr v-if="containers && containers.length === 0"><td colspan="5">Nothing to review.</td></tr>
+        <tr v-if="containers && containers.length === 0"><td colspan="6">Nothing to review.</td></tr>
       </tbody>
     </table>
 
@@ -199,5 +203,6 @@ button.secondary { background: #374151; }
 a { color: #059669; text-decoration: underline; text-underline-offset: 2px; }
 .ok { color: #047857; }
 .error { color: #dc2626; }
+.muted { opacity: 0.55; }
 h2 { margin-top: 1.5rem; }
 </style>

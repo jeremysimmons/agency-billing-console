@@ -23,7 +23,10 @@ const { data: clients, isLoading } = useClients()
         <div class="l">Clients under this agency</div>
       </div>
     </div>
-    <RouterLink to="/clients">Manage clients →</RouterLink>
+    <p class="links">
+      <RouterLink to="/agency">Edit agency →</RouterLink>
+      <RouterLink to="/clients">Manage clients →</RouterLink>
+    </p>
   </section>
 </template>
 
@@ -41,4 +44,5 @@ const { data: clients, isLoading } = useClients()
 .stat { border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.5rem; text-align: center; }
 .n { font-size: 1.8rem; font-weight: 700; }
 .l { opacity: 0.7; font-size: 0.85rem; }
+.links { display: flex; gap: 1.25rem; }
 </style>
