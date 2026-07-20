@@ -12,9 +12,9 @@ public sealed record ClientDto(
     string? Description, ClientStatus Status, bool Active);
 public sealed record DeleteAllClientsResult(int Deleted);
 
-public sealed record CreateProjectRequest(Guid ClientId, string Name, string? Code, string? Description);
-public sealed record UpdateProjectRequest(string Name, string? Code, string? Description, bool Active);
-public sealed record ProjectDto(Guid Id, Guid ClientId, string Name, string? Code, string? Description, bool Active);
+public sealed record CreateProjectRequest(Guid ClientId, string Name);
+public sealed record UpdateProjectRequest(string Name);
+public sealed record ProjectDto(Guid Id, Guid ClientId, string Name);
 
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,

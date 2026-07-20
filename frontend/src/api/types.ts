@@ -20,9 +20,6 @@ export interface Project {
   id: string
   clientId: string
   name: string
-  code: string | null
-  description: string | null
-  active: boolean
 }
 
 export interface WorkTask {

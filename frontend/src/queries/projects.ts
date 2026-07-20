@@ -6,8 +6,6 @@ import type { Project } from '../api/types'
 export interface ProjectInput {
   clientId: string
   name: string
-  code?: string | null
-  description?: string | null
 }
 
 export function useProjects(clientId: MaybeRefOrGetter<string | undefined>) {

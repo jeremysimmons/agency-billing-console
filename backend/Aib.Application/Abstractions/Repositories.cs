@@ -11,6 +11,7 @@ public interface IClientRepository
     Task<Guid> InsertAsync(Client client, CancellationToken ct = default);
     Task UpdateAsync(Client client, CancellationToken ct = default);
     Task DeleteAsync(Guid id, CancellationToken ct = default);
+    Task<int> DeleteAllAsync(CancellationToken ct = default);
 }
 
 public interface IProjectRepository

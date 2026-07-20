@@ -87,10 +87,8 @@ public sealed class ClientService(
 
     public async Task<DeleteAllClientsResult> DeleteAllAsync(CancellationToken ct = default)
     {
-        var list = await ListAsync(ct);
-        foreach (var client in list)
-            await clients.DeleteAsync(client.Id, ct);
-        return new DeleteAllClientsResult(list.Count);
+        var deleted = await clients.DeleteAllAsync(ct);
+        return new DeleteAllClientsResult(deleted);
     }
 
     private static ClientDto Map(Client c) =>
@@ -121,9 +119,6 @@ public sealed class ProjectService(
             Id = Guid.NewGuid(),
             ClientId = request.ClientId,
             Name = request.Name.Trim(),
-            Code = request.Code?.Trim(),
-            Description = request.Description,
-            Active = true,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -138,16 +133,13 @@ public sealed class ProjectService(
             throw new DomainException("Project name is required.");
 
         project.Name = request.Name.Trim();
-        project.Code = request.Code?.Trim();
-        project.Description = request.Description;
-        project.Active = request.Active;
         project.UpdatedAt = clock.UtcNow;
         await projects.UpdateAsync(project, ct);
         return Map(project);
     }
 
     private static ProjectDto Map(Project p) =>
-        new(p.Id, p.ClientId, p.Name, p.Code, p.Description, p.Active);
+        new(p.Id, p.ClientId, p.Name);
 }
 
 public sealed class TaskService(

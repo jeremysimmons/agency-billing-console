@@ -120,6 +120,12 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
+
+    public async Task<int> DeleteAllAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.ExecuteAsync(new CommandDefinition("delete from client", cancellationToken: ct));
+    }
 }
 
 public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRepository
@@ -142,11 +148,8 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
     public async Task<Guid> InsertAsync(Project p, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            insert into project
-                (id, client_id, name, code, description, status, billing_type, active, created_at, updated_at)
-            values
-                ({p.Id}, {p.ClientId}, {p.Name}, {p.Code}, {p.Description}, 'Active', 'Hourly',
-                 {p.Active}, {p.CreatedAt}, {p.UpdatedAt})
+            insert into project (id, client_id, name, created_at, updated_at)
+            values ({p.Id}, {p.ClientId}, {p.Name}, {p.CreatedAt}, {p.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -156,8 +159,7 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
     public async Task UpdateAsync(Project p, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            update project set name = {p.Name}, code = {p.Code}, description = {p.Description},
-                active = {p.Active}, updated_at = {p.UpdatedAt}
+            update project set name = {p.Name}, updated_at = {p.UpdatedAt}
             where id = {p.Id}
             """);
         using var conn = await factory.OpenAsync(ct);

@@ -1,23 +1,25 @@
 AIB database schema (PostgreSQL) — slim ClickUp billing prep
-Source: Script0001_Foundation.sql, Script0005_ClientOriginalName.sql, Script0006_SlimClickUp.sql
+Sources: Script0001_Foundation.sql, Script0005_ClientOriginalName.sql,
+         Script0006_SlimClickUp.sql, Script0007_SlimProject.sql, Script0008_DropLegacy.sql
 Enum-like columns stored as text (PascalCase, matching C# enums).
 PK = primary key · FK = foreign key · UQ = unique · * = nullable
-
-Auth tables may still exist from Script0001 but are unused (no login).
 
 ================================================================================
 OVERVIEW
 ================================================================================
 
-  agency ──┬── client ──┬── project   (you define)
+  agency ──┬── client ──┬── project   (you define — not ClickUp lists)
            │            └── task      (ClickUp sync + manual prep cols)
            │
            └── last_clickup_sync_*
 
   clickup_container   (space / folder / list lookup; refreshed on sync)
 
+  task upsert key: clickup_url (or clickup_task_id)
+  client link: clickup_folder_id (from ClickUp folder on sync/import)
+
 ================================================================================
-1. ORGANIZATION
+1. ORGANIZATION & TASKS
 ================================================================================
 
 ┌─────────────────────────────┐
@@ -30,7 +32,7 @@ OVERVIEW
 │     currency           text │  default 'USD'
 │     payment_terms_days int  │  default 30
 │     active             bool │
-│  *  last_clickup_sync_at    │  (Script0006)
+│  *  last_clickup_sync_at    │
 │  *  last_clickup_sync_summary│
 │     created_at / updated_at │
 └──────────────┬──────────────┘
@@ -41,11 +43,13 @@ OVERVIEW
 │─────────────────────│
 │ PK  id              │
 │ FK  agency_id       │
-│     name, code*     │
+│     name            │
+│  *  code            │
 │  *  original_name   │  (Script0005)
-│  *  clickup_folder_id│ UQ where not null (Script0006)
+│  *  clickup_folder_id│  UQ where not null
 │  *  description     │
-│     status, active  │
+│     status          │  default 'Active'
+│     active          │
 │     created_at / updated_at │
 └──────┬──────────────┘
        │ 1
@@ -55,33 +59,41 @@ OVERVIEW
 │ project             │  │ task                                │
 │─────────────────────│  │─────────────────────────────────────│
 │ PK  id              │  │ PK  id                              │
-│ FK  client_id       │  │ FK  client_id                       │
-│     name, code*     │  │ FK* project_id (your project)       │
-│     description*    │  │                                     │
-│     status          │  │ Manual (never overwritten by sync): │
-│     billing_type    │  │  * bill (yes/no)                    │
-│  *  hourly_rate     │  │  * billable_hours                   │
-│  *  fixed_fee       │  │  * non_billable_hours               │
-│  *  budget_*        │  │  * invoice_label                    │
-│  *  start/end date  │  │  * note                             │
-│     active          │  │                                     │
-│     created/updated │  │ ClickUp API (overwrite on sync):    │
-└─────────────────────┘  │  * clickup_url UQ                   │
-                         │  * clickup_task_id UQ               │
+│ FK  client_id       │  │ FK  client_id  ON DELETE CASCADE    │
+│     name            │  │ FK* project_id → project            │
+│     created/updated │  │                                     │
+└─────────────────────┘  │ Manual (never overwritten by sync): │
+                         │  * bill (yes | no)                  │
+                         │  * billable_hours                   │
+                         │  * non_billable_hours               │
+                         │  * invoice_label                    │
+                         │  * note                             │
+                         │                                     │
+                         │ ClickUp API (overwrite on sync):    │
+                         │  * clickup_url          UQ          │
+                         │  * clickup_task_id      UQ          │
                          │  * clickup_parent_id                │
                          │  * clickup_folder_id / _name        │
                          │  * clickup_list_id / _name          │
-                         │     title, description*             │
-                         │  * clickup_status, tags             │
-                         │  * date_created, due_date           │
-                         │  * date_done, date_closed           │
-                         │  * order_index                      │
-                         │  * estimated_hours, actual_hours    │
+                         │     title                           │
+                         │  *  description                     │
+                         │  *  clickup_status                  │
+                         │  *  tags (semicolon-separated)      │
+                         │  *  date_created                    │
+                         │  *  due_date (timestamptz)          │
+                         │  *  date_done / date_closed         │
+                         │  *  order_index                     │
+                         │  *  estimated_hours / actual_hours  │
                          │     created_at / updated_at         │
                          └─────────────────────────────────────┘
 
+Script0007 dropped from project: code, description, status, billing_type,
+hourly_rate, fixed_fee, budget_*, start_date, end_date, active.
+
+Script0008 dropped legacy auth, ClickUp staging, and billing tables.
+
 ================================================================================
-2. CLICKUP LOOKUP  (Script0006)
+2. CLICKUP LOOKUP
 ================================================================================
 
 ┌─────────────────────────────┐
@@ -91,13 +103,53 @@ OVERVIEW
 │     container_type     text │  space | folder | list
 │     external_id        text │  UQ
 │     name               text │
-│  *  parent_type        text │
+│  *  parent_type        text │  workspace | space | folder
 │  *  parent_external_id text │
 │     updated_at              │
 └─────────────────────────────┘
 
+No FK from task → clickup_container. Folder/list ids are denormalized on task.
+
 ================================================================================
-TABLE INDEX (alphabetical)
+3. APP LOGIC
+================================================================================
+
+Missing data (needsAttention) when any of:
+  - project_id is null
+  - bill is null
+  - bill = yes and billable_hours is null or 0
+  - invoice_label is null or blank
+
+Sync (POST /api/clickup/sync):
+  1. Upsert clickup_container from ClickUp API hierarchy
+  2. Page team tasks (assignee + date_created_gt filter)
+  3. Upsert task by clickup_url; update API cols only on existing rows
+  4. Auto-create/update client from clickup_folder_id + folder name
+
+CSV import (POST /api/clickup/import-csv):
+  One-shot load of sheet export; upsert by url; merges all columns.
+
+================================================================================
+4. API
+================================================================================
+
+  GET    /api/agency
+  GET    /api/clients
+  POST   /api/clients
+  PUT    /api/clients/{id}
+  DELETE /api/clients/{id}
+  DELETE /api/clients
+  GET    /api/projects?clientId=
+  POST   /api/projects
+  PUT    /api/projects/{id}
+  GET    /api/tasks?clientId=&missingOnly=
+  PATCH  /api/tasks/{id}/prep
+  POST   /api/clickup/sync
+  GET    /api/clickup/hierarchy
+  POST   /api/clickup/import-csv
+
+================================================================================
+TABLE INDEX
 ================================================================================
 
   agency
@@ -105,17 +157,15 @@ TABLE INDEX (alphabetical)
   clickup_container
   project
   task
-
-  (unused legacy from Script0001: app_user, contractor, role, user_role,
-   local_credential, identity_provider, social_identity, user_session)
+  schemaversions          (dbup migration journal)
 
 ================================================================================
-RELATIONSHIP CHEAT SHEET
+RELATIONSHIPS
 ================================================================================
 
   agency            1──N  client
-  client            1──N  project, task
+  client            1──N  project, task  (CASCADE)
   project           1──N  task*
-  clickup_container     lookup only (no FK from task)
+  clickup_container     lookup only
 
   * = optional FK (nullable)
