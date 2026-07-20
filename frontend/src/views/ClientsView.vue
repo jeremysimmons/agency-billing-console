@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useClients, useCreateClient, useDeleteClient } from '../queries/clients'
 
-const router = useRouter()
 const { data: clients, isLoading, error } = useClients()
 const createClient = useCreateClient()
 const deleteClient = useDeleteClient()
@@ -54,11 +52,10 @@ async function remove(id: string) {
       <thead><tr><th>Name</th><th>Code</th><th>Status</th><th></th></tr></thead>
       <tbody>
         <tr v-for="c in clients" :key="c.id">
-          <td>{{ c.name }}</td>
+          <td><RouterLink :to="`/clients/${c.id}`">{{ c.name }}</RouterLink></td>
           <td>{{ c.code ?? '—' }}</td>
           <td>{{ c.status }}</td>
           <td class="actions">
-            <button class="link" @click="router.push(`/clients/${c.id}`)">Open</button>
             <template v-if="confirmId === c.id">
               <button class="link danger" :disabled="deleteClient.isLoading.value" @click="remove(c.id)">Confirm</button>
               <button class="link" :disabled="deleteClient.isLoading.value" @click="confirmId = null">Cancel</button>
@@ -81,5 +78,6 @@ button { padding: 0.5rem 0.9rem; border: none; border-radius: 8px; background: #
 .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .link { background: none; color: #10b981; padding: 0; }
 .link.danger { color: #dc2626; }
+a { color: #059669; text-decoration: underline; text-underline-offset: 2px; }
 .error { color: #dc2626; }
 </style>
