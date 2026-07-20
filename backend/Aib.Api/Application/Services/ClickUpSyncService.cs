@@ -176,6 +176,7 @@ public sealed class ClickUpSyncService(
         task.Title = remote.Name ?? "(untitled)";
         task.Description = remote.Description;
         task.ClickUpStatus = remote.StatusName;
+        task.ClickUpStatusOrder = remote.StatusOrderIndex;
         task.Tags = remote.Tags.Count > 0 ? string.Join(';', remote.Tags) : null;
         task.DateCreated = remote.SourceCreatedAt;
         task.DueDate = remote.DueDate;

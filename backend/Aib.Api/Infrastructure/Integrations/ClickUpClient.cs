@@ -63,6 +63,7 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
             Name = GetString(el, "name"),
             Description = GetString(el, "description") ?? GetString(el, "text_content"),
             StatusName = status is { } st ? GetString(st, "status") : null,
+            StatusOrderIndex = status is { } st2 ? GetInt(st2, "orderindex") : null,
             ParentId = GetString(el, "parent"),
             ListId = list is { } l ? GetString(l, "id") : null,
             ListName = listName,
@@ -140,6 +141,12 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
             JsonValueKind.String when long.TryParse(v.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) => n,
             _ => null
         };
+    }
+
+    private static int? GetInt(JsonElement el, string name)
+    {
+        var n = GetLong(el, name);
+        return n is >= int.MinValue and <= int.MaxValue ? (int)n : null;
     }
 
     private static DateTimeOffset? MsToDate(long? ms) =>

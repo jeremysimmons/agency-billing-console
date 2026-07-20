@@ -65,13 +65,15 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] Guid? clientId,
         [FromQuery] bool? missingOnly,
+        [FromQuery] bool? includeInvoiced,
         [FromQuery] Guid? projectId,
         [FromQuery] bool? unassignedOnly,
         [FromQuery] string? createdMonth,
         [FromQuery] string? doneMonth,
+        [FromQuery] string[]? statuses,
         CancellationToken ct)
         => Ok(await tasks.ListAsync(
-            clientId, missingOnly, projectId, unassignedOnly, createdMonth, doneMonth, ct));
+            clientId, missingOnly, includeInvoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
 
     [HttpPatch("{id:guid}/prep")]
     public async Task<IActionResult> UpdatePrep(Guid id, [FromBody] UpdateTaskPrepRequest request, CancellationToken ct)

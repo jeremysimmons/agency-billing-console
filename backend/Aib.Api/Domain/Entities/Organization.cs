@@ -62,6 +62,7 @@ public class WorkTask
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? ClickUpStatus { get; set; }
+    public int? ClickUpStatusOrder { get; set; }
     public string? Tags { get; set; }
     public DateTimeOffset? DateCreated { get; set; }
     public DateTimeOffset? DueDate { get; set; }

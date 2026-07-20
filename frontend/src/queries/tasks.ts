@@ -6,25 +6,32 @@ import type { WorkTask } from '../api/types'
 export interface TaskFilterOptions {
   createdMonths: string[]
   doneMonths: string[]
+  statuses: string[]
 }
 
 export interface TaskListFilters {
   clientId?: string
   missingOnly?: boolean
+  includeInvoiced?: boolean
   projectFilter?: string
   createdMonth?: string
   doneMonth?: string
+  statuses?: string[]
 }
 
-function taskListParams(filters: TaskListFilters): Record<string, string | boolean> {
-  const params: Record<string, string | boolean> = {}
-  if (filters.clientId) params.clientId = filters.clientId
-  if (filters.missingOnly) params.missingOnly = true
-  if (filters.projectFilter === '__unassigned__') params.unassignedOnly = true
-  else if (filters.projectFilter) params.projectId = filters.projectFilter
-  if (filters.createdMonth) params.createdMonth = filters.createdMonth
-  if (filters.doneMonth) params.doneMonth = filters.doneMonth
-  return params
+function taskListParams(filters: TaskListFilters): string {
+  const params = new URLSearchParams()
+  if (filters.clientId) params.set('clientId', filters.clientId)
+  if (filters.missingOnly) params.set('missingOnly', 'true')
+  if (filters.includeInvoiced) params.set('includeInvoiced', 'true')
+  if (filters.projectFilter === '__unassigned__') params.set('unassignedOnly', 'true')
+  else if (filters.projectFilter) params.set('projectId', filters.projectFilter)
+  if (filters.createdMonth) params.set('createdMonth', filters.createdMonth)
+  if (filters.doneMonth) params.set('doneMonth', filters.doneMonth)
+  if (filters.statuses?.length) {
+    for (const status of filters.statuses) params.append('statuses', status)
+  }
+  return params.toString()
 }
 
 export function useTaskFilterOptions(clientId: MaybeRefOrGetter<string | undefined>) {
@@ -45,12 +52,14 @@ export function useTasks(filters: MaybeRefOrGetter<TaskListFilters>) {
       'tasks',
       f.value.clientId ?? 'all',
       f.value.missingOnly ? 'missing' : 'all',
+      f.value.includeInvoiced ? 'invoiced' : 'not-invoiced',
       f.value.projectFilter ?? 'all',
       f.value.createdMonth ?? 'all',
       f.value.doneMonth ?? 'all',
+      f.value.statuses?.slice().sort().join('|') ?? 'all',
     ],
     query: async () =>
-      (await http.get<WorkTask[]>('/tasks', { params: taskListParams(f.value) })).data,
+      (await http.get<WorkTask[]>(`/tasks?${taskListParams(f.value)}`)).data,
   })
 }
 

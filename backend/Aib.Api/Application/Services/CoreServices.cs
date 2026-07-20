@@ -151,14 +151,16 @@ public sealed class TaskService(
     public async Task<IReadOnlyList<TaskDto>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
+        bool? includeInvoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
         string? doneMonth,
+        IReadOnlyList<string>? statuses,
         CancellationToken ct = default)
     {
         var list = await tasks.ListAsync(
-            clientId, missingOnly, projectId, unassignedOnly, createdMonth, doneMonth, ct);
+            clientId, missingOnly, includeInvoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct);
         var clientNames = new Dictionary<Guid, string>();
         var projectNames = new Dictionary<Guid, string>();
 
@@ -190,8 +192,8 @@ public sealed class TaskService(
 
     public async Task<TaskFilterOptionsDto> GetFilterOptionsAsync(Guid? clientId, CancellationToken ct = default)
     {
-        var (createdMonths, doneMonths) = await tasks.ListMonthFiltersAsync(clientId, ct);
-        return new TaskFilterOptionsDto(createdMonths, doneMonths);
+        var (createdMonths, doneMonths, statuses) = await tasks.ListFilterOptionsAsync(clientId, ct);
+        return new TaskFilterOptionsDto(createdMonths, doneMonths, statuses);
     }
 
     public async Task<TaskDto> UpdatePrepAsync(Guid id, UpdateTaskPrepRequest request, CancellationToken ct = default)

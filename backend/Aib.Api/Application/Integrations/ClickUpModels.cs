@@ -8,6 +8,7 @@ public sealed record ClickUpTask
     public string? Name { get; init; }
     public string? Description { get; init; }
     public string? StatusName { get; init; }
+    public int? StatusOrderIndex { get; init; }
     public string? ParentId { get; init; }
     public string? ListId { get; init; }
     public string? ListName { get; init; }

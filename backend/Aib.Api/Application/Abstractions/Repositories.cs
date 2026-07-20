@@ -30,12 +30,14 @@ public interface ITaskRepository
     Task<IReadOnlyList<WorkTask>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
+        bool? includeInvoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
         string? doneMonth,
+        IReadOnlyList<string>? statuses,
         CancellationToken ct = default);
-    Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths)> ListMonthFiltersAsync(
+    Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths, IReadOnlyList<string> Statuses)> ListFilterOptionsAsync(
         Guid? clientId, CancellationToken ct = default);
     Task<Guid> InsertAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateAsync(WorkTask task, CancellationToken ct = default);

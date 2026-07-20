@@ -45,4 +45,5 @@ public sealed record CsvImportResultDto(int Imported, int Updated, int Skipped, 
 
 public sealed record TaskFilterOptionsDto(
     IReadOnlyList<string> CreatedMonths,
-    IReadOnlyList<string> DoneMonths);
+    IReadOnlyList<string> DoneMonths,
+    IReadOnlyList<string> Statuses);

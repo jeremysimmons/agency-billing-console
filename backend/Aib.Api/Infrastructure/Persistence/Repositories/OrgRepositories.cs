@@ -193,10 +193,12 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     public async Task<IReadOnlyList<WorkTask>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
+        bool? includeInvoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
         string? doneMonth,
+        IReadOnlyList<string>? statuses,
         CancellationToken ct = default)
     {
         var sql = """
@@ -233,6 +235,12 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             parameters.Add("doneMonth", doneMonth);
         }
 
+        if (statuses is { Count: > 0 })
+        {
+            sql += " and clickup_status = any(@statuses)";
+            parameters.Add("statuses", statuses);
+        }
+
         if (missingOnly == true)
         {
             sql += """
@@ -245,14 +253,19 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 """;
         }
 
-        sql += " order by date_done desc nulls last, date_created desc nulls last, title";
+        if (includeInvoiced != true)
+        {
+            sql += " and (invoice_label is null or trim(invoice_label) = '')";
+        }
+
+        sql += " order by date_done asc nulls last, date_created asc nulls last, title";
 
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(sql, parameters, cancellationToken: ct));
         return rows.ToList();
     }
 
-    public async Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths)> ListMonthFiltersAsync(
+    public async Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths, IReadOnlyList<string> Statuses)> ListFilterOptionsAsync(
         Guid? clientId, CancellationToken ct = default)
     {
         var clientClause = clientId is { } cid ? " and client_id = @clientId" : string.Empty;
@@ -264,19 +277,27 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             select distinct to_char(date_created, 'YYYY-MM') as month
             from task
             where date_created is not null{clientClause}
-            order by month desc
+            order by month asc
             """;
         var doneSql = $"""
             select distinct to_char(date_done, 'YYYY-MM') as month
             from task
             where date_done is not null{clientClause}
-            order by month desc
+            order by month asc
+            """;
+        var statusSql = $"""
+            select clickup_status as status
+            from task
+            where clickup_status is not null and trim(clickup_status) <> ''{clientClause}
+            group by clickup_status
+            order by min(clickup_status_order) nulls last, clickup_status asc
             """;
 
         using var conn = await factory.OpenAsync(ct);
         var created = (await conn.QueryAsync<string>(new CommandDefinition(createdSql, parameters, cancellationToken: ct))).ToList();
         var done = (await conn.QueryAsync<string>(new CommandDefinition(doneSql, parameters, cancellationToken: ct))).ToList();
-        return (created, done);
+        var statuses = (await conn.QueryAsync<string>(new CommandDefinition(statusSql, parameters, cancellationToken: ct))).ToList();
+        return (created, done, statuses);
     }
 
     public async Task<Guid> InsertAsync(WorkTask t, CancellationToken ct = default)
@@ -285,14 +306,14 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             insert into task
                 (id, client_id, project_id, bill, billable_hours, non_billable_hours, invoice_label, note,
                  clickup_url, clickup_task_id, clickup_parent_id, clickup_folder_id, clickup_folder_name,
-                 clickup_list_id, clickup_list_name, title, description, clickup_status, tags,
+                 clickup_list_id, clickup_list_name, title, description, clickup_status, clickup_status_order, tags,
                  date_created, due_date, date_done, date_closed, order_index, estimated_hours, actual_hours,
                  created_at, updated_at)
             values
                 ({t.Id}, {t.ClientId}, {t.ProjectId}, {t.Bill}, {t.BillableHours}, {t.NonBillableHours},
                  {t.InvoiceLabel}, {t.Note}, {t.ClickUpUrl}, {t.ClickUpTaskId}, {t.ClickUpParentId},
                  {t.ClickUpFolderId}, {t.ClickUpFolderName}, {t.ClickUpListId}, {t.ClickUpListName},
-                 {t.Title}, {t.Description}, {t.ClickUpStatus}, {t.Tags}, {t.DateCreated}, {t.DueDate},
+                 {t.Title}, {t.Description}, {t.ClickUpStatus}, {t.ClickUpStatusOrder}, {t.Tags}, {t.DateCreated}, {t.DueDate},
                  {t.DateDone}, {t.DateClosed}, {t.OrderIndex}, {t.EstimatedHours}, {t.ActualHours},
                  {t.CreatedAt}, {t.UpdatedAt})
             """);
@@ -311,7 +332,8 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
                 clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
                 clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},
-                title = {t.Title}, description = {t.Description}, clickup_status = {t.ClickUpStatus}, tags = {t.Tags},
+                title = {t.Title}, description = {t.Description}, clickup_status = {t.ClickUpStatus},
+                clickup_status_order = {t.ClickUpStatusOrder}, tags = {t.Tags},
                 date_created = {t.DateCreated}, due_date = {t.DueDate}, date_done = {t.DateDone},
                 date_closed = {t.DateClosed}, order_index = {t.OrderIndex},
                 estimated_hours = {t.EstimatedHours}, actual_hours = {t.ActualHours},
@@ -330,7 +352,8 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
                 clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
                 clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},
-                title = {t.Title}, description = {t.Description}, clickup_status = {t.ClickUpStatus}, tags = {t.Tags},
+                title = {t.Title}, description = {t.Description}, clickup_status = {t.ClickUpStatus},
+                clickup_status_order = {t.ClickUpStatusOrder}, tags = {t.Tags},
                 date_created = {t.DateCreated}, due_date = {t.DueDate}, date_done = {t.DateDone},
                 date_closed = {t.DateClosed}, order_index = {t.OrderIndex},
                 estimated_hours = {t.EstimatedHours}, actual_hours = {t.ActualHours},
