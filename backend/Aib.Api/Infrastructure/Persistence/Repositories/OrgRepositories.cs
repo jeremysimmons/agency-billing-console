@@ -226,9 +226,15 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         IReadOnlyList<string>? statuses,
         CancellationToken ct = default)
     {
-        const string missingSql = """
+        const string missingHoursSql = """
+            lower(t.bill) = 'yes' and not (
+                (t.billable_hours is not null or t.non_billable_hours is not null)
+                and (coalesce(t.billable_hours, 0) > 0 or coalesce(t.non_billable_hours, 0) > 0)
+            )
+            """;
+        const string missingSql = $"""
             t.bill is null
-            or (lower(t.bill) = 'yes' and (t.billable_hours is null or t.billable_hours = 0))
+            or ({missingHoursSql})
             or t.invoice_label is null or trim(t.invoice_label) = ''
             """;
         const string uninvoicedSql = "t.invoice_label is null or trim(t.invoice_label) = ''";
@@ -327,7 +333,10 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             sql += $"""
                  and (
                     {prefix}bill is null
-                    or (lower({prefix}bill) = 'yes' and ({prefix}billable_hours is null or {prefix}billable_hours = 0))
+                    or (lower({prefix}bill) = 'yes' and not (
+                        ({prefix}billable_hours is not null or {prefix}non_billable_hours is not null)
+                        and (coalesce({prefix}billable_hours, 0) > 0 or coalesce({prefix}non_billable_hours, 0) > 0)
+                    ))
                     or {prefix}invoice_label is null or trim({prefix}invoice_label) = ''
                  )
                 """;

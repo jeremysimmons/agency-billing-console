@@ -255,7 +255,11 @@ public sealed class TaskService(
 
     private static bool NeedsAttention(WorkTask t) =>
         string.IsNullOrWhiteSpace(t.Bill)
-        || (string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
-            && (t.BillableHours is null or 0))
+        || HasMissingHours(t)
         || string.IsNullOrWhiteSpace(t.InvoiceLabel);
+
+    private static bool HasMissingHours(WorkTask t) =>
+        string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
+        && !((t.BillableHours is not null || t.NonBillableHours is not null)
+             && ((t.BillableHours ?? 0) > 0 || (t.NonBillableHours ?? 0) > 0));
 }

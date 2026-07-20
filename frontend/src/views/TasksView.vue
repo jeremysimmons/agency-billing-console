@@ -86,15 +86,22 @@ const editColspan = computed(() =>
 
 const missingBadgeLegend = [
   { key: 'B', label: 'Bill' },
-  { key: 'H', label: 'Billable hours' },
+  { key: 'H', label: 'Hours' },
 ] as const
+
+function hasMissingHours(t: WorkTask) {
+  if (t.bill?.toLowerCase() !== 'yes') return false
+  const eitherPopulated = t.billableHours != null || t.nonBillableHours != null
+  const anyPositive = (t.billableHours ?? 0) > 0 || (t.nonBillableHours ?? 0) > 0
+  return !(eitherPopulated && anyPositive)
+}
 
 function isTaskMissing(t: WorkTask, key: string) {
   switch (key) {
     case 'B':
       return !t.bill?.trim()
     case 'H':
-      return t.bill?.toLowerCase() === 'yes' && (t.billableHours == null || t.billableHours === 0)
+      return hasMissingHours(t)
     default:
       return false
   }
