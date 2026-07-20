@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SESSION="${AIB_TMUX_SESSION:-aib}"
+
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "tmux not found. Install with: brew install tmux" >&2
+  exit 1
+fi
+
+if tmux has-session -t "${SESSION}" 2>/dev/null; then
+  echo "Session '${SESSION}' already exists — attaching."
+  exec tmux attach -t "${SESSION}"
+fi
+
+# One window, two rows: top = API, bottom = UI
+tmux new-session -d -s "${SESSION}" -c "${REPO_ROOT}" -n aib \
+  "${REPO_ROOT}/scripts/run-api"
+
+tmux split-window -v -t "${SESSION}:aib" -c "${REPO_ROOT}" \
+  "${REPO_ROOT}/scripts/run-ui"
+
+tmux select-pane -t "${SESSION}:aib.0"
+tmux select-layout -t "${SESSION}:aib" even-vertical
+
+echo "Started tmux session '${SESSION}' (top: api, bottom: ui)."
+echo "  attach: tmux attach -t ${SESSION}"
+echo "  UI:     https://localhost:3000"
+echo "  API:    http://localhost:5080/health"
+
+exec tmux attach -t "${SESSION}"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+API_DIR="${REPO_ROOT}/backend/Aib.Api"
+ENV_FILE="${REPO_ROOT}/.env"
+COMPOSE_FILE="${REPO_ROOT}/docker-compose.yml"
+
+cd "${API_DIR}"
+
+export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
+export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://localhost:5080}"
+
+if [[ -f "${ENV_FILE}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+  set +a
+fi
+
+# Local SMTP catcher (magic links, etc.) — API talks to localhost:1025
+if [[ -f "${COMPOSE_FILE}" ]] && command -v docker >/dev/null 2>&1; then
+  if docker compose -f "${COMPOSE_FILE}" up -d mailpit >/dev/null 2>&1; then
+    echo "Mailpit → http://localhost:8027 (SMTP :1025)"
+  else
+    echo "Warning: could not start Mailpit (docker compose). Emails may fail." >&2
+  fi
+fi
+
+echo "API → ${ASPNETCORE_URLS} (${ASPNETCORE_ENVIRONMENT})"
+exec dotnet run --no-launch-profile "$@"

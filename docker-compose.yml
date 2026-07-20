@@ -1,0 +1,8 @@
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      # Host 8025–8026 are typically taken by DDEV’s router; use 8027 for the UI.
+      - "8027:8025" # Web UI
+    restart: unless-stopped

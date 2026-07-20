@@ -37,15 +37,16 @@ async function logout() {
   align-items: center;
   gap: 1.25rem;
   padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--p-content-border-color, #e5e7eb);
-  background: var(--p-content-background, #fff);
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  color: #1f2937;
 }
 .brand { font-weight: 700; }
 nav { display: flex; gap: 1rem; }
-nav a { text-decoration: none; color: inherit; }
-nav a.router-link-active { color: var(--p-primary-color, #10b981); font-weight: 600; }
+nav a { text-decoration: none; color: #374151; }
+nav a.router-link-active { color: #059669; font-weight: 600; }
 .spacer { flex: 1; }
-.user { opacity: 0.8; }
-.link { background: none; border: none; cursor: pointer; color: var(--p-primary-color, #10b981); }
+.user { color: #6b7280; }
+.link { background: none; border: none; cursor: pointer; color: #059669; }
 .content { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
 </style>

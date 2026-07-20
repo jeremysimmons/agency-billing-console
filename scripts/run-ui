@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+UI_DIR="${REPO_ROOT}/frontend"
+CERT_FILE="${REPO_ROOT}/certs/localhost.pem"
+KEY_FILE="${REPO_ROOT}/certs/localhost-key.pem"
+
+if [[ ! -f "${CERT_FILE}" || ! -f "${KEY_FILE}" ]]; then
+  echo "Trusted localhost certs missing — running ./scripts/dev-bootstrap.sh…"
+  "${REPO_ROOT}/scripts/dev-bootstrap.sh"
+fi
+
+cd "${UI_DIR}"
+
+if [[ ! -d node_modules ]]; then
+  echo "node_modules missing — running npm install…"
+  npm install
+fi
+
+echo "UI → https://localhost:3000 (proxies /api → http://127.0.0.1:5080)"
+exec npm run dev "$@"

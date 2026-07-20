@@ -1,3 +1,5 @@
 google-auth-client-secret.json
 .env
 certs/
+
+backend/Aib.Api/appsettings.Development.json

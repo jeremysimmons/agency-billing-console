@@ -29,13 +29,26 @@ public static class DependencyInjection
             sp.GetRequiredService<ILogger<DatabaseMigrator>>()));
 
         services.Configure<GoogleAuthOptions>(configuration.GetSection("Google"));
+        services.AddOptions<MailOptions>()
+            .Bind(configuration.GetSection(MailOptions.SectionName))
+            .PostConfigure(o =>
+            {
+                // Laravel-style MAIL_* env vars (used by local .env / docker).
+                o.Host = EnvOr(o.Host, "MAIL_HOST") ?? o.Host;
+                if (int.TryParse(Environment.GetEnvironmentVariable("MAIL_PORT"), out var port))
+                    o.Port = port;
+                o.Encryption = NullIfLiteralNull(EnvOr(o.Encryption, "MAIL_ENCRYPTION"));
+                o.Username = NullIfLiteralNull(EnvOr(o.Username, "MAIL_USERNAME"));
+                o.Password = NullIfLiteralNull(EnvOr(o.Password, "MAIL_PASSWORD"));
+                o.From = EnvOr(o.From, "MAIL_FROM") ?? o.From;
+            });
 
         // Security / integrations
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
         services.AddSingleton<ITokenService, TokenService>();
         services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
-        services.AddSingleton<IEmailSender, ConsoleEmailSender>();
+        RegisterEmailSender(services, configuration);
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
@@ -115,4 +128,26 @@ public static class DependencyInjection
         });
         services.AddQuartzHostedService(o => o.WaitForJobsToComplete = true);
     }
+
+    private static void RegisterEmailSender(IServiceCollection services, IConfiguration configuration)
+    {
+        var mail = new MailOptions();
+        configuration.GetSection(MailOptions.SectionName).Bind(mail);
+        mail.Host = Environment.GetEnvironmentVariable("MAIL_HOST") ?? mail.Host;
+
+        // Prefer SMTP when a host is configured (Mailpit in local dev); otherwise log to console.
+        if (!string.IsNullOrWhiteSpace(mail.Host))
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        else
+            services.AddSingleton<IEmailSender, ConsoleEmailSender>();
+    }
+
+    private static string? EnvOr(string? current, string envName)
+        => Environment.GetEnvironmentVariable(envName) ?? current;
+
+    private static string? NullIfLiteralNull(string? value)
+        => string.IsNullOrWhiteSpace(value)
+           || string.Equals(value, "null", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : value;
 }

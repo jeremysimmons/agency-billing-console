@@ -92,7 +92,7 @@ onMounted(async () => {
     <p v-if="info" class="info">{{ info }}</p>
 
     <form @submit.prevent="submitPassword" class="card">
-      <h3>Password</h3>
+      <h3>Login</h3>
       <input v-model="usernameOrEmail" placeholder="Username or email" autocomplete="username" />
       <input v-model="password" type="password" placeholder="Password" autocomplete="current-password" />
       <button type="submit" :disabled="busy">Sign in</button>
