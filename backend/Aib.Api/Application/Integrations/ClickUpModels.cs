@@ -32,4 +32,18 @@ public interface IClickUpClient
 {
     Task<ClickUpTaskPage> GetTasksAsync(
         string teamId, string? assigneeExternalUserId, int page, CancellationToken ct = default);
+
+    Task SetTaskCustomFieldAsync(string taskId, string fieldId, object? value, CancellationToken ct = default);
+
+    Task<decimal> GetTaskTimeSpentHoursAsync(string taskId, CancellationToken ct = default);
+
+    Task CreateTimeEntryAsync(
+        string teamId,
+        string taskId,
+        long startMs,
+        long durationMs,
+        long assigneeId,
+        bool billable,
+        string description,
+        CancellationToken ct = default);
 }

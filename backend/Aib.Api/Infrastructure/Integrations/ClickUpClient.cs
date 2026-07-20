@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Aib.Application;
 using Aib.Application.Integrations;
@@ -34,6 +35,74 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
 
         var lastPage = root.TryGetProperty("last_page", out var lp) && lp.ValueKind == JsonValueKind.True;
         return new ClickUpTaskPage(tasks, lastPage || tasks.Count == 0);
+    }
+
+    public async Task SetTaskCustomFieldAsync(string taskId, string fieldId, object? value, CancellationToken ct = default)
+    {
+        var json = JsonSerializer.Serialize(new { value });
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        await SendAsync(HttpMethod.Post, $"task/{Uri.EscapeDataString(taskId)}/field/{Uri.EscapeDataString(fieldId)}", content, ct);
+    }
+
+    public async Task<decimal> GetTaskTimeSpentHoursAsync(string taskId, CancellationToken ct = default)
+    {
+        using var doc = await GetJsonAsync($"task/{Uri.EscapeDataString(taskId)}", ct);
+        var ms = GetLong(doc.RootElement, "time_spent") ?? 0;
+        return ms > 0 ? Math.Round(ms / 3_600_000m, 2) : 0;
+    }
+
+    public async Task CreateTimeEntryAsync(
+        string teamId,
+        string taskId,
+        long startMs,
+        long durationMs,
+        long assigneeId,
+        bool billable,
+        string description,
+        CancellationToken ct = default)
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            tid = taskId,
+            start = startMs,
+            duration = durationMs,
+            assignee = assigneeId,
+            billable,
+            description,
+        });
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        await SendAsync(HttpMethod.Post, $"team/{Uri.EscapeDataString(teamId)}/time_entries", content, ct);
+    }
+
+    private async Task SendAsync(HttpMethod method, string relativeUrl, HttpContent? content, CancellationToken ct)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var request = new HttpRequestMessage(method, relativeUrl) { Content = content };
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+
+            if (response.IsSuccessStatusCode)
+                return;
+
+            var retryable = response.StatusCode is HttpStatusCode.TooManyRequests
+                or HttpStatusCode.InternalServerError or HttpStatusCode.BadGateway
+                or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout;
+
+            if (retryable && attempt < maxAttempts)
+            {
+                var delay = TimeSpan.FromMilliseconds(1500 * attempt);
+                logger.LogWarning("ClickUp HTTP {Status}; retry {Attempt}/{Max} after {Delay}ms",
+                    (int)response.StatusCode, attempt + 1, maxAttempts, delay.TotalMilliseconds);
+                await Task.Delay(delay, ct);
+                continue;
+            }
+
+            throw new InvalidOperationException($"ClickUp API error HTTP {(int)response.StatusCode}: {body}");
+        }
+
+        throw new InvalidOperationException("ClickUp request failed after retries.");
     }
 
     private static ClickUpTask ParseTask(JsonElement el)

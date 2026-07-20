@@ -20,6 +20,15 @@ public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,
     string? InvoiceLabel, string? Note);
 
+public sealed record UpdateTaskBillRequest(string? Bill);
+
+public sealed record UpdateTaskHoursRequest(decimal? Hours);
+
+public sealed record TaskHoursUpdateDto(
+    TaskDto Task,
+    decimal? ClickUpTrackedHours,
+    string? Warning);
+
 public sealed record TaskDto(
     Guid Id, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
     string? Bill, decimal? BillableHours, decimal? NonBillableHours, string? InvoiceLabel, string? Note,

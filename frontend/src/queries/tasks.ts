@@ -47,19 +47,23 @@ export function useTaskFilterOptions(clientId: MaybeRefOrGetter<string | undefin
   })
 }
 
+export function taskListQueryKey(filters: TaskListFilters) {
+  return [
+    'tasks',
+    filters.clientId ?? 'all',
+    filters.missingOnly ? 'missing' : 'all',
+    filters.invoiced ?? 'no',
+    filters.projectFilter ?? 'all',
+    filters.createdMonth ?? 'all',
+    filters.doneMonth ?? 'all',
+    filters.statuses?.slice().sort().join('|') ?? 'all',
+  ]
+}
+
 export function useTasks(filters: MaybeRefOrGetter<TaskListFilters>) {
   const f = computed(() => toValue(filters))
   return useQuery({
-    key: () => [
-      'tasks',
-      f.value.clientId ?? 'all',
-      f.value.missingOnly ? 'missing' : 'all',
-      f.value.invoiced ?? 'no',
-      f.value.projectFilter ?? 'all',
-      f.value.createdMonth ?? 'all',
-      f.value.doneMonth ?? 'all',
-      f.value.statuses?.slice().sort().join('|') ?? 'all',
-    ],
+    key: () => taskListQueryKey(f.value),
     query: async () =>
       (await http.get<WorkTask[]>(`/tasks?${taskListParams(f.value)}`)).data,
   })
@@ -100,6 +104,56 @@ export interface TaskPrepInput {
   nonBillableHours?: number | null
   invoiceLabel?: string | null
   note?: string | null
+}
+
+export interface TaskHoursUpdateResult {
+  task: WorkTask
+  clickUpTrackedHours: number | null
+  warning: string | null
+}
+
+function patchTaskList(cache: ReturnType<typeof useQueryCache>, filters: TaskListFilters, task: WorkTask) {
+  cache.setQueryData(taskListQueryKey(filters), (tasks) =>
+    Array.isArray(tasks)
+      ? tasks.map((t) => (t.id === task.id ? task : t))
+      : tasks,
+  )
+}
+
+export function useUpdateTaskBill(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, bill }: { id: string; bill: string | null }) =>
+      (await http.patch<WorkTask>(`/tasks/${id}/bill`, { bill })).data,
+    onSuccess: (updated) => {
+      patchTaskList(cache, f.value, updated)
+    },
+  })
+}
+
+export function useUpdateTaskBillableHours(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, hours }: { id: string; hours: number | null }) =>
+      (await http.patch<TaskHoursUpdateResult>(`/tasks/${id}/billable-hours`, { hours })).data,
+    onSuccess: (result) => {
+      patchTaskList(cache, f.value, result.task)
+    },
+  })
+}
+
+export function useUpdateTaskNonBillableHours(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, hours }: { id: string; hours: number | null }) =>
+      (await http.patch<TaskHoursUpdateResult>(`/tasks/${id}/non-billable-hours`, { hours })).data,
+    onSuccess: (result) => {
+      patchTaskList(cache, f.value, result.task)
+    },
+  })
 }
 
 export function useUpdateTaskPrep() {

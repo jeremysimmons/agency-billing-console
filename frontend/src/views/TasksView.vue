@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { useClients } from '../queries/clients'
 import { useProjects } from '../queries/projects'
-import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskPrep } from '../queries/tasks'
+import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep } from '../queries/tasks'
 import type { WorkTask } from '../api/types'
 
 const route = useRoute()
@@ -42,6 +42,15 @@ const { data: taskSummary, isLoading: summaryLoading, error: summaryError } = us
 const clientCounts = computed(() => taskSummary.value?.byClient ?? [])
 const monthCounts = computed(() => taskSummary.value?.byDoneMonth ?? [])
 const updatePrep = useUpdateTaskPrep()
+const updateBill = useUpdateTaskBill(taskFilters)
+const updateBillableHours = useUpdateTaskBillableHours(taskFilters)
+const updateNonBillableHours = useUpdateTaskNonBillableHours(taskFilters)
+const savingBillId = ref<string | null>(null)
+const savingBillableId = ref<string | null>(null)
+const savingNonBillableId = ref<string | null>(null)
+const billErrors = ref<Record<string, string>>({})
+const billableWarnings = ref<Record<string, string>>({})
+const nonBillableErrors = ref<Record<string, string>>({})
 
 const editingId = ref<string | null>(null)
 const draft = ref({
@@ -130,6 +139,56 @@ function parseHours(v: string): number | null {
   if (!s) return null
   const n = Number(s)
   return Number.isFinite(n) ? n : null
+}
+
+async function updateBillInline(t: WorkTask, value: string) {
+  const bill = value.trim() || null
+  const current = t.bill?.trim() || null
+  if (bill === current) return
+
+  savingBillId.value = t.id
+  delete billErrors.value[t.id]
+  try {
+    await updateBill.mutateAsync({ id: t.id, bill })
+  } catch (e: any) {
+    billErrors.value[t.id] = e?.response?.data?.error ?? 'Could not save bill.'
+  } finally {
+    savingBillId.value = null
+  }
+}
+
+async function updateBillableHoursInline(t: WorkTask, raw: string) {
+  const hours = parseHours(raw)
+  const current = t.billableHours
+  if (hours === current || (hours == null && current == null)) return
+
+  savingBillableId.value = t.id
+  delete billableWarnings.value[t.id]
+  try {
+    const result = await updateBillableHours.mutateAsync({ id: t.id, hours })
+    if (result.warning) billableWarnings.value[t.id] = result.warning
+  } catch (e: any) {
+    billableWarnings.value[t.id] = e?.response?.data?.error ?? 'Could not save billable hours.'
+  } finally {
+    savingBillableId.value = null
+  }
+}
+
+async function updateNonBillableHoursInline(t: WorkTask, raw: string) {
+  const hours = parseHours(raw)
+  const current = t.nonBillableHours
+  if (hours === current || (hours == null && current == null)) return
+
+  savingNonBillableId.value = t.id
+  delete nonBillableErrors.value[t.id]
+  try {
+    const result = await updateNonBillableHours.mutateAsync({ id: t.id, hours })
+    if (result.warning) nonBillableErrors.value[t.id] = result.warning
+  } catch (e: any) {
+    nonBillableErrors.value[t.id] = e?.response?.data?.error ?? 'Could not save non-billable hours.'
+  } finally {
+    savingNonBillableId.value = null
+  }
 }
 
 async function saveEdit() {
@@ -405,9 +464,47 @@ function openDoneMonth(month: string) {
             </td>
             <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">{{ t.clickUpListName ?? '—' }}</td>
             <td v-if="showProjectColumn" :data-testid="`task-project-${t.id}`">{{ t.projectName ?? '—' }}</td>
-            <td :data-testid="`task-bill-${t.id}`">{{ t.bill ?? '—' }}</td>
-            <td :data-testid="`task-billable-hours-${t.id}`">{{ t.billableHours ?? '—' }}</td>
-            <td :data-testid="`task-non-billable-hours-${t.id}`">{{ t.nonBillableHours ?? '—' }}</td>
+            <td class="bill-cell" :data-testid="`task-bill-${t.id}`">
+              <select
+                class="inline-select"
+                :value="t.bill ?? ''"
+                :disabled="savingBillId === t.id"
+                :data-testid="`task-bill-select-${t.id}`"
+                @change="updateBillInline(t, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">—</option>
+                <option value="yes">yes</option>
+                <option value="no">no</option>
+              </select>
+              <span v-if="billErrors[t.id]" class="inline-error" :data-testid="`task-bill-error-${t.id}`">{{ billErrors[t.id] }}</span>
+            </td>
+            <td class="hours-cell" :data-testid="`task-billable-hours-${t.id}`">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="inline-input"
+                :value="t.billableHours ?? ''"
+                :disabled="savingBillableId === t.id"
+                :data-testid="`task-billable-hours-input-${t.id}`"
+                @blur="updateBillableHoursInline(t, ($event.target as HTMLInputElement).value)"
+              />
+              <span v-if="t.actualHours != null" class="hours-hint">ClickUp: {{ t.actualHours }}</span>
+              <span v-if="billableWarnings[t.id]" class="inline-warning" :data-testid="`task-billable-hours-warning-${t.id}`">{{ billableWarnings[t.id] }}</span>
+            </td>
+            <td class="hours-cell" :data-testid="`task-non-billable-hours-${t.id}`">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="inline-input"
+                :value="t.nonBillableHours ?? ''"
+                :disabled="savingNonBillableId === t.id"
+                :data-testid="`task-non-billable-hours-input-${t.id}`"
+                @blur="updateNonBillableHoursInline(t, ($event.target as HTMLInputElement).value)"
+              />
+              <span v-if="nonBillableErrors[t.id]" class="inline-error" :data-testid="`task-non-billable-hours-error-${t.id}`">{{ nonBillableErrors[t.id] }}</span>
+            </td>
             <td v-if="showInvoice" :data-testid="`task-invoice-${t.id}`">{{ t.invoiceLabel ?? '—' }}</td>
             <td :data-testid="`task-status-${t.id}`">{{ t.clickUpStatus ?? '—' }}</td>
             <td :title="formatDateTime(t.dateCreated)" :data-testid="`task-date-created-${t.id}`">{{ formatDate(t.dateCreated) }}</td>
@@ -691,6 +788,43 @@ select, input:not([role='switch']) {
 }
 .grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .grid th, .grid td { text-align: left; padding: 0.45rem 0.4rem; border-bottom: 1px solid #eee; vertical-align: top; }
+.bill-cell { min-width: 4.5rem; }
+.hours-cell { min-width: 5rem; }
+.inline-select {
+  padding: 0.25rem 0.35rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+}
+.inline-input {
+  width: 4.5rem;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+}
+.hours-hint {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  color: #6b7280;
+}
+.inline-warning {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: #b45309;
+}
+.inline-error {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: #b91c1c;
+}
 .link { background: none; border: none; color: #059669; cursor: pointer; padding: 0; font: inherit; }
 .edit-row td { background: #f0fdf4; }
 .edit-form {

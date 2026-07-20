@@ -1,7 +1,10 @@
+using Aib.Application;
 using Aib.Application.Abstractions;
 using Aib.Application.Contracts;
+using Aib.Application.Integrations;
 using Aib.Domain;
 using Aib.Domain.Entities;
+using Microsoft.Extensions.Options;
 
 namespace Aib.Application.Services;
 
@@ -146,8 +149,11 @@ public sealed class TaskService(
     ITaskRepository tasks,
     IClientRepository clients,
     IProjectRepository projects,
+    IClickUpClient clickUp,
+    IOptions<ClickUpOptions> clickUpOptions,
     IClock clock)
 {
+    private readonly ClickUpOptions _clickUp = clickUpOptions.Value;
     public async Task<IReadOnlyList<TaskDto>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
@@ -233,6 +239,7 @@ public sealed class TaskService(
         task.Note = request.Note;
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
+        await SyncBillToClickUpAsync(task, ct);
 
         var client = await clients.GetByIdAsync(task.ClientId, ct);
         string? projectName = null;
@@ -240,6 +247,161 @@ public sealed class TaskService(
             projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
 
         return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    public async Task<TaskDto> UpdateBillAsync(Guid id, string? bill, CancellationToken ct = default)
+    {
+        var normalized = NormalizeBill(bill);
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+
+        task.Bill = normalized;
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+        await SyncBillToClickUpAsync(task, ct);
+
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        string? projectName = null;
+        if (task.ProjectId is { } pid)
+            projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
+
+        return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    public async Task<TaskHoursUpdateDto> UpdateBillableHoursAsync(Guid id, decimal? billableHours, CancellationToken ct = default)
+    {
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+        task.BillableHours = NormalizeHours(billableHours);
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+
+        var (trackedHours, warning) = await SyncBillableHoursToClickUpAsync(task, ct);
+        if (trackedHours is not null && task.ActualHours != trackedHours)
+        {
+            task.ActualHours = trackedHours;
+            task.UpdatedAt = clock.UtcNow;
+            await tasks.UpdateAsync(task, ct);
+        }
+
+        return await MapHoursUpdate(task, trackedHours ?? task.ActualHours, warning, ct);
+    }
+
+    public async Task<TaskHoursUpdateDto> UpdateNonBillableHoursAsync(Guid id, decimal? nonBillableHours, CancellationToken ct = default)
+    {
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+        task.NonBillableHours = NormalizeHours(nonBillableHours);
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+        return await MapHoursUpdate(task, task.ActualHours, null, ct);
+    }
+
+    private async Task<TaskHoursUpdateDto> MapHoursUpdate(
+        WorkTask task,
+        decimal? clickUpTrackedHours,
+        string? warning,
+        CancellationToken ct)
+    {
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        string? projectName = null;
+        if (task.ProjectId is { } pid)
+            projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
+        return new TaskHoursUpdateDto(Map(task, client?.Name ?? "Unknown", projectName), clickUpTrackedHours, warning);
+    }
+
+    private async Task<(decimal? TrackedHours, string? Warning)> SyncBillableHoursToClickUpAsync(
+        WorkTask task,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(task.ClickUpTaskId)
+            || !_clickUp.IsConfigured
+            || string.IsNullOrWhiteSpace(_clickUp.TeamId))
+        {
+            return (null, null);
+        }
+
+        if (!long.TryParse(_clickUp.AssigneeId, out var assigneeId))
+            return (null, "ClickUp assignee is not configured.");
+
+        var trackedHours = await clickUp.GetTaskTimeSpentHoursAsync(task.ClickUpTaskId, ct);
+        var targetHours = task.BillableHours ?? 0;
+        var diff = targetHours - trackedHours;
+
+        if (Math.Abs(diff) <= 0.01m)
+            return (trackedHours, null);
+
+        if (diff > 0.01m)
+        {
+            try
+            {
+                var durationMs = (long)Math.Round(diff * 3_600_000m, MidpointRounding.AwayFromZero);
+                var startMs = clock.UtcNow.ToUnixTimeMilliseconds() - durationMs;
+                await clickUp.CreateTimeEntryAsync(
+                    _clickUp.TeamId,
+                    task.ClickUpTaskId,
+                    startMs,
+                    durationMs,
+                    assigneeId,
+                    billable: true,
+                    "Billing prep adjustment",
+                    ct);
+                var updatedTracked = await clickUp.GetTaskTimeSpentHoursAsync(task.ClickUpTaskId, ct);
+                if (Math.Abs(targetHours - updatedTracked) > 0.01m)
+                {
+                    return (updatedTracked,
+                        $"Added {diff:0.##}h to ClickUp; tracked is now {updatedTracked:0.##}h (billable {targetHours:0.##}h).");
+                }
+
+                return (updatedTracked, null);
+            }
+            catch (Exception ex)
+            {
+                return (trackedHours, $"Billable hours saved locally. Could not add ClickUp time entry: {ex.Message}");
+            }
+        }
+
+        return (trackedHours, $"ClickUp tracked {trackedHours:0.##}h but billable is {targetHours:0.##}h.");
+    }
+
+    private static decimal? NormalizeHours(decimal? hours)
+    {
+        if (hours is null)
+            return null;
+        if (hours < 0)
+            throw new DomainException("Hours cannot be negative.");
+        return Math.Round(hours.Value, 2);
+    }
+
+    private async Task SyncBillToClickUpAsync(WorkTask task, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(task.ClickUpTaskId))
+            return;
+        if (!_clickUp.IsConfigured || string.IsNullOrWhiteSpace(_clickUp.BillCustomFieldId))
+            return;
+
+        var value = BillToClickUpValue(task.Bill);
+        await clickUp.SetTaskCustomFieldAsync(task.ClickUpTaskId, _clickUp.BillCustomFieldId, value, ct);
+    }
+
+    private string? BillToClickUpValue(string? bill)
+    {
+        if (string.IsNullOrWhiteSpace(bill))
+            return null;
+        if (string.Equals(bill, "yes", StringComparison.OrdinalIgnoreCase))
+            return _clickUp.BillYesOptionId;
+        if (string.Equals(bill, "no", StringComparison.OrdinalIgnoreCase))
+            return _clickUp.BillNoOptionId;
+        throw new DomainException("Bill must be yes, no, or empty.");
+    }
+
+    private static string? NormalizeBill(string? bill)
+    {
+        if (string.IsNullOrWhiteSpace(bill))
+            return null;
+        return bill.Trim().ToLowerInvariant() switch
+        {
+            "yes" => "yes",
+            "no" => "no",
+            _ => throw new DomainException("Bill must be yes, no, or empty."),
+        };
     }
 
     private static TaskDto Map(WorkTask t, string clientName, string? projectName) =>

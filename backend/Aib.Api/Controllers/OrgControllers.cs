@@ -89,6 +89,18 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
         => Ok(await tasks.ListAsync(
             clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
 
+    [HttpPatch("{id:guid}/bill")]
+    public async Task<IActionResult> UpdateBill(Guid id, [FromBody] UpdateTaskBillRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateBillAsync(id, request.Bill, ct));
+
+    [HttpPatch("{id:guid}/billable-hours")]
+    public async Task<IActionResult> UpdateBillableHours(Guid id, [FromBody] UpdateTaskHoursRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateBillableHoursAsync(id, request.Hours, ct));
+
+    [HttpPatch("{id:guid}/non-billable-hours")]
+    public async Task<IActionResult> UpdateNonBillableHours(Guid id, [FromBody] UpdateTaskHoursRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateNonBillableHoursAsync(id, request.Hours, ct));
+
     [HttpPatch("{id:guid}/prep")]
     public async Task<IActionResult> UpdatePrep(Guid id, [FromBody] UpdateTaskPrepRequest request, CancellationToken ct)
         => Ok(await tasks.UpdatePrepAsync(id, request, ct));
