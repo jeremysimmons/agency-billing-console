@@ -1,5 +1,6 @@
 using Aib.Application.Abstractions;
 using Aib.Application.Contracts;
+using Aib.Application.Integrations;
 using Aib.Domain;
 using Aib.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -57,7 +58,9 @@ public sealed class MappingService(
             if (m?.MappingStatus is MappingStatus.Confirmed or MappingStatus.Ignored) continue;
 
             result.Add(new UnmappedContainerDto(
-                c.Id, c.ExternalId, c.ContainerType, c.Name, c.ExternalParentId,
+                c.Id, c.ExternalId, c.ContainerType, c.Name,
+                ClickUpUrls.Container(connection.ExternalWorkspaceId, c.ContainerType, c.ExternalId),
+                c.ExternalParentId,
                 m?.Id, m?.MappingStatus,
                 m?.ClientId, m?.ClientId is { } cid && clientById.TryGetValue(cid, out var cl) ? cl.Name : null,
                 m?.ProjectId, m?.ProjectId is { } pid && projectById.TryGetValue(pid, out var pr) ? pr.Name : null));
@@ -83,8 +86,9 @@ public sealed class MappingService(
             if (m?.MappingStatus is MappingStatus.Confirmed or MappingStatus.Ignored) continue;
 
             containers.TryGetValue(w.ExternalContainerId ?? Guid.Empty, out var container);
+            var url = string.IsNullOrWhiteSpace(w.Url) ? ClickUpUrls.Task(w.ExternalId) : w.Url;
             result.Add(new UnmappedWorkItemDto(
-                w.Id, w.ExternalId, w.Name, w.StatusName, w.Url, w.ExternalParentWorkItemId,
+                w.Id, w.ExternalId, w.Name, w.StatusName, url, w.ExternalParentWorkItemId,
                 w.ExternalContainerId, container?.Name,
                 m?.Id, m?.MappingStatus,
                 m?.TaskId, m?.TaskId is { } tid && tasksById.TryGetValue(tid, out var t) ? t.Title : null,

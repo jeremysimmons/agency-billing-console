@@ -118,7 +118,10 @@ async function runApplyStatuses() {
       <tbody>
         <tr v-for="c in containers" :key="c.containerId">
           <td>{{ c.containerType }}</td>
-          <td>{{ c.name }}</td>
+          <td>
+            <a v-if="c.url" :href="c.url" target="_blank" rel="noopener">{{ c.name }}</a>
+            <span v-else>{{ c.name }}</span>
+          </td>
           <td>{{ c.mappingStatus ?? '—' }}</td>
           <td>
             <span v-if="c.suggestedClientName">client: {{ c.suggestedClientName }}</span>
@@ -193,6 +196,7 @@ button.secondary { background: #374151; }
 .btns { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .link { background: none; color: #10b981; padding: 0; }
 .link.danger { color: #dc2626; }
+a { color: #059669; text-decoration: underline; text-underline-offset: 2px; }
 .ok { color: #047857; }
 .error { color: #dc2626; }
 h2 { margin-top: 1.5rem; }
