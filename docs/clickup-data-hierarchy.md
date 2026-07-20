@@ -410,3 +410,12 @@ Do not call the Workspace a “team” inside the domain model. This avoids conf
 - [ClickUp API FAQ](https://developer.clickup.com/docs/faq)
 - [ClickUp: Space, Folder, Subfolder, and List settings](https://help.clickup.com/hc/en-us/articles/33777837994775-Space-Folder-Subfolder-and-List-settings)
 - [ClickUp: Intro to tasks](https://help.clickup.com/hc/en-us/articles/10552031987735-Intro-to-tasks)
+
+In ClickUp, the difference follows the task’s status type:
+
+date_done: The timestamp when the task entered a status categorized as Done.
+date_closed: The timestamp when the task entered the final Closed status.
+
+A Done status means the work is effectively finished but the task remains open and visible for follow-up, review, documentation, or downstream work. A Closed status means the task is completely finalized.
+
+Closed status is Cancelled
