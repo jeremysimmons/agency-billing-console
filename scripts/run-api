@@ -11,6 +11,11 @@ cd "${API_DIR}"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://localhost:5080}"
 
+# e.g. http://localhost:5080 → 5080
+API_PORT="${ASPNETCORE_URLS##*:}"
+API_PORT="${API_PORT%%/*}"
+"${REPO_ROOT}/scripts/free-port" "${API_PORT}"
+
 if [[ -f "${ENV_FILE}" ]]; then
   set -a
   # shellcheck disable=SC1090
