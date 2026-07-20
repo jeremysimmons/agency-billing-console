@@ -7,7 +7,6 @@ using Aib.Infrastructure.Persistence.Repositories;
 using Aib.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 
@@ -23,9 +22,6 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("ConnectionStrings:Postgres is not configured.");
 
         services.AddSingleton<IDbConnectionFactory>(new NpgsqlConnectionFactory(connectionString));
-        services.AddSingleton(sp => new DatabaseMigrator(connectionString,
-            sp.GetRequiredService<ILogger<DatabaseMigrator>>()));
-
         services.AddSingleton<IClock, SystemClock>();
         AddClickUp(services, configuration);
 

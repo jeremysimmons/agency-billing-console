@@ -2,7 +2,6 @@ using Aib.Api;
 using Aib.Api.Startup;
 using Aib.Application;
 using Aib.Infrastructure;
-using Aib.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +16,6 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<DatabaseMigrator>().Run();
     await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
 }
 

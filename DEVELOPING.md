@@ -28,7 +28,13 @@ Edit `backend/Aib.Api/appsettings.Development.json` → `ConnectionStrings:Postg
 Host=localhost;Port=5432;Database=aib;Username=<you>;Include Error Detail=true
 ```
 
-Migrations (DbUp) and seed data run automatically on API startup.
+Migrations (DbUp) run via the migrations console:
+
+```bash
+./scripts/run-migrations
+```
+
+Seed data runs automatically on API startup.
 
 ### 2. Frontend deps
 

@@ -5,12 +5,12 @@ import { RouterView, RouterLink } from 'vue-router'
 <template>
   <div class="app">
     <header class="topbar">
-      <div class="brand">ClickUp Billing Prep</div>
+      <div class="brand" data-testid="app-brand">ClickUp Billing Prep</div>
       <nav>
-        <RouterLink to="/tasks">Tasks</RouterLink>
-        <RouterLink to="/clients">Clients</RouterLink>
-        <RouterLink to="/hierarchy">Hierarchy</RouterLink>
-        <RouterLink to="/sync">Sync</RouterLink>
+        <RouterLink to="/tasks" data-testid="nav-tasks">Tasks</RouterLink>
+        <RouterLink to="/clients" data-testid="nav-clients">Clients</RouterLink>
+        <RouterLink to="/hierarchy" data-testid="nav-hierarchy">Hierarchy</RouterLink>
+        <RouterLink to="/sync" data-testid="nav-sync">Sync</RouterLink>
       </nav>
     </header>
     <main class="content">

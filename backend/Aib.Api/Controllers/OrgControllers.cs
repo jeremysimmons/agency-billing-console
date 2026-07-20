@@ -57,9 +57,21 @@ public sealed class ProjectsController(ProjectService projects) : ControllerBase
 [Route("api/tasks")]
 public sealed class TasksController(TaskService tasks) : ControllerBase
 {
+    [HttpGet("filter-options")]
+    public async Task<IActionResult> FilterOptions([FromQuery] Guid? clientId, CancellationToken ct)
+        => Ok(await tasks.GetFilterOptionsAsync(clientId, ct));
+
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] Guid? clientId, [FromQuery] bool? missingOnly, CancellationToken ct)
-        => Ok(await tasks.ListAsync(clientId, missingOnly, ct));
+    public async Task<IActionResult> List(
+        [FromQuery] Guid? clientId,
+        [FromQuery] bool? missingOnly,
+        [FromQuery] Guid? projectId,
+        [FromQuery] bool? unassignedOnly,
+        [FromQuery] string? createdMonth,
+        [FromQuery] string? doneMonth,
+        CancellationToken ct)
+        => Ok(await tasks.ListAsync(
+            clientId, missingOnly, projectId, unassignedOnly, createdMonth, doneMonth, ct));
 
     [HttpPatch("{id:guid}/prep")]
     public async Task<IActionResult> UpdatePrep(Guid id, [FromBody] UpdateTaskPrepRequest request, CancellationToken ct)

@@ -86,51 +86,51 @@ async function remove() {
 </script>
 
 <template>
-  <section>
-    <p><RouterLink to="/clients">← Clients</RouterLink></p>
+  <section data-testid="client-detail-view">
+    <p><RouterLink to="/clients" data-testid="client-detail-back">← Clients</RouterLink></p>
 
     <template v-if="client">
       <div v-if="!editing" class="title-row">
-        <h1>{{ client.name }}</h1>
-        <button class="link" @click="startRename">Rename</button>
+        <h1 data-testid="client-detail-name">{{ client.name }}</h1>
+        <button class="link" data-testid="client-detail-rename" @click="startRename">Rename</button>
       </div>
-      <form v-else class="row" @submit.prevent="saveRename">
-        <input v-model="editName" required />
-        <button type="submit" :disabled="updateClient.isLoading.value">Save</button>
-        <button type="button" class="link" @click="cancelRename">Cancel</button>
+      <form v-else class="row" data-testid="client-rename-form" @submit.prevent="saveRename">
+        <input v-model="editName" required data-testid="client-rename-input" />
+        <button type="submit" :disabled="updateClient.isLoading.value" data-testid="client-rename-save">Save</button>
+        <button type="button" class="link" data-testid="client-rename-cancel" @click="cancelRename">Cancel</button>
       </form>
-      <p v-if="renameError" class="error">{{ renameError }}</p>
-      <p class="meta">
+      <p v-if="renameError" class="error" data-testid="client-rename-error">{{ renameError }}</p>
+      <p class="meta" data-testid="client-detail-meta">
         Code: {{ client.code ?? '—' }}
         · Folder id: {{ client.clickUpFolderId ?? '—' }}
-        · <RouterLink :to="{ path: '/tasks', query: { clientId: client.id } }">View tasks</RouterLink>
+        · <RouterLink :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>
       </p>
 
       <h2>Projects</h2>
       <p class="hint">Your projects (not ClickUp lists). Assign tasks to these on the Tasks page.</p>
-      <form class="row" @submit.prevent="addProject">
-        <input v-model="pName" placeholder="Project name" required />
-        <button :disabled="createProject.isLoading.value">Add project</button>
+      <form class="row" data-testid="project-create-form" @submit.prevent="addProject">
+        <input v-model="pName" placeholder="Project name" required data-testid="project-create-name" />
+        <button :disabled="createProject.isLoading.value" data-testid="project-create-submit">Add project</button>
       </form>
-      <p v-if="projError" class="error">{{ projError }}</p>
-      <ul>
-        <li v-for="p in projects" :key="p.id">{{ p.name }}</li>
-        <li v-if="projects && projects.length === 0" class="muted">No projects yet.</li>
+      <p v-if="projError" class="error" data-testid="project-create-error">{{ projError }}</p>
+      <ul data-testid="projects-list">
+        <li v-for="p in projects" :key="p.id" :data-testid="`project-item-${p.id}`">{{ p.name }}</li>
+        <li v-if="projects && projects.length === 0" class="muted" data-testid="projects-empty">No projects yet.</li>
       </ul>
 
       <div class="danger-zone">
         <template v-if="!confirmDelete">
-          <button class="link danger" @click="confirmDelete = true">Delete client</button>
+          <button class="link danger" data-testid="client-delete" @click="confirmDelete = true">Delete client</button>
         </template>
         <template v-else>
-          <span>Delete {{ client.name }} and its projects/tasks?</span>
-          <button class="link danger" :disabled="deleteClient.isLoading.value" @click="remove">Confirm</button>
-          <button class="link" @click="confirmDelete = false">Cancel</button>
+          <span data-testid="client-delete-prompt">Delete {{ client.name }} and its projects/tasks?</span>
+          <button class="link danger" :disabled="deleteClient.isLoading.value" data-testid="client-delete-confirm" @click="remove">Confirm</button>
+          <button class="link" data-testid="client-delete-cancel" @click="confirmDelete = false">Cancel</button>
         </template>
-        <p v-if="deleteError" class="error">{{ deleteError }}</p>
+        <p v-if="deleteError" class="error" data-testid="client-delete-error">{{ deleteError }}</p>
       </div>
     </template>
-    <p v-else>Client not found.</p>
+    <p v-else data-testid="client-not-found">Client not found.</p>
   </section>
 </template>
 

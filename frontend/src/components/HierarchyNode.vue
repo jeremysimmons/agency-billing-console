@@ -24,13 +24,13 @@ function badgeClass(type: string) {
 </script>
 
 <template>
-  <li>
-    <div class="row" :title="node.id" @click="open = !open">
+  <li :data-testid="`hierarchy-node-${node.id}`">
+    <div class="row" :title="node.id" :data-testid="`hierarchy-node-row-${node.id}`" @click="open = !open">
       <span class="toggle">{{ node.children.length ? (open ? '▾' : '▸') : '·' }}</span>
-      <span :class="badgeClass(node.type)">{{ typeBadge(node.type) }}</span>
-      <span class="name">{{ node.name }}</span>
+      <span :class="badgeClass(node.type)" :data-testid="`hierarchy-node-type-${node.id}`">{{ typeBadge(node.type) }}</span>
+      <span class="name" :data-testid="`hierarchy-node-name-${node.id}`">{{ node.name }}</span>
     </div>
-    <ul v-if="open && node.children.length">
+    <ul v-if="open && node.children.length" :data-testid="`hierarchy-node-children-${node.id}`">
       <HierarchyNode
         v-for="child in node.children"
         :key="child.id"

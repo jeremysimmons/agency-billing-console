@@ -3,16 +3,31 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useClients } from '../queries/clients'
 import { useProjects } from '../queries/projects'
-import { useTasks, useUpdateTaskPrep } from '../queries/tasks'
+import { useTasks, useTaskFilterOptions, useUpdateTaskPrep } from '../queries/tasks'
 import type { WorkTask } from '../api/types'
 
 const route = useRoute()
 const clientFilter = ref<string>((route.query.clientId as string) || '')
 const missingOnly = ref(true)
+const showListColumn = ref(false)
+const showProjectColumn = ref(false)
+const projectFilter = ref('')
+const createdMonthFilter = ref('')
+const doneMonthFilter = ref('')
 const clientId = computed(() => clientFilter.value || undefined)
 
+const taskFilters = computed(() => ({
+  clientId: clientId.value,
+  missingOnly: missingOnly.value,
+  projectFilter: projectFilter.value || undefined,
+  createdMonth: createdMonthFilter.value || undefined,
+  doneMonth: doneMonthFilter.value || undefined,
+}))
+
 const { data: clients } = useClients()
-const { data: tasks, isLoading, error } = useTasks(clientId, missingOnly)
+const { data: filterProjects } = useProjects(clientId)
+const { data: filterOptions } = useTaskFilterOptions(clientId)
+const { data: tasks, isLoading, error } = useTasks(taskFilters)
 const updatePrep = useUpdateTaskPrep()
 
 const editingId = ref<string | null>(null)
@@ -33,6 +48,8 @@ const editClientId = computed(() => {
 const { data: projects } = useProjects(editClientId)
 
 const missingCount = computed(() => tasks.value?.filter((t) => t.needsAttention).length ?? 0)
+const editColspan = computed(() =>
+  10 + (showListColumn.value ? 1 : 0) + (showProjectColumn.value ? 1 : 0))
 
 function startEdit(t: WorkTask) {
   editingId.value = t.id
@@ -80,85 +97,173 @@ async function saveEdit() {
   }
 }
 
-watch(clientFilter, () => { editingId.value = null })
+watch(clientFilter, () => {
+  editingId.value = null
+  projectFilter.value = ''
+  createdMonthFilter.value = ''
+  doneMonthFilter.value = ''
+})
 watch(missingOnly, () => { editingId.value = null })
+watch([createdMonthFilter, doneMonthFilter], () => { editingId.value = null })
+
+function stripTrailingUrl(title: string) {
+  const match = title.match(/^(.*)(?:\s*[-–—:]\s*|\s+)(https?:\/\/\S+)\/?\s*$/i)
+  if (!match) return title
+  const cleaned = match[1].trimEnd()
+  return cleaned || title
+}
+
+function trimTitleSuffix(title: string) {
+  return title.replace(/[\s\-–—]+$/, '')
+}
+
+function displayTitle(title: string) {
+  const cleaned = trimTitleSuffix(stripTrailingUrl(title))
+  return cleaned.length > 100 ? `${trimTitleSuffix(cleaned.slice(0, 100))}…` : cleaned
+}
+
+function formatDate(value: string | null) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString()
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return undefined
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? undefined : d.toLocaleString()
+}
+
+function formatMonthYear(value: string) {
+  const [year, month] = value.split('-').map(Number)
+  if (!year || !month) return value
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+}
 </script>
 
 <template>
-  <section>
+  <section data-testid="tasks-view">
     <div class="header">
       <h1>Tasks</h1>
-      <span v-if="missingOnly && tasks" class="badge">{{ missingCount }} need attention</span>
+      <span v-if="missingOnly && tasks" class="badge" data-testid="tasks-missing-count">{{ missingCount }} need attention</span>
     </div>
 
     <div class="filters">
       <label>
         Client
-        <select v-model="clientFilter">
+        <select v-model="clientFilter" data-testid="tasks-client-filter">
           <option value="">All clients</option>
           <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </label>
+      <label>
+        Project
+        <select v-model="projectFilter" data-testid="tasks-project-filter" :disabled="!clientFilter">
+          <option value="">All projects</option>
+          <option value="__unassigned__">Unassigned</option>
+          <option v-for="p in filterProjects" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
+      </label>
+      <label>
+        Created
+        <select v-model="createdMonthFilter" data-testid="tasks-created-month-filter">
+          <option value="">All months</option>
+          <option v-for="m in filterOptions?.createdMonths ?? []" :key="m" :value="m">{{ formatMonthYear(m) }}</option>
+        </select>
+      </label>
+      <label>
+        Done
+        <select v-model="doneMonthFilter" data-testid="tasks-done-month-filter">
+          <option value="">All months</option>
+          <option v-for="m in filterOptions?.doneMonths ?? []" :key="m" :value="m">{{ formatMonthYear(m) }}</option>
+        </select>
+      </label>
       <label class="check">
-        <input v-model="missingOnly" type="checkbox" />
+        <input v-model="missingOnly" type="checkbox" data-testid="tasks-missing-only" />
         Missing data only
+      </label>
+      <label class="check">
+        <input v-model="showListColumn" type="checkbox" data-testid="tasks-show-list-column" />
+        Show List column
+      </label>
+      <label class="check">
+        <input v-model="showProjectColumn" type="checkbox" data-testid="tasks-show-project-column" />
+        Show Project column
       </label>
     </div>
 
-    <p v-if="isLoading">Loading…</p>
-    <p v-else-if="error" class="error">Failed to load tasks.</p>
-    <p v-else-if="tasks && tasks.length === 0" class="empty">
+    <p v-if="isLoading" data-testid="tasks-loading">Loading…</p>
+    <p v-else-if="error" class="error" data-testid="tasks-error">Failed to load tasks.</p>
+    <p v-else-if="tasks && tasks.length === 0" class="empty" data-testid="tasks-empty">
       No tasks match. Sync from ClickUp or clear the missing-data filter.
     </p>
 
-    <table v-else class="grid">
+    <table v-else class="grid" data-testid="tasks-table">
       <thead>
         <tr>
-          <th></th>
           <th>Task</th>
+          <th v-if="showListColumn">List</th>
           <th>Client</th>
-          <th>Project</th>
+          <th v-if="showProjectColumn">Project</th>
           <th>Bill</th>
-          <th>Billable h</th>
+          <th>Billable hours</th>
+          <th>Non-billable hours</th>
           <th>Invoice</th>
           <th>Status</th>
+          <th>Created</th>
+          <th>Done</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         <template v-for="t in tasks" :key="t.id">
-          <tr :class="{ missing: t.needsAttention, editing: editingId === t.id }">
+          <tr
+            :class="{ editing: editingId === t.id }"
+            :data-testid="`task-row-${t.id}`"
+          >
             <td>
-              <span v-if="t.needsAttention" class="dot" title="Needs attention" />
+              <a
+                v-if="t.clickUpUrl"
+                :href="t.clickUpUrl"
+                target="_blank"
+                rel="noopener"
+                :title="t.title"
+                :data-testid="`task-title-${t.id}`"
+              >{{ displayTitle(t.title) }}</a>
+              <span v-else :title="t.title" :data-testid="`task-title-${t.id}`">{{ displayTitle(t.title) }}</span>
             </td>
+            <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">{{ t.clickUpListName ?? '—' }}</td>
+            <td :data-testid="`task-client-${t.id}`">{{ t.clientName }}</td>
+            <td v-if="showProjectColumn" :data-testid="`task-project-${t.id}`">{{ t.projectName ?? '—' }}</td>
+            <td :data-testid="`task-bill-${t.id}`">{{ t.bill ?? '—' }}</td>
+            <td :data-testid="`task-billable-hours-${t.id}`">{{ t.billableHours ?? '—' }}</td>
+            <td :data-testid="`task-non-billable-hours-${t.id}`">{{ t.nonBillableHours ?? '—' }}</td>
+            <td :data-testid="`task-invoice-${t.id}`">{{ t.invoiceLabel ?? '—' }}</td>
+            <td :data-testid="`task-status-${t.id}`">{{ t.clickUpStatus ?? '—' }}</td>
+            <td :title="formatDateTime(t.dateCreated)" :data-testid="`task-date-created-${t.id}`">{{ formatDate(t.dateCreated) }}</td>
+            <td :title="formatDateTime(t.dateDone)" :data-testid="`task-date-done-${t.id}`">{{ formatDate(t.dateDone) }}</td>
             <td>
-              <a v-if="t.clickUpUrl" :href="t.clickUpUrl" target="_blank" rel="noopener">{{ t.title }}</a>
-              <span v-else>{{ t.title }}</span>
-              <div class="muted">{{ t.clickUpListName }}</div>
-            </td>
-            <td>{{ t.clientName }}</td>
-            <td>{{ t.projectName ?? '—' }}</td>
-            <td>{{ t.bill ?? '—' }}</td>
-            <td>{{ t.billableHours ?? '—' }}</td>
-            <td>{{ t.invoiceLabel ?? '—' }}</td>
-            <td>{{ t.clickUpStatus ?? '—' }}</td>
-            <td>
-              <button v-if="editingId !== t.id" class="link" @click="startEdit(t)">Edit</button>
+              <button
+                v-if="editingId !== t.id"
+                class="link"
+                :data-testid="`task-edit-${t.id}`"
+                @click="startEdit(t)"
+              >Edit</button>
             </td>
           </tr>
-          <tr v-if="editingId === t.id" class="edit-row">
-            <td colspan="9">
-              <form class="edit-form" @submit.prevent="saveEdit">
+          <tr v-if="editingId === t.id" class="edit-row" :data-testid="`task-edit-row-${t.id}`">
+            <td :colspan="editColspan">
+              <form class="edit-form" :data-testid="`task-edit-form-${t.id}`" @submit.prevent="saveEdit">
                 <label>
                   Project
-                  <select v-model="draft.projectId">
+                  <select v-model="draft.projectId" :data-testid="`task-edit-project-${t.id}`">
                     <option value="">— unassigned —</option>
                     <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
                   </select>
                 </label>
                 <label>
                   Bill
-                  <select v-model="draft.bill">
+                  <select v-model="draft.bill" :data-testid="`task-edit-bill-${t.id}`">
                     <option value="">—</option>
                     <option value="yes">yes</option>
                     <option value="no">no</option>
@@ -166,26 +271,26 @@ watch(missingOnly, () => { editingId.value = null })
                 </label>
                 <label>
                   Billable hours
-                  <input v-model="draft.billableHours" type="number" step="0.01" min="0" />
+                  <input v-model="draft.billableHours" type="number" step="0.01" min="0" :data-testid="`task-edit-billable-hours-${t.id}`" />
                 </label>
                 <label>
                   Non-billable hours
-                  <input v-model="draft.nonBillableHours" type="number" step="0.01" min="0" />
+                  <input v-model="draft.nonBillableHours" type="number" step="0.01" min="0" :data-testid="`task-edit-non-billable-hours-${t.id}`" />
                 </label>
                 <label>
                   Invoice
-                  <input v-model="draft.invoiceLabel" placeholder="e.g. Aug 2025" />
+                  <input v-model="draft.invoiceLabel" placeholder="e.g. Aug 2025" :data-testid="`task-edit-invoice-${t.id}`" />
                 </label>
                 <label class="grow">
                   Note
-                  <input v-model="draft.note" />
+                  <input v-model="draft.note" :data-testid="`task-edit-note-${t.id}`" />
                 </label>
                 <div class="edit-actions">
-                  <button type="submit" :disabled="updatePrep.isLoading.value">Save</button>
-                  <button type="button" class="link" @click="cancelEdit">Cancel</button>
+                  <button type="submit" :disabled="updatePrep.isLoading.value" :data-testid="`task-save-${t.id}`">Save</button>
+                  <button type="button" class="link" :data-testid="`task-cancel-${t.id}`" @click="cancelEdit">Cancel</button>
                 </div>
               </form>
-              <p v-if="saveError" class="error">{{ saveError }}</p>
+              <p v-if="saveError" class="error" :data-testid="`task-save-error-${t.id}`">{{ saveError }}</p>
             </td>
           </tr>
         </template>
@@ -215,16 +320,6 @@ select, input {
 }
 .grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .grid th, .grid td { text-align: left; padding: 0.45rem 0.4rem; border-bottom: 1px solid #eee; vertical-align: top; }
-.grid tr.missing { background: #fffbeb; }
-.dot {
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: #f59e0b;
-  margin-top: 0.35rem;
-}
-.muted { font-size: 0.75rem; color: #9ca3af; }
 .link { background: none; border: none; color: #059669; cursor: pointer; padding: 0; font: inherit; }
 .edit-row td { background: #f0fdf4; }
 .edit-form {

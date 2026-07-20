@@ -30,6 +30,7 @@ public sealed class CsvTaskImportService(
             HasHeaderRecord = true,
             MissingFieldFound = null,
             BadDataFound = null,
+            PrepareHeaderForMatch = args => args.Header.ToLowerInvariant(),
         });
 
         var imported = 0;
@@ -109,18 +110,27 @@ public sealed class CsvTaskImportService(
     private async Task<Client> EnsureClientAsync(
         Guid agencyId, string? folderId, string folderName, DateTimeOffset now, CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(folderId))
+        folderId = NullIfEmpty(folderId);
+        if (folderId is not null)
         {
             var byFolder = await clients.GetByClickUpFolderIdAsync(folderId, ct);
             if (byFolder is not null) return byFolder;
         }
 
         var parsed = ClickUpFolderNaming.Parse(folderName);
+        var name = parsed.Name.Length > 0 ? parsed.Name : folderName;
+        if (folderId is null)
+        {
+            var byName = (await clients.ListAsync(agencyId, ct))
+                .FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (byName is not null) return byName;
+        }
+
         var client = new Client
         {
             Id = Guid.NewGuid(),
             AgencyId = agencyId,
-            Name = parsed.Name.Length > 0 ? parsed.Name : folderName,
+            Name = name,
             Code = parsed.Code,
             OriginalName = parsed.OriginalName,
             ClickUpFolderId = folderId,

@@ -41,35 +41,35 @@ async function onFile(e: Event) {
 </script>
 
 <template>
-  <section>
+  <section data-testid="sync-view">
     <h1>Sync</h1>
 
-    <div class="card">
+    <div class="card" data-testid="sync-clickup-card">
       <h2>ClickUp API</h2>
       <p class="muted">
         Pulls hierarchy + your assigned tasks. Preserves Bill / hours / invoice / note / project assign.
       </p>
-      <p v-if="agency?.lastClickUpSyncAt" class="muted">
+      <p v-if="agency?.lastClickUpSyncAt" class="muted" data-testid="sync-last-run">
         Last sync: {{ new Date(agency.lastClickUpSyncAt).toLocaleString() }}
         <template v-if="agency.lastClickUpSyncSummary"> — {{ agency.lastClickUpSyncSummary }}</template>
       </p>
-      <p v-else class="muted">Never synced.</p>
-      <button :disabled="sync.isLoading.value" @click="runSync">
+      <p v-else class="muted" data-testid="sync-never-run">Never synced.</p>
+      <button :disabled="sync.isLoading.value" data-testid="sync-clickup-button" @click="runSync">
         {{ sync.isLoading.value ? 'Syncing…' : 'Sync now' }}
       </button>
-      <p v-if="syncMsg" class="ok">{{ syncMsg }}</p>
-      <p v-if="syncError" class="error">{{ syncError }}</p>
+      <p v-if="syncMsg" class="ok" data-testid="sync-clickup-result">{{ syncMsg }}</p>
+      <p v-if="syncError" class="error" data-testid="sync-clickup-error">{{ syncError }}</p>
     </div>
 
-    <div class="card">
+    <div class="card" data-testid="sync-csv-card">
       <h2>CSV bootstrap</h2>
       <p class="muted">
         One-shot import of the sheet export (manual cols + ClickUp cols), keyed by task URL.
       </p>
-      <input type="file" accept=".csv,text/csv" @change="onFile" />
-      <p v-if="csvImport.isLoading.value" class="muted">Importing…</p>
-      <p v-if="csvMsg" class="ok">{{ csvMsg }}</p>
-      <p v-if="csvError" class="error">{{ csvError }}</p>
+      <input type="file" accept=".csv,text/csv" data-testid="sync-csv-input" @change="onFile" />
+      <p v-if="csvImport.isLoading.value" class="muted" data-testid="sync-csv-loading">Importing…</p>
+      <p v-if="csvMsg" class="ok" data-testid="sync-csv-result">{{ csvMsg }}</p>
+      <p v-if="csvError" class="error" data-testid="sync-csv-error">{{ csvError }}</p>
     </div>
   </section>
 </template>

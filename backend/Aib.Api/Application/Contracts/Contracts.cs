@@ -42,3 +42,7 @@ public sealed record ClickUpSyncResultDto(
     string Summary);
 
 public sealed record CsvImportResultDto(int Imported, int Updated, int Skipped, string Summary);
+
+public sealed record TaskFilterOptionsDto(
+    IReadOnlyList<string> CreatedMonths,
+    IReadOnlyList<string> DoneMonths);

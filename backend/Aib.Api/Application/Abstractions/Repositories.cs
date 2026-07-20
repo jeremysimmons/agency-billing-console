@@ -27,7 +27,16 @@ public interface ITaskRepository
     Task<WorkTask?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<WorkTask?> GetByClickUpUrlAsync(string url, CancellationToken ct = default);
     Task<WorkTask?> GetByClickUpTaskIdAsync(string taskId, CancellationToken ct = default);
-    Task<IReadOnlyList<WorkTask>> ListAsync(Guid? clientId, bool? missingOnly, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkTask>> ListAsync(
+        Guid? clientId,
+        bool? missingOnly,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        CancellationToken ct = default);
+    Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths)> ListMonthFiltersAsync(
+        Guid? clientId, CancellationToken ct = default);
     Task<Guid> InsertAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateApiFieldsAsync(WorkTask task, CancellationToken ct = default);

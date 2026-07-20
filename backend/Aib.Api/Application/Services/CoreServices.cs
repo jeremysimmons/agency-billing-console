@@ -148,9 +148,17 @@ public sealed class TaskService(
     IProjectRepository projects,
     IClock clock)
 {
-    public async Task<IReadOnlyList<TaskDto>> ListAsync(Guid? clientId, bool? missingOnly, CancellationToken ct = default)
+    public async Task<IReadOnlyList<TaskDto>> ListAsync(
+        Guid? clientId,
+        bool? missingOnly,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        CancellationToken ct = default)
     {
-        var list = await tasks.ListAsync(clientId, missingOnly, ct);
+        var list = await tasks.ListAsync(
+            clientId, missingOnly, projectId, unassignedOnly, createdMonth, doneMonth, ct);
         var clientNames = new Dictionary<Guid, string>();
         var projectNames = new Dictionary<Guid, string>();
 
@@ -178,6 +186,12 @@ public sealed class TaskService(
             result.Add(Map(task, clientName, projectName));
         }
         return result;
+    }
+
+    public async Task<TaskFilterOptionsDto> GetFilterOptionsAsync(Guid? clientId, CancellationToken ct = default)
+    {
+        var (createdMonths, doneMonths) = await tasks.ListMonthFiltersAsync(clientId, ct);
+        return new TaskFilterOptionsDto(createdMonths, doneMonths);
     }
 
     public async Task<TaskDto> UpdatePrepAsync(Guid id, UpdateTaskPrepRequest request, CancellationToken ct = default)

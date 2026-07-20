@@ -190,7 +190,14 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         return await conn.QuerySingleOrDefaultAsync<WorkTask>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<WorkTask>> ListAsync(Guid? clientId, bool? missingOnly, CancellationToken ct = default)
+    public async Task<IReadOnlyList<WorkTask>> ListAsync(
+        Guid? clientId,
+        bool? missingOnly,
+        Guid? projectId,
+        bool? unassignedOnly,
+        string? createdMonth,
+        string? doneMonth,
+        CancellationToken ct = default)
     {
         var sql = """
             select * from task
@@ -202,6 +209,28 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         {
             sql += " and client_id = @clientId";
             parameters.Add("clientId", cid);
+        }
+
+        if (projectId is { } pid)
+        {
+            sql += " and project_id = @projectId";
+            parameters.Add("projectId", pid);
+        }
+        else if (unassignedOnly == true)
+        {
+            sql += " and project_id is null";
+        }
+
+        if (!string.IsNullOrWhiteSpace(createdMonth))
+        {
+            sql += " and date_created is not null and to_char(date_created, 'YYYY-MM') = @createdMonth";
+            parameters.Add("createdMonth", createdMonth);
+        }
+
+        if (!string.IsNullOrWhiteSpace(doneMonth))
+        {
+            sql += " and date_done is not null and to_char(date_done, 'YYYY-MM') = @doneMonth";
+            parameters.Add("doneMonth", doneMonth);
         }
 
         if (missingOnly == true)
@@ -221,6 +250,33 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<WorkTask>(new CommandDefinition(sql, parameters, cancellationToken: ct));
         return rows.ToList();
+    }
+
+    public async Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths)> ListMonthFiltersAsync(
+        Guid? clientId, CancellationToken ct = default)
+    {
+        var clientClause = clientId is { } cid ? " and client_id = @clientId" : string.Empty;
+        var parameters = new DynamicParameters();
+        if (clientId is { } clientIdValue)
+            parameters.Add("clientId", clientIdValue);
+
+        var createdSql = $"""
+            select distinct to_char(date_created, 'YYYY-MM') as month
+            from task
+            where date_created is not null{clientClause}
+            order by month desc
+            """;
+        var doneSql = $"""
+            select distinct to_char(date_done, 'YYYY-MM') as month
+            from task
+            where date_done is not null{clientClause}
+            order by month desc
+            """;
+
+        using var conn = await factory.OpenAsync(ct);
+        var created = (await conn.QueryAsync<string>(new CommandDefinition(createdSql, parameters, cancellationToken: ct))).ToList();
+        var done = (await conn.QueryAsync<string>(new CommandDefinition(doneSql, parameters, cancellationToken: ct))).ToList();
+        return (created, done);
     }
 
     public async Task<Guid> InsertAsync(WorkTask t, CancellationToken ct = default)

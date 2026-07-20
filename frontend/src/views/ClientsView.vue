@@ -35,36 +35,38 @@ async function remove(id: string) {
 </script>
 
 <template>
-  <section>
+  <section data-testid="clients-view">
     <h1>Clients</h1>
 
-    <form class="row" @submit.prevent="add">
-      <input v-model="name" placeholder="Client name" required />
-      <input v-model="code" placeholder="Code (optional)" />
-      <button :disabled="createClient.isLoading.value">Add client</button>
+    <form class="row" data-testid="client-create-form" @submit.prevent="add">
+      <input v-model="name" placeholder="Client name" required data-testid="client-create-name" />
+      <input v-model="code" placeholder="Code (optional)" data-testid="client-create-code" />
+      <button :disabled="createClient.isLoading.value" data-testid="client-create-submit">Add client</button>
     </form>
-    <p v-if="formError" class="error">{{ formError }}</p>
-    <p v-if="deleteError" class="error">{{ deleteError }}</p>
+    <p v-if="formError" class="error" data-testid="client-create-error">{{ formError }}</p>
+    <p v-if="deleteError" class="error" data-testid="client-delete-error">{{ deleteError }}</p>
 
-    <p v-if="isLoading">Loading…</p>
-    <p v-else-if="error" class="error">Failed to load clients.</p>
-    <table v-else class="grid">
+    <p v-if="isLoading" data-testid="clients-loading">Loading…</p>
+    <p v-else-if="error" class="error" data-testid="clients-error">Failed to load clients.</p>
+    <table v-else class="grid" data-testid="clients-table">
       <thead><tr><th>Name</th><th>Code</th><th>Original name</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        <tr v-for="c in clients" :key="c.id">
-          <td><RouterLink :to="`/clients/${c.id}`">{{ c.name }}</RouterLink></td>
-          <td>{{ c.code ?? '—' }}</td>
-          <td>{{ c.originalName ?? '—' }}</td>
-          <td>{{ c.status }}</td>
+        <tr v-for="c in clients" :key="c.id" :data-testid="`client-row-${c.id}`">
+          <td>
+            <RouterLink :to="`/clients/${c.id}`" :data-testid="`client-name-${c.id}`">{{ c.name }}</RouterLink>
+          </td>
+          <td :data-testid="`client-code-${c.id}`">{{ c.code ?? '—' }}</td>
+          <td :data-testid="`client-original-name-${c.id}`">{{ c.originalName ?? '—' }}</td>
+          <td :data-testid="`client-status-${c.id}`">{{ c.status }}</td>
           <td class="actions">
             <template v-if="confirmId === c.id">
-              <button class="link danger" :disabled="deleteClient.isLoading.value" @click="remove(c.id)">Confirm</button>
-              <button class="link" :disabled="deleteClient.isLoading.value" @click="confirmId = null">Cancel</button>
+              <button class="link danger" :disabled="deleteClient.isLoading.value" :data-testid="`client-delete-confirm-${c.id}`" @click="remove(c.id)">Confirm</button>
+              <button class="link" :disabled="deleteClient.isLoading.value" :data-testid="`client-delete-cancel-${c.id}`" @click="confirmId = null">Cancel</button>
             </template>
-            <button v-else class="link danger" @click="confirmId = c.id">Delete</button>
+            <button v-else class="link danger" :data-testid="`client-delete-${c.id}`" @click="confirmId = c.id">Delete</button>
           </td>
         </tr>
-        <tr v-if="clients && clients.length === 0"><td colspan="5">No clients yet.</td></tr>
+        <tr v-if="clients && clients.length === 0"><td colspan="5" data-testid="clients-empty">No clients yet.</td></tr>
       </tbody>
     </table>
   </section>

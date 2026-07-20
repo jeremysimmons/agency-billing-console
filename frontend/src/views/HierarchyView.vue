@@ -21,22 +21,22 @@ async function runSync() {
 </script>
 
 <template>
-  <section>
+  <section data-testid="hierarchy-view">
     <div class="header">
       <h1>ClickUp hierarchy</h1>
-      <button :disabled="sync.isLoading.value" @click="runSync">
+      <button :disabled="sync.isLoading.value" data-testid="hierarchy-sync-button" @click="runSync">
         {{ sync.isLoading.value ? 'Syncing…' : 'Sync from ClickUp' }}
       </button>
     </div>
-    <p v-if="syncMsg" class="ok">{{ syncMsg }}</p>
-    <p v-if="syncError" class="error">{{ syncError }}</p>
+    <p v-if="syncMsg" class="ok" data-testid="hierarchy-sync-result">{{ syncMsg }}</p>
+    <p v-if="syncError" class="error" data-testid="hierarchy-sync-error">{{ syncError }}</p>
     <p class="hint">Space → folder → list. Names refresh when you sync.</p>
 
-    <p v-if="isLoading">Loading…</p>
-    <p v-else-if="error" class="error">Failed to load hierarchy.</p>
-    <p v-else-if="tree && tree.length === 0" class="empty">No containers yet. Run Sync.</p>
+    <p v-if="isLoading" data-testid="hierarchy-loading">Loading…</p>
+    <p v-else-if="error" class="error" data-testid="hierarchy-error">Failed to load hierarchy.</p>
+    <p v-else-if="tree && tree.length === 0" class="empty" data-testid="hierarchy-empty">No containers yet. Run Sync.</p>
 
-    <ul v-else class="tree">
+    <ul v-else class="tree" data-testid="hierarchy-tree">
       <HierarchyNode v-for="node in tree" :key="node.id" :node="node" />
     </ul>
   </section>

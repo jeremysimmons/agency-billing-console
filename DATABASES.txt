@@ -1,6 +1,5 @@
 AIB database schema (PostgreSQL) — slim ClickUp billing prep
-Sources: Script0001_Foundation.sql, Script0005_ClientOriginalName.sql,
-         Script0006_SlimClickUp.sql, Script0007_SlimProject.sql, Script0008_DropLegacy.sql
+Sources: backend/Aib.Migrations/Migrations/*.sql (run via ./scripts/run-migrations)
 Enum-like columns stored as text (PascalCase, matching C# enums).
 PK = primary key · FK = foreign key · UQ = unique · * = nullable
 
