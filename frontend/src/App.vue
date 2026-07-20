@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useRouter, RouterView, RouterLink } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { useAgency } from './queries/agency'
 
 const auth = useAuthStore()
 const router = useRouter()
+const { data: agency } = useAgency()
 
 async function logout() {
   await auth.logout()
@@ -14,7 +16,13 @@ async function logout() {
 <template>
   <div class="app">
     <header v-if="auth.user" class="topbar">
-      <div class="brand">Agency Billing Console</div>
+      <div class="brand-block">
+        <div class="brand">Agency Billing Console</div>
+        <RouterLink v-if="agency" to="/" class="agency-context" :title="'Top-level agency'">
+          <span class="agency-label">Agency</span>
+          <span class="agency-name">{{ agency.name }}</span>
+        </RouterLink>
+      </div>
       <nav>
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/clients">Clients</RouterLink>
@@ -41,7 +49,31 @@ async function logout() {
   background: #fff;
   color: #1f2937;
 }
-.brand { font-weight: 700; }
+.brand-block { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.brand { font-weight: 700; line-height: 1.2; }
+.agency-context {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+  max-width: 18rem;
+}
+.agency-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.agency-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #059669;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 nav { display: flex; gap: 1rem; }
 nav a { text-decoration: none; color: #374151; }
 nav a.router-link-active { color: #059669; font-weight: 600; }

@@ -7,6 +7,15 @@ export interface AuthUser {
   isContractorSide: boolean
 }
 
+export interface Agency {
+  id: string
+  name: string
+  billingEmail: string | null
+  currency: string
+  paymentTermsDays: number
+  active: boolean
+}
+
 export interface Client {
   id: string
   name: string
@@ -61,6 +70,7 @@ export interface UnmappedContainer {
   externalId: string
   containerType: string
   name: string
+  url: string | null
   parentExternalId: string | null
   mappingId: string | null
   mappingStatus: string | null

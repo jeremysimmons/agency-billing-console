@@ -23,6 +23,10 @@ public sealed record AuthResult(bool Succeeded, AuthenticatedUser? User, string?
     public static AuthResult Fail(string error) => new(false, null, null, null, error);
 }
 
+// ---- Agency ----
+public sealed record AgencyDto(
+    Guid Id, string Name, string? BillingEmail, string Currency, int PaymentTermsDays, bool Active);
+
 // ---- Clients ----
 public sealed record CreateClientRequest(string Name, string? Code, string? Description, ClientStatus? Status);
 public sealed record UpdateClientRequest(string Name, string? Code, string? Description, ClientStatus Status, bool Active);
@@ -86,7 +90,7 @@ public sealed record ImportRunDto(
 
 // ---- Mapping ----
 public sealed record UnmappedContainerDto(
-    Guid ContainerId, string ExternalId, ContainerType ContainerType, string Name,
+    Guid ContainerId, string ExternalId, ContainerType ContainerType, string Name, string? Url,
     string? ParentExternalId, Guid? MappingId, MappingStatus? MappingStatus,
     Guid? SuggestedClientId, string? SuggestedClientName,
     Guid? SuggestedProjectId, string? SuggestedProjectName);
