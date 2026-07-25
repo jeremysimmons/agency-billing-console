@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ToggleSwitch from 'primevue/toggleswitch'
+import ProgressSpinner from 'primevue/progressspinner'
 import { useClients } from '../queries/clients'
 import { useProjects, useCreateProject } from '../queries/projects'
 import { useInvoices, useCreateInvoice } from '../queries/invoices'
@@ -23,6 +24,7 @@ type StoredTaskFilters = {
   showProjectColumn?: boolean
   showInvoiceColumn?: boolean
   showIdColumn?: boolean
+  showClickUpIdColumn?: boolean
   showClickUpHoursColumn?: boolean
   showClickUpEstimateColumn?: boolean
   groupByClient?: boolean
@@ -125,6 +127,18 @@ function clearContainerFilter() {
   delete query.missingOnly
   delete query.invoiced
   router.replace({ path: '/tasks', query })
+}
+
+function clearScopeFilters() {
+  createdMonthFilter.value = ''
+  doneMonthFilter.value = ''
+  projectFilter.value = ''
+  clientFilter.value = ''
+  if (route.query.clientId) {
+    const query = { ...route.query }
+    delete query.clientId
+    router.replace({ path: '/tasks', query })
+  }
 }
 
 watch(
@@ -559,7 +573,12 @@ function invoiceOptionLabel(inv: Invoice) {
   return `${inv.name} (${formatInvoiceStatus(inv.status)})`
 }
 
-const assignableInvoices = computed(() => (invoices.value ?? []).filter(isInvoiceAssignable))
+const assignableInvoices = computed(() =>
+  (invoices.value ?? [])
+    .filter(isInvoiceAssignable)
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)),
+)
 
 function invoiceOptionsFor(t: WorkTask): Invoice[] {
   const list = assignableInvoices.value
@@ -567,7 +586,9 @@ function invoiceOptionsFor(t: WorkTask): Invoice[] {
   if (!current) return list
   if (list.some((i) => i.name === current)) return list
   const existing = (invoices.value ?? []).find((i) => i.name === current)
-  return existing ? [...list, existing] : [...list, { id: current, name: current, status: 'fully-paid' }]
+  return existing
+    ? [...list, existing]
+    : [...list, { id: current, name: current, status: 'fully-paid', sortOrder: Number.MAX_SAFE_INTEGER }]
 }
 
 async function updateInvoiceInline(t: WorkTask, invoiceLabel: string | null) {
@@ -937,6 +958,15 @@ function openDoneMonth(month: string) {
         <code>{{ containerFilter.id }}</code>
         <button type="button" class="linkish" data-testid="tasks-container-filter-clear" @click="clearContainerFilter">Clear</button>
       </div>
+      <div class="filter-clear">
+        <span class="filter-label" aria-hidden="true">&nbsp;</span>
+        <button
+          type="button"
+          class="filter-clear-btn"
+          data-testid="tasks-clear-filters"
+          @click="clearScopeFilters"
+        >Clear</button>
+      </div>
       <label>
         Created
         <select v-model="createdMonthFilter" data-testid="tasks-created-month-filter">
@@ -1295,16 +1325,25 @@ function openDoneMonth(month: string) {
                 <span v-if="billErrors[t.id]" class="inline-error" :data-testid="`task-bill-error-${t.id}`">{{ billErrors[t.id] }}</span>
               </td>
               <td class="hours-cell" :data-testid="`task-billable-hours-${t.id}`">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="inline-input"
-                  :value="t.billableHours ?? ''"
-                  :disabled="savingBillableId === t.id"
-                  :data-testid="`task-billable-hours-input-${t.id}`"
-                  @blur="updateBillableHoursInline(t, ($event.target as HTMLInputElement).value)"
-                />
+                <div class="hours-control">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="inline-input"
+                    :value="t.billableHours ?? ''"
+                    :disabled="savingBillableId === t.id"
+                    :data-testid="`task-billable-hours-input-${t.id}`"
+                    @blur="updateBillableHoursInline(t, ($event.target as HTMLInputElement).value)"
+                  />
+                  <ProgressSpinner
+                    v-if="savingBillableId === t.id"
+                    class="hours-spinner"
+                    strokeWidth="6"
+                    aria-label="Saving billable hours"
+                    :pt="{ root: { 'data-testid': `task-billable-hours-spinner-${t.id}` } }"
+                  />
+                </div>
                 <span v-if="billableWarnings[t.id]" class="inline-warning" :data-testid="`task-billable-hours-warning-${t.id}`">{{ billableWarnings[t.id] }}</span>
               </td>
               <td class="hours-cell" :data-testid="`task-non-billable-hours-${t.id}`">
@@ -1326,8 +1365,20 @@ function openDoneMonth(month: string) {
               >{{ t.estimatedHours ?? '—' }}</td>
               <td
                 v-if="showClickUpHoursColumn"
+                class="hours-cell"
                 :data-testid="`task-clickup-hours-${t.id}`"
-              >{{ t.actualHours ?? '—' }}</td>
+              >
+                <div class="hours-control">
+                  <span>{{ t.actualHours ?? '—' }}</span>
+                  <ProgressSpinner
+                    v-if="savingBillableId === t.id || syncingTaskId === t.id"
+                    class="hours-spinner"
+                    strokeWidth="6"
+                    aria-label="Updating ClickUp hours"
+                    :pt="{ root: { 'data-testid': `task-clickup-hours-spinner-${t.id}` } }"
+                  />
+                </div>
+              </td>
               <td v-if="showInvoice" class="invoice-cell" :data-testid="`task-invoice-${t.id}`">
                 <div v-if="addingInvoiceTaskId === t.id" class="add-project">
                   <input
@@ -1663,6 +1714,27 @@ function openDoneMonth(month: string) {
 }
 .filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #4b5563; }
 .filters .check { flex-direction: row; align-items: center; gap: 0.4rem; padding-bottom: 0; }
+.filter-clear {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.filter-clear-btn {
+  box-sizing: border-box;
+  min-height: var(--filter-control-height);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  cursor: pointer;
+}
+.filter-clear-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
 .container-filter {
   display: flex;
   flex-direction: column;
@@ -1881,6 +1953,15 @@ select, input:not([role='switch']) {
 }
 .bill-cell { min-width: 4.5rem; }
 .hours-cell { min-width: 5rem; }
+.hours-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.hours-spinner {
+  width: 1rem !important;
+  height: 1rem !important;
+}
 .project-cell { min-width: 9rem; }
 .project-cell .inline-select { max-width: 12rem; }
 .add-project {

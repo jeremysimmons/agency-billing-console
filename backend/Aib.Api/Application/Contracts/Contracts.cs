@@ -38,7 +38,8 @@ public sealed record ProjectDto(Guid Id, Guid ClientId, string Name);
 
 public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null);
 public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status);
-public sealed record InvoiceDto(Guid Id, string Name, InvoiceStatus Status);
+public sealed record ReorderInvoicesRequest(IReadOnlyList<Guid> OrderedIds);
+public sealed record InvoiceDto(Guid Id, string Name, InvoiceStatus Status, int SortOrder);
 
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,

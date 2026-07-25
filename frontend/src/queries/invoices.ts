@@ -26,3 +26,13 @@ export function useUpdateInvoice() {
     onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
   })
 }
+
+export function useReorderInvoices() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: async (orderedIds: string[]) =>
+      (await http.put<Invoice[]>('/invoices/reorder', { orderedIds })).data,
+    onSuccess: (list) => cache.setQueryData(['invoices'], list),
+    onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
+  })
+}

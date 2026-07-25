@@ -35,6 +35,7 @@ export interface Invoice {
   id: string
   name: string
   status: InvoiceStatus | string
+  sortOrder: number
 }
 
 export interface WorkTask {

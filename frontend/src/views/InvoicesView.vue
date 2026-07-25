@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useInvoices, useCreateInvoice, useUpdateInvoice } from '../queries/invoices'
+import { computed, ref, watch } from 'vue'
+import { useInvoices, useCreateInvoice, useUpdateInvoice, useReorderInvoices } from '../queries/invoices'
 import type { Invoice, InvoiceStatus } from '../api/types'
 
 const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
@@ -13,11 +13,32 @@ const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
 const { data: invoices, isLoading, error } = useInvoices()
 const createInvoice = useCreateInvoice()
 const updateInvoice = useUpdateInvoice()
+const reorderInvoices = useReorderInvoices()
 
 const name = ref('')
 const formError = ref('')
 const statusErrors = ref<Record<string, string>>({})
 const savingId = ref<string | null>(null)
+const reorderError = ref('')
+const localOrder = ref<Invoice[]>([])
+const draggingId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+
+watch(
+  invoices,
+  (list) => {
+    if (!list) {
+      localOrder.value = []
+      return
+    }
+    localOrder.value = list
+      .slice()
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+  },
+  { immediate: true },
+)
+
+const rows = computed(() => localOrder.value)
 
 function statusKey(status: string) {
   const s = status.trim().toLowerCase().replaceAll(' ', '-').replaceAll('_', '-')
@@ -62,11 +83,62 @@ async function onStatusChange(inv: Invoice, value: string) {
     savingId.value = null
   }
 }
+
+function onDragStart(id: string, event: DragEvent) {
+  draggingId.value = id
+  event.dataTransfer?.setData('text/plain', id)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragOver(id: string, event: DragEvent) {
+  if (!draggingId.value) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverId.value = id
+}
+
+function onDragLeave(id: string) {
+  if (dragOverId.value === id) dragOverId.value = null
+}
+
+async function onDrop(targetId: string, event: DragEvent) {
+  event.preventDefault()
+  const fromId = event.dataTransfer?.getData('text/plain') || draggingId.value
+  draggingId.value = null
+  dragOverId.value = null
+  if (!fromId || fromId === targetId) return
+
+  const order = localOrder.value.map((i) => i.id)
+  const fromIdx = order.indexOf(fromId)
+  const toIdx = order.indexOf(targetId)
+  if (fromIdx < 0 || toIdx < 0) return
+  order.splice(fromIdx, 1)
+  order.splice(toIdx, 0, fromId)
+
+  const byId = new Map(localOrder.value.map((i) => [i.id, i]))
+  localOrder.value = order.map((id, i) => {
+    const inv = byId.get(id)!
+    return { ...inv, sortOrder: i }
+  })
+
+  reorderError.value = ''
+  try {
+    await reorderInvoices.mutateAsync(order)
+  } catch (e: any) {
+    reorderError.value = e?.response?.data?.error ?? 'Could not save invoice order.'
+  }
+}
+
+function onDragEnd() {
+  draggingId.value = null
+  dragOverId.value = null
+}
 </script>
 
 <template>
   <section data-testid="invoices-view">
     <h1>Invoices</h1>
+    <p class="hint">Drag rows to set the order used on the Tasks invoice dropdown.</p>
 
     <form class="row" data-testid="invoice-create-form" @submit.prevent="add">
       <input v-model="name" placeholder="Invoice name" required data-testid="invoice-create-name" />
@@ -75,18 +147,42 @@ async function onStatusChange(inv: Invoice, value: string) {
       </button>
     </form>
     <p v-if="formError" class="error" data-testid="invoice-create-error">{{ formError }}</p>
+    <p v-if="reorderError" class="error" data-testid="invoice-reorder-error">{{ reorderError }}</p>
 
     <p v-if="isLoading" data-testid="invoices-loading">Loading…</p>
     <p v-else-if="error" class="error" data-testid="invoices-error">Failed to load invoices.</p>
     <table v-else class="grid" data-testid="invoices-table">
       <thead>
         <tr>
+          <th class="drag-col" aria-label="Reorder"></th>
           <th>Name</th>
           <th>Status</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="inv in invoices" :key="inv.id" :data-testid="`invoice-row-${inv.id}`">
+        <tr
+          v-for="inv in rows"
+          :key="inv.id"
+          class="invoice-row"
+          :class="{
+            'invoice-row--dragging': draggingId === inv.id,
+            'invoice-row--drag-over': dragOverId === inv.id && draggingId !== inv.id,
+          }"
+          :data-testid="`invoice-row-${inv.id}`"
+          @dragover="onDragOver(inv.id, $event)"
+          @dragleave="onDragLeave(inv.id)"
+          @drop="onDrop(inv.id, $event)"
+        >
+          <td class="drag-col">
+            <span
+              class="drag-handle"
+              draggable="true"
+              title="Drag to reorder"
+              :data-testid="`invoice-drag-${inv.id}`"
+              @dragstart="onDragStart(inv.id, $event)"
+              @dragend="onDragEnd"
+            >⠿</span>
+          </td>
           <td :data-testid="`invoice-name-${inv.id}`">{{ inv.name }}</td>
           <td class="status-cell">
             <span
@@ -115,8 +211,8 @@ async function onStatusChange(inv: Invoice, value: string) {
             </template>
           </td>
         </tr>
-        <tr v-if="invoices && invoices.length === 0">
-          <td colspan="2" data-testid="invoices-empty">No invoices yet.</td>
+        <tr v-if="rows.length === 0">
+          <td colspan="3" data-testid="invoices-empty">No invoices yet.</td>
         </tr>
       </tbody>
     </table>
@@ -124,6 +220,7 @@ async function onStatusChange(inv: Invoice, value: string) {
 </template>
 
 <style scoped>
+.hint { color: #6b7280; font-size: 0.9rem; margin: -0.35rem 0 1rem; }
 .row { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
 input {
   padding: 0.5rem 0.7rem;
@@ -142,6 +239,21 @@ button {
 button:disabled { opacity: 0.6; cursor: default; }
 .grid { width: 100%; border-collapse: collapse; }
 .grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
+.drag-col { width: 1%; white-space: nowrap; }
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  color: #9ca3af;
+  cursor: grab;
+  user-select: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.invoice-row--dragging { opacity: 0.55; }
+.invoice-row--drag-over td {
+  box-shadow: inset 0 2px 0 #059669;
+}
 .status-cell { min-width: 12rem; }
 .status-select {
   padding: 0.35rem 0.5rem;

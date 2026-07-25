@@ -209,22 +209,25 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
         var rows = await conn.QueryAsync<Invoice>(new CommandDefinition(
             """
             select * from invoice
-            order by case lower(status)
-                when 'preparing' then 0
-                when 'sent' then 1
-                when 'partially-paid' then 2
-                else 3
-            end, name
+            order by sort_order, name
             """, cancellationToken: ct));
         return rows.ToList();
+    }
+
+    public async Task<int> GetNextSortOrderAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "select coalesce(max(sort_order), -1) + 1 from invoice",
+            cancellationToken: ct));
     }
 
     public async Task<Guid> InsertAsync(Invoice invoice, CancellationToken ct = default)
     {
         var status = invoice.Status.Value;
         var builder = SimpleBuilder.Create($"""
-            insert into invoice (id, name, status, created_at, updated_at)
-            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.CreatedAt}, {invoice.UpdatedAt})
+            insert into invoice (id, name, status, sort_order, created_at, updated_at)
+            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.CreatedAt}, {invoice.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -236,11 +239,29 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
         var status = invoice.Status.Value;
         var builder = SimpleBuilder.Create($"""
             update invoice
-            set name = {invoice.Name}, status = {status}, updated_at = {invoice.UpdatedAt}
+            set name = {invoice.Name}, status = {status}, sort_order = {invoice.SortOrder}, updated_at = {invoice.UpdatedAt}
             where id = {invoice.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task ReorderAsync(IReadOnlyList<Guid> orderedIds, DateTimeOffset updatedAt, CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        using var tx = conn.BeginTransaction();
+        for (var i = 0; i < orderedIds.Count; i++)
+        {
+            var id = orderedIds[i];
+            var sortOrder = i;
+            var builder = SimpleBuilder.Create($"""
+                update invoice
+                set sort_order = {sortOrder}, updated_at = {updatedAt}
+                where id = {id}
+                """);
+            await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, transaction: tx, cancellationToken: ct));
+        }
+        tx.Commit();
     }
 }
 

@@ -65,6 +65,10 @@ public sealed class InvoicesController(InvoiceService invoices) : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateInvoiceRequest request, CancellationToken ct)
         => Ok(await invoices.CreateAsync(request, ct));
 
+    [HttpPut("reorder")]
+    public async Task<IActionResult> Reorder([FromBody] ReorderInvoicesRequest request, CancellationToken ct)
+        => Ok(await invoices.ReorderAsync(request, ct));
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateInvoiceRequest request, CancellationToken ct)
         => Ok(await invoices.UpdateAsync(id, request, ct));

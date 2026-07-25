@@ -54,6 +54,7 @@ public class Invoice
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Preparing;
+    public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

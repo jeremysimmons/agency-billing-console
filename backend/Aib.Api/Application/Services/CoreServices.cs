@@ -225,6 +225,7 @@ public sealed class InvoiceService(
             Id = Guid.NewGuid(),
             Name = name,
             Status = status,
+            SortOrder = await invoices.GetNextSortOrderAsync(ct),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -254,7 +255,22 @@ public sealed class InvoiceService(
         return Map(invoice);
     }
 
-    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status);
+    public async Task<IReadOnlyList<InvoiceDto>> ReorderAsync(ReorderInvoicesRequest request, CancellationToken ct = default)
+    {
+        var orderedIds = request.OrderedIds ?? [];
+        var existing = await invoices.ListAsync(ct);
+        if (orderedIds.Count != existing.Count
+            || orderedIds.Distinct().Count() != orderedIds.Count
+            || orderedIds.Any(id => existing.All(e => e.Id != id)))
+        {
+            throw new DomainException("Invoice order must include each invoice exactly once.");
+        }
+
+        await invoices.ReorderAsync(orderedIds, clock.UtcNow, ct);
+        return (await invoices.ListAsync(ct)).Select(Map).ToList();
+    }
+
+    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status, i.SortOrder);
 }
 
 public sealed class TaskService(
