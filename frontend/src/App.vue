@@ -9,6 +9,7 @@ import { RouterView, RouterLink } from 'vue-router'
       <nav>
         <RouterLink to="/tasks" data-testid="nav-tasks">Tasks</RouterLink>
         <RouterLink to="/clients" data-testid="nav-clients">Clients</RouterLink>
+        <RouterLink to="/projects" data-testid="nav-projects">Projects</RouterLink>
         <RouterLink to="/invoices" data-testid="nav-invoices">Invoices</RouterLink>
         <RouterLink to="/hierarchy" data-testid="nav-hierarchy">Hierarchy</RouterLink>
         <RouterLink to="/sync" data-testid="nav-sync">Sync</RouterLink>

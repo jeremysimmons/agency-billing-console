@@ -150,18 +150,31 @@ public sealed class ClientService(
 public sealed class ProjectService(
     IProjectRepository projects,
     IClientRepository clients,
+    IAgencyRepository agencies,
     IClock clock)
 {
-    public async Task<IReadOnlyList<ProjectDto>> ListByClientAsync(Guid clientId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ProjectDto>> ListAsync(CancellationToken ct = default)
+    {
+        var list = await projects.ListAllAsync(ct);
+        var names = await ClientNameMapAsync(ct);
+        return list.Select(p => Map(p, names)).ToList();
+    }
+
+    public async Task<IReadOnlyList<ProjectDto>> ListByClientAsync(
+        Guid clientId,
+        bool includeShared = false,
+        CancellationToken ct = default)
     {
         _ = await clients.GetByIdAsync(clientId, ct) ?? throw new NotFoundException("Client not found.");
-        var list = await projects.ListByClientAsync(clientId, ct);
-        return list.Select(Map).ToList();
+        var list = await projects.ListByClientAsync(clientId, includeShared, ct);
+        var names = await ClientNameMapAsync(ct);
+        return list.Select(p => Map(p, names)).ToList();
     }
 
     public async Task<ProjectDto> CreateAsync(CreateProjectRequest request, CancellationToken ct = default)
     {
-        _ = await clients.GetByIdAsync(request.ClientId, ct) ?? throw new NotFoundException("Client not found.");
+        var client = await clients.GetByIdAsync(request.ClientId, ct)
+                     ?? throw new NotFoundException("Client not found.");
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new DomainException("Project name is required.");
 
@@ -175,7 +188,7 @@ public sealed class ProjectService(
             UpdatedAt = now
         };
         await projects.InsertAsync(project, ct);
-        return Map(project);
+        return Map(project, client.Name);
     }
 
     public async Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectRequest request, CancellationToken ct = default)
@@ -183,15 +196,29 @@ public sealed class ProjectService(
         var project = await projects.GetByIdAsync(id, ct) ?? throw new NotFoundException("Project not found.");
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new DomainException("Project name is required.");
+        var client = await clients.GetByIdAsync(request.ClientId, ct)
+                     ?? throw new NotFoundException("Client not found.");
 
         project.Name = request.Name.Trim();
+        project.ClientId = request.ClientId;
         project.UpdatedAt = clock.UtcNow;
         await projects.UpdateAsync(project, ct);
-        return Map(project);
+        return Map(project, client.Name);
     }
 
-    private static ProjectDto Map(Project p) =>
-        new(p.Id, p.ClientId, p.Name);
+    private async Task<Dictionary<Guid, string>> ClientNameMapAsync(CancellationToken ct)
+    {
+        var agency = await agencies.GetDefaultAsync(ct)
+                     ?? throw new NotFoundException("No agency configured.");
+        var list = await clients.ListAsync(agency.Id, ct);
+        return list.ToDictionary(c => c.Id, c => c.Name);
+    }
+
+    private static ProjectDto Map(Project p, Dictionary<Guid, string> names) =>
+        Map(p, names.GetValueOrDefault(p.ClientId, "Unknown"));
+
+    private static ProjectDto Map(Project p, string clientName) =>
+        new(p.Id, p.ClientId, clientName, p.Name);
 }
 
 public sealed class InvoiceService(
@@ -365,7 +392,11 @@ public sealed class TaskService(
             var project = await projects.GetByIdAsync(projectId, ct)
                           ?? throw new NotFoundException("Project not found.");
             if (project.ClientId != task.ClientId)
-                throw new DomainException("Project must belong to the same client as the task.");
+            {
+                var projectClient = await clients.GetByIdAsync(project.ClientId, ct);
+                if (!SharedClients.IsShared(projectClient?.Name))
+                    throw new DomainException("Project must belong to the same client as the task, or Shared.");
+            }
         }
 
         task.ProjectId = request.ProjectId;
@@ -413,7 +444,11 @@ public sealed class TaskService(
             var project = await projects.GetByIdAsync(pid, ct)
                           ?? throw new NotFoundException("Project not found.");
             if (project.ClientId != task.ClientId)
-                throw new DomainException("Project must belong to the same client as the task.");
+            {
+                var projectClient = await clients.GetByIdAsync(project.ClientId, ct);
+                if (!SharedClients.IsShared(projectClient?.Name))
+                    throw new DomainException("Project must belong to the same client as the task, or Shared.");
+            }
             projectName = project.Name;
         }
 

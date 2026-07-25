@@ -8,28 +8,49 @@ export interface ProjectInput {
   name: string
 }
 
-export function useProjects(clientId: MaybeRefOrGetter<string | undefined>) {
-  const id = computed(() => toValue(clientId))
+export function useAllProjects() {
   return useQuery({
-    key: () => ['projects', id.value ?? 'none'],
-    query: async () => (await http.get<Project[]>('/projects', { params: { clientId: id.value } })).data,
+    key: ['projects', 'all'],
+    query: async () => (await http.get<Project[]>('/projects')).data,
+  })
+}
+
+export function useProjects(
+  clientId: MaybeRefOrGetter<string | undefined>,
+  options?: MaybeRefOrGetter<{ includeShared?: boolean } | undefined>,
+) {
+  const id = computed(() => toValue(clientId))
+  const includeShared = computed(() => toValue(options)?.includeShared ?? false)
+  return useQuery({
+    key: () => ['projects', id.value ?? 'none', includeShared.value ? 'shared' : 'own'],
+    query: async () =>
+      (await http.get<Project[]>('/projects', {
+        params: {
+          clientId: id.value,
+          ...(includeShared.value ? { includeShared: true } : {}),
+        },
+      })).data,
     enabled: () => !!id.value,
   })
+}
+
+function invalidateProjectQueries(cache: ReturnType<typeof useQueryCache>) {
+  cache.invalidateQueries({ key: ['projects'] })
 }
 
 export function useCreateProject() {
   const cache = useQueryCache()
   return useMutation({
     mutation: async (input: ProjectInput) => (await http.post<Project>('/projects', input)).data,
-    onSettled: (_d, _e, input) => cache.invalidateQueries({ key: ['projects', input.clientId] }),
+    onSettled: () => invalidateProjectQueries(cache),
   })
 }
 
 export function useUpdateProject() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async ({ id, name }: { id: string; name: string; clientId: string }) =>
-      (await http.put<Project>(`/projects/${id}`, { name })).data,
-    onSettled: (_d, _e, vars) => cache.invalidateQueries({ key: ['projects', vars.clientId] }),
+    mutation: async ({ id, name, clientId }: { id: string; name: string; clientId: string }) =>
+      (await http.put<Project>(`/projects/${id}`, { name, clientId })).data,
+    onSettled: () => invalidateProjectQueries(cache),
   })
 }

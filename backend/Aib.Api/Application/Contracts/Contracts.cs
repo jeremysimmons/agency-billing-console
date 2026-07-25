@@ -33,8 +33,8 @@ public sealed record ClickUpSyncProgressEvent(
 public sealed record DeleteAllClientsResult(int Deleted);
 
 public sealed record CreateProjectRequest(Guid ClientId, string Name);
-public sealed record UpdateProjectRequest(string Name);
-public sealed record ProjectDto(Guid Id, Guid ClientId, string Name);
+public sealed record UpdateProjectRequest(string Name, Guid ClientId);
+public sealed record ProjectDto(Guid Id, Guid ClientId, string ClientName, string Name);
 
 public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null);
 public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status);

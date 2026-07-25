@@ -12,6 +12,7 @@ public sealed record TaskMonthCountRow(
 public interface IClientRepository
 {
     Task<Client?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<Client?> GetByNameAsync(Guid agencyId, string name, CancellationToken ct = default);
     Task<Client?> GetByClickUpFolderIdAsync(string folderId, CancellationToken ct = default);
     Task<Client?> GetByClickUpListIdAsync(string listId, CancellationToken ct = default);
     Task<IReadOnlyList<Client>> ListAsync(Guid agencyId, CancellationToken ct = default);
@@ -24,7 +25,8 @@ public interface IClientRepository
 public interface IProjectRepository
 {
     Task<Project?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<IReadOnlyList<Project>> ListByClientAsync(Guid clientId, CancellationToken ct = default);
+    Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<Project>> ListByClientAsync(Guid clientId, bool includeShared = false, CancellationToken ct = default);
     Task<Guid> InsertAsync(Project project, CancellationToken ct = default);
     Task UpdateAsync(Project project, CancellationToken ct = default);
 }

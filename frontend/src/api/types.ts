@@ -26,6 +26,7 @@ export interface Client {
 export interface Project {
   id: string
   clientId: string
+  clientName: string
   name: string
 }
 

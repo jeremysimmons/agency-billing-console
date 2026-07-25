@@ -75,6 +75,18 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         return await conn.QuerySingleOrDefaultAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
+    public async Task<Client?> GetByNameAsync(Guid agencyId, string name, CancellationToken ct = default)
+    {
+        var trimmed = name.Trim();
+        var builder = SimpleBuilder.Create($"""
+            select * from client
+            where agency_id = {agencyId} and lower(trim(name)) = lower({trimmed})
+            limit 1
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
     public async Task<Client?> GetByClickUpFolderIdAsync(string folderId, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"select * from client where clickup_folder_id = {folderId}");
@@ -156,9 +168,32 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
         return await conn.QuerySingleOrDefaultAsync<Project>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<Project>> ListByClientAsync(Guid clientId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken ct = default)
     {
-        var builder = SimpleBuilder.Create($"select * from project where client_id = {clientId} order by name");
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<Project>(new CommandDefinition(
+            """
+            select p.*
+            from project p
+            inner join client c on c.id = p.client_id
+            order by c.name, p.name
+            """, cancellationToken: ct));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<Project>> ListByClientAsync(Guid clientId, bool includeShared = false, CancellationToken ct = default)
+    {
+        var sharedName = SharedClients.Name;
+        var builder = includeShared
+            ? SimpleBuilder.Create($"""
+                select p.*
+                from project p
+                inner join client c on c.id = p.client_id
+                where p.client_id = {clientId}
+                   or lower(trim(c.name)) = lower({sharedName})
+                order by case when p.client_id = {clientId} then 0 else 1 end, p.name
+                """)
+            : SimpleBuilder.Create($"select * from project where client_id = {clientId} order by name");
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<Project>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
         return rows.ToList();
@@ -178,7 +213,8 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
     public async Task UpdateAsync(Project p, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""
-            update project set name = {p.Name}, updated_at = {p.UpdatedAt}
+            update project
+            set name = {p.Name}, client_id = {p.ClientId}, updated_at = {p.UpdatedAt}
             where id = {p.Id}
             """);
         using var conn = await factory.OpenAsync(ct);

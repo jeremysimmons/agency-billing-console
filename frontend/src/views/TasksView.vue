@@ -89,6 +89,9 @@ const showInvoiceColumn = ref(
   typeof storedFilters.showInvoiceColumn === 'boolean' ? storedFilters.showInvoiceColumn : true,
 )
 const showIdColumn = ref(typeof storedFilters.showIdColumn === 'boolean' ? storedFilters.showIdColumn : true)
+const showClickUpIdColumn = ref(
+  typeof storedFilters.showClickUpIdColumn === 'boolean' ? storedFilters.showClickUpIdColumn : false,
+)
 const showClickUpHoursColumn = ref(
   typeof storedFilters.showClickUpHoursColumn === 'boolean' ? storedFilters.showClickUpHoursColumn : false,
 )
@@ -169,7 +172,7 @@ const taskFilters = computed(() => ({
 const { data: clients } = useClients()
 const { data: agency } = useAgency()
 const updateUiPreferences = useUpdateAgencyUiPreferences()
-const { data: filterProjects } = useProjects(clientId)
+const { data: filterProjects } = useProjects(clientId, { includeShared: true })
 const { data: filterOptions } = useTaskFilterOptions(clientId)
 const { data: tasks, isLoading, error } = useTasks(taskFilters)
 const { data: taskSummary, isLoading: summaryLoading, error: summaryError } = useTaskSummary(
@@ -224,7 +227,7 @@ const editClientId = computed(() => {
   const t = tasks.value?.find((x) => x.id === editingId.value)
   return t?.clientId
 })
-const { data: projects } = useProjects(editClientId)
+const { data: projects } = useProjects(editClientId, { includeShared: true })
 
 const missingCount = computed(() => tasks.value?.filter((t) => t.needsAttention).length ?? 0)
 const taskDepthById = computed(() => {
@@ -270,6 +273,7 @@ const showInvoice = computed(() => {
 const visibleColumnCount = computed(() =>
   [
     showIdColumn.value,
+    showClickUpIdColumn.value,
     showListColumn.value,
     showProjectColumn.value,
     showClickUpEstimateColumn.value,
@@ -316,6 +320,7 @@ const taskGroups = computed(() => {
 const editColspan = computed(() =>
   9
   + (showIdColumn.value ? 1 : 0)
+  + (showClickUpIdColumn.value ? 1 : 0)
   + (showClientColumn.value ? 1 : 0)
   + (showListColumn.value ? 1 : 0)
   + (showProjectColumn.value ? 1 : 0)
@@ -477,11 +482,17 @@ function projectsForClient(clientId: string): Project[] {
   return projectsByClient.value[clientId] ?? []
 }
 
+function projectOptionLabel(p: Project, taskClientId: string) {
+  return p.clientId !== taskClientId ? `${p.name} (Shared)` : p.name
+}
+
 async function ensureProjectsLoaded(clientId: string) {
   if (projectsByClient.value[clientId] || loadingProjectsClientId.value === clientId) return
   loadingProjectsClientId.value = clientId
   try {
-    const list = (await http.get<Project[]>('/projects', { params: { clientId } })).data
+    const list = (await http.get<Project[]>('/projects', {
+      params: { clientId, includeShared: true },
+    })).data
     projectsByClient.value = { ...projectsByClient.value, [clientId]: list }
   } catch {
     projectsByClient.value = { ...projectsByClient.value, [clientId]: [] }
@@ -490,13 +501,19 @@ async function ensureProjectsLoaded(clientId: string) {
   }
 }
 
-function rememberProject(project: Project) {
-  const existing = projectsByClient.value[project.clientId] ?? []
-  if (existing.some((p) => p.id === project.id)) return
-  projectsByClient.value = {
-    ...projectsByClient.value,
-    [project.clientId]: [...existing, project].sort((a, b) => a.name.localeCompare(b.name)),
+function rememberProject(project: Project, forClientId?: string) {
+  const targets = new Set<string>([project.clientId])
+  if (forClientId) targets.add(forClientId)
+  let next = { ...projectsByClient.value }
+  for (const cid of targets) {
+    const existing = next[cid] ?? []
+    if (existing.some((p) => p.id === project.id)) continue
+    next = {
+      ...next,
+      [cid]: [...existing, project].sort((a, b) => a.name.localeCompare(b.name)),
+    }
   }
+  projectsByClient.value = next
 }
 
 async function updateProjectInline(t: WorkTask, projectId: string | null) {
@@ -536,7 +553,7 @@ async function confirmAddProject(t: WorkTask) {
   delete projectErrors.value[t.id]
   try {
     const project = await createProject.mutateAsync({ clientId: t.clientId, name })
-    rememberProject(project)
+    rememberProject(project, t.clientId)
     addingProjectTaskId.value = null
     newProjectName.value = ''
     await updateProject.mutateAsync({ id: t.id, projectId: project.id })
@@ -832,6 +849,7 @@ watch(
     showProjectColumn,
     showInvoiceColumn,
     showIdColumn,
+    showClickUpIdColumn,
     showClickUpEstimateColumn,
     showClickUpHoursColumn,
     groupByClient,
@@ -852,6 +870,7 @@ watch(
       showProjectColumn: showProjectColumn.value,
       showInvoiceColumn: showInvoiceColumn.value,
       showIdColumn: showIdColumn.value,
+      showClickUpIdColumn: showClickUpIdColumn.value,
       showClickUpEstimateColumn: showClickUpEstimateColumn.value,
       showClickUpHoursColumn: showClickUpHoursColumn.value,
       groupByClient: groupByClient.value,
@@ -993,7 +1012,9 @@ function openDoneMonth(month: string) {
         <select v-model="projectFilter" data-testid="tasks-project-filter" :disabled="!clientFilter">
           <option value="">All projects</option>
           <option value="__unassigned__">Unassigned</option>
-          <option v-for="p in filterProjects" :key="p.id" :value="p.id">{{ p.name }}</option>
+          <option v-for="p in filterProjects" :key="p.id" :value="p.id">
+            {{ clientFilter && p.clientId !== clientFilter ? `${p.name} (Shared)` : p.name }}
+          </option>
         </select>
       </label>
       <label>
@@ -1055,6 +1076,14 @@ function openDoneMonth(month: string) {
             <label class="check">
               <input v-model="showIdColumn" type="checkbox" data-testid="tasks-show-id-column" />
               Id
+            </label>
+            <label class="check">
+              <input
+                v-model="showClickUpIdColumn"
+                type="checkbox"
+                data-testid="tasks-show-clickup-id-column"
+              />
+              ClickUp Id
             </label>
             <label class="check">
               <input v-model="showListColumn" type="checkbox" data-testid="tasks-show-list-column" />
@@ -1156,6 +1185,7 @@ function openDoneMonth(month: string) {
             </div>
           </th>
           <th v-if="showIdColumn">Id</th>
+          <th v-if="showClickUpIdColumn">ClickUp Id</th>
           <th v-if="showClientColumn">Client</th>
           <th v-if="showListColumn">List</th>
           <th v-if="showProjectColumn">Project</th>
@@ -1234,6 +1264,20 @@ function openDoneMonth(month: string) {
                 </span>
               </td>
               <td v-if="showIdColumn" class="id-col" :title="t.id" :data-testid="`task-id-${t.id}`">{{ t.shortId }}</td>
+              <td
+                v-if="showClickUpIdColumn"
+                class="id-col"
+                :data-testid="`task-clickup-id-${t.id}`"
+              >
+                <a
+                  v-if="t.clickUpTaskId && t.clickUpUrl"
+                  :href="t.clickUpUrl"
+                  target="_blank"
+                  rel="noopener"
+                  :data-testid="`task-clickup-id-link-${t.id}`"
+                >{{ t.clickUpTaskId }}</a>
+                <span v-else>{{ t.clickUpTaskId ?? '—' }}</span>
+              </td>
               <td v-if="showClientColumn" :data-testid="`task-client-${t.id}`">{{ t.clientName }}</td>
               <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">{{ t.clickUpListName ?? '—' }}</td>
               <td v-if="showProjectColumn" class="project-cell" :data-testid="`task-project-${t.id}`">
@@ -1277,7 +1321,7 @@ function openDoneMonth(month: string) {
                     v-for="p in projectsForClient(t.clientId)"
                     :key="p.id"
                     :value="p.id"
-                  >{{ p.name }}</option>
+                  >{{ projectOptionLabel(p, t.clientId) }}</option>
                   <option
                     v-if="t.projectId && !projectsForClient(t.clientId).some((p) => p.id === t.projectId)"
                     :value="t.projectId"
@@ -1454,7 +1498,9 @@ function openDoneMonth(month: string) {
                     Project
                     <select v-model="draft.projectId" :data-testid="`task-edit-project-${t.id}`">
                       <option value="">— unassigned —</option>
-                      <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
+                      <option v-for="p in projects" :key="p.id" :value="p.id">
+                        {{ t.clientId && p.clientId !== t.clientId ? `${p.name} (Shared)` : p.name }}
+                      </option>
                     </select>
                   </label>
                   <label>

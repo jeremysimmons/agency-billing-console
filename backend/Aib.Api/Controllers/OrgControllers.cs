@@ -41,8 +41,15 @@ public sealed class ClientsController(ClientService clients) : ControllerBase
 public sealed class ProjectsController(ProjectService projects) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] Guid clientId, CancellationToken ct)
-        => Ok(await projects.ListByClientAsync(clientId, ct));
+    public async Task<IActionResult> List(
+        [FromQuery] Guid? clientId,
+        [FromQuery] bool includeShared = false,
+        CancellationToken ct = default)
+    {
+        if (clientId is null)
+            return Ok(await projects.ListAsync(ct));
+        return Ok(await projects.ListByClientAsync(clientId.Value, includeShared, ct));
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateProjectRequest request, CancellationToken ct)
