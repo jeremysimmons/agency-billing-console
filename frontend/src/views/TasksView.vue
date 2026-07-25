@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { useClients } from '../queries/clients'
 import { useProjects } from '../queries/projects'
@@ -46,17 +46,37 @@ const storedFilters = readStoredFilters()
 const statusFiltersRestored = Array.isArray(storedFilters.statusFilters)
 
 const route = useRoute()
+const router = useRouter()
 const viewMode = ref<'list' | 'clients' | 'months'>(
   storedFilters.viewMode === 'clients' || storedFilters.viewMode === 'months' || storedFilters.viewMode === 'list'
     ? storedFilters.viewMode
     : 'list',
 )
 const clientFilter = ref<string>((route.query.clientId as string) || storedFilters.clientFilter || '')
-const missingOnly = ref(typeof storedFilters.missingOnly === 'boolean' ? storedFilters.missingOnly : true)
+const listIdFilter = computed(() => (typeof route.query.listId === 'string' ? route.query.listId : '') || '')
+const folderIdFilter = computed(() => (typeof route.query.folderId === 'string' ? route.query.folderId : '') || '')
+const spaceIdFilter = computed(() => (typeof route.query.spaceId === 'string' ? route.query.spaceId : '') || '')
+const containerFilter = computed(() => {
+  if (listIdFilter.value) return { type: 'list' as const, id: listIdFilter.value, label: 'List' }
+  if (folderIdFilter.value) return { type: 'folder' as const, id: folderIdFilter.value, label: 'Folder' }
+  if (spaceIdFilter.value) return { type: 'space' as const, id: spaceIdFilter.value, label: 'Space' }
+  return null
+})
+const missingOnly = ref(
+  route.query.missingOnly === 'false'
+    ? false
+    : route.query.missingOnly === 'true'
+      ? true
+      : typeof storedFilters.missingOnly === 'boolean'
+        ? storedFilters.missingOnly
+        : true,
+)
 const invoicedFilter = ref<'all' | 'yes' | 'no'>(
-  storedFilters.invoicedFilter === 'all' || storedFilters.invoicedFilter === 'yes' || storedFilters.invoicedFilter === 'no'
-    ? storedFilters.invoicedFilter
-    : 'no',
+  route.query.invoiced === 'all' || route.query.invoiced === 'yes' || route.query.invoiced === 'no'
+    ? route.query.invoiced
+    : storedFilters.invoicedFilter === 'all' || storedFilters.invoicedFilter === 'yes' || storedFilters.invoicedFilter === 'no'
+      ? storedFilters.invoicedFilter
+      : 'no',
 )
 const showListColumn = ref(typeof storedFilters.showListColumn === 'boolean' ? storedFilters.showListColumn : false)
 const showProjectColumn = ref(typeof storedFilters.showProjectColumn === 'boolean' ? storedFilters.showProjectColumn : false)
@@ -91,6 +111,28 @@ const doneMonthFilter = ref(storedFilters.doneMonthFilter || '')
 const statusFilters = ref<string[]>(statusFiltersRestored ? [...storedFilters.statusFilters!] : [])
 const clientId = computed(() => clientFilter.value || undefined)
 
+function clearContainerFilter() {
+  const query = { ...route.query }
+  delete query.listId
+  delete query.folderId
+  delete query.spaceId
+  delete query.missingOnly
+  delete query.invoiced
+  router.replace({ path: '/tasks', query })
+}
+
+watch(
+  () => [route.query.listId, route.query.folderId, route.query.spaceId, route.query.missingOnly, route.query.invoiced] as const,
+  () => {
+    if (!route.query.listId && !route.query.folderId && !route.query.spaceId) return
+    if (route.query.missingOnly === 'false') missingOnly.value = false
+    else if (route.query.missingOnly === 'true') missingOnly.value = true
+    if (route.query.invoiced === 'all' || route.query.invoiced === 'yes' || route.query.invoiced === 'no') {
+      invoicedFilter.value = route.query.invoiced
+    }
+  },
+)
+
 const taskFilters = computed(() => ({
   clientId: clientId.value,
   missingOnly: missingOnly.value,
@@ -99,6 +141,9 @@ const taskFilters = computed(() => ({
   createdMonth: createdMonthFilter.value || undefined,
   doneMonth: doneMonthFilter.value || undefined,
   statuses: statusFilters.value.length ? statusFilters.value : undefined,
+  listId: listIdFilter.value || undefined,
+  folderId: folderIdFilter.value || undefined,
+  spaceId: spaceIdFilter.value || undefined,
 }))
 
 const { data: clients } = useClients()
@@ -626,6 +671,11 @@ function openDoneMonth(month: string) {
     </div>
 
     <div class="filters">
+      <div v-if="containerFilter" class="container-filter" data-testid="tasks-container-filter">
+        <span class="filter-label">{{ containerFilter.label }}</span>
+        <code>{{ containerFilter.id }}</code>
+        <button type="button" class="linkish" data-testid="tasks-container-filter-clear" @click="clearContainerFilter">Clear</button>
+      </div>
       <label>
         Created
         <select v-model="createdMonthFilter" data-testid="tasks-created-month-filter">
@@ -1196,6 +1246,26 @@ function openDoneMonth(month: string) {
 .filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin-bottom: 1rem; }
 .filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #4b5563; }
 .filters .check { flex-direction: row; align-items: center; gap: 0.4rem; padding-bottom: 0.35rem; }
+.container-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.container-filter code {
+  font-size: 0.8rem;
+  color: #111827;
+}
+.container-filter .linkish {
+  align-self: start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #059669;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
 .group-actions {
   display: flex;
   flex-wrap: wrap;

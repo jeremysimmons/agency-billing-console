@@ -213,10 +213,14 @@ public sealed class TaskService(
         string? createdMonth,
         string? doneMonth,
         IReadOnlyList<string>? statuses,
+        string? clickUpListId = null,
+        string? clickUpFolderId = null,
+        string? clickUpSpaceId = null,
         CancellationToken ct = default)
     {
         var list = OrderWithChildrenAfterParents(await tasks.ListAsync(
-            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            clickUpListId, clickUpFolderId, clickUpSpaceId, ct));
         var clientNames = new Dictionary<Guid, string>();
         var projectNames = new Dictionary<Guid, string>();
 
@@ -255,10 +259,14 @@ public sealed class TaskService(
         string? createdMonth,
         string? doneMonth,
         IReadOnlyList<string>? statuses,
+        string? clickUpListId = null,
+        string? clickUpFolderId = null,
+        string? clickUpSpaceId = null,
         CancellationToken ct = default)
     {
         var (byClient, byDoneMonth) = await tasks.GetSummaryAsync(
-            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct);
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            clickUpListId, clickUpFolderId, clickUpSpaceId, ct);
         return new TaskSummaryDto(
             byClient.Select(r => new TaskClientCountDto(r.ClientId, r.ClientName, r.TaskCount, r.MissingCount, r.UninvoicedCount)).ToList(),
             byDoneMonth.Select(r => new TaskMonthCountDto(r.Month, r.TaskCount, r.MissingCount, r.UninvoicedCount)).ToList());

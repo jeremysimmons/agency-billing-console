@@ -71,9 +71,13 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
         [FromQuery] string? createdMonth,
         [FromQuery] string? doneMonth,
         [FromQuery] string[]? statuses,
+        [FromQuery] string? listId,
+        [FromQuery] string? folderId,
+        [FromQuery] string? spaceId,
         CancellationToken ct)
         => Ok(await tasks.GetSummaryAsync(
-            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            listId, folderId, spaceId, ct));
 
     [HttpGet]
     public async Task<IActionResult> List(
@@ -85,9 +89,13 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
         [FromQuery] string? createdMonth,
         [FromQuery] string? doneMonth,
         [FromQuery] string[]? statuses,
+        [FromQuery] string? listId,
+        [FromQuery] string? folderId,
+        [FromQuery] string? spaceId,
         CancellationToken ct)
         => Ok(await tasks.ListAsync(
-            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            listId, folderId, spaceId, ct));
 
     [HttpPatch("{id:guid}/bill")]
     public async Task<IActionResult> UpdateBill(Guid id, [FromBody] UpdateTaskBillRequest request, CancellationToken ct)

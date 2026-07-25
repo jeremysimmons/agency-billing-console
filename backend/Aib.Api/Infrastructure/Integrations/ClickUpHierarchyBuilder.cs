@@ -25,6 +25,10 @@ public sealed class ClickUpHierarchyBuilder(
             ?? throw new InvalidOperationException("ClickUp TeamId is not configured.");
 
         var rows = new List<ClickUpHierarchyNode>();
+        var workspaceName = await GetTeamNameAsync(workspaceId, ct) ?? "Workspace";
+        rows.Add(new ClickUpHierarchyNode(
+            ClickUpHierarchyTypes.Workspace, workspaceId, workspaceName,
+            null, null));
 
         foreach (var space in await GetSpacesAsync(workspaceId, ct))
         {
@@ -55,6 +59,24 @@ public sealed class ClickUpHierarchyBuilder(
         }
 
         return rows;
+    }
+
+    private async Task<string?> GetTeamNameAsync(string teamId, CancellationToken ct)
+    {
+        using var doc = await GetJsonAsync("team", ct);
+        if (!doc.RootElement.TryGetProperty("teams", out var teams) || teams.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var el in teams.EnumerateArray())
+        {
+            var id = GetString(el, "id");
+            if (!string.Equals(id, teamId, StringComparison.Ordinal))
+                continue;
+            var name = GetString(el, "name");
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+
+        return null;
     }
 
     private async Task<IReadOnlyList<NamedNode>> GetSpacesAsync(string teamId, CancellationToken ct)

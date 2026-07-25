@@ -12,13 +12,14 @@ public static class ClickUpHierarchyTypes
 /// <summary>
 /// One row of the ClickUp container hierarchy (space / folder / list),
 /// matching <c>import/clickup-hierarchy.csv</c>: type, id, name, parent_type, parent_id.
+/// Workspace root has null parent fields.
 /// </summary>
 public sealed record ClickUpHierarchyNode(
     string Type,
     string Id,
     string Name,
-    string ParentType,
-    string ParentId);
+    string? ParentType,
+    string? ParentId);
 
 /// <summary>Builds a flat, top-down ClickUp space → folder → list hierarchy for a workspace.</summary>
 public interface IClickUpHierarchyBuilder

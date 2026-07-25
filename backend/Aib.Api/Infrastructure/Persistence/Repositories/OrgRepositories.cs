@@ -217,6 +217,9 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string? createdMonth,
         string? doneMonth,
         IReadOnlyList<string>? statuses,
+        string? clickUpListId,
+        string? clickUpFolderId,
+        string? clickUpSpaceId,
         CancellationToken ct = default)
     {
         var sql = """
@@ -224,7 +227,8 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             where 1=1
             """;
         var parameters = new DynamicParameters();
-        ApplyTaskFilters(ref sql, parameters, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses);
+        ApplyTaskFilters(ref sql, parameters, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            clickUpListId, clickUpFolderId, clickUpSpaceId);
 
         sql += " order by date_done asc nulls last, date_created asc nulls last, title";
 
@@ -242,6 +246,9 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string? createdMonth,
         string? doneMonth,
         IReadOnlyList<string>? statuses,
+        string? clickUpListId,
+        string? clickUpFolderId,
+        string? clickUpSpaceId,
         CancellationToken ct = default)
     {
         const string missingHoursSql = """
@@ -269,7 +276,8 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             where 1=1
             """;
         var clientParams = new DynamicParameters();
-        ApplyTaskFilters(ref clientSql, clientParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, "t.");
+        ApplyTaskFilters(ref clientSql, clientParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            clickUpListId, clickUpFolderId, clickUpSpaceId, "t.");
         clientSql += """
              group by t.client_id, c.name
              order by c.name asc
@@ -285,7 +293,8 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             where t.date_done is not null
             """;
         var monthParams = new DynamicParameters();
-        ApplyTaskFilters(ref monthSql, monthParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, "t.");
+        ApplyTaskFilters(ref monthSql, monthParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
+            clickUpListId, clickUpFolderId, clickUpSpaceId, "t.");
         monthSql += """
              group by to_char(t.date_done, 'YYYY-MM')
              order by month asc
@@ -310,6 +319,9 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string? createdMonth,
         string? doneMonth,
         IReadOnlyList<string>? statuses,
+        string? clickUpListId,
+        string? clickUpFolderId,
+        string? clickUpSpaceId,
         string prefix = "")
     {
         if (clientId is { } cid)
@@ -344,6 +356,40 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         {
             sql += $" and {prefix}clickup_status = any(@statuses)";
             parameters.Add("statuses", statuses);
+        }
+
+        if (!string.IsNullOrWhiteSpace(clickUpListId))
+        {
+            sql += $" and {prefix}clickup_list_id = @clickUpListId";
+            parameters.Add("clickUpListId", clickUpListId);
+        }
+        else if (!string.IsNullOrWhiteSpace(clickUpFolderId))
+        {
+            sql += $" and {prefix}clickup_folder_id = @clickUpFolderId";
+            parameters.Add("clickUpFolderId", clickUpFolderId);
+        }
+        else if (!string.IsNullOrWhiteSpace(clickUpSpaceId))
+        {
+            sql += $"""
+                 and {prefix}clickup_list_id in (
+                    select l.external_id
+                    from clickup_container l
+                    where l.container_type = 'list'
+                      and (
+                        (l.parent_type = 'space' and l.parent_external_id = @clickUpSpaceId)
+                        or (
+                          l.parent_type = 'folder'
+                          and l.parent_external_id in (
+                            select f.external_id
+                            from clickup_container f
+                            where f.container_type = 'folder'
+                              and f.parent_external_id = @clickUpSpaceId
+                          )
+                        )
+                      )
+                 )
+                """;
+            parameters.Add("clickUpSpaceId", clickUpSpaceId);
         }
 
         if (missingOnly == true)

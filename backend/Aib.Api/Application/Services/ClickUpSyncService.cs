@@ -147,13 +147,36 @@ public sealed class ClickUpSyncService(
             .GroupBy(r => r.ParentExternalId!)
             .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Name).ToList());
 
-        var workspaceChildren = rows
+        var workspaces = rows
+            .Where(r => r.ContainerType == ClickUpHierarchyTypes.Workspace)
+            .OrderBy(r => r.Name)
+            .Select(r => BuildNode(r, byParent, taskCountsByList))
+            .ToList();
+        if (workspaces.Count > 0)
+            return workspaces;
+
+        // Legacy data: no workspace row — wrap spaces under configured team id.
+        var spaces = rows
             .Where(r => r.ContainerType == ClickUpHierarchyTypes.Space)
             .OrderBy(r => r.Name)
             .Select(r => BuildNode(r, byParent, taskCountsByList))
             .ToList();
+        var teamId = options.Value.TeamId;
+        if (string.IsNullOrWhiteSpace(teamId) || spaces.Count == 0)
+            return spaces;
 
-        return workspaceChildren;
+        return
+        [
+            new ClickUpHierarchyNodeDto(
+                ClickUpHierarchyTypes.Workspace,
+                teamId,
+                "Workspace",
+                null,
+                null,
+                clock.UtcNow,
+                spaces.Sum(s => s.TaskCount),
+                spaces)
+        ];
     }
 
     private static ClickUpHierarchyNodeDto BuildNode(
@@ -305,8 +328,10 @@ public sealed class ClickUpSyncService(
     {
         var opts = options.Value;
         var spaceByFolder = hierarchy
-            .Where(r => r.Type == ClickUpHierarchyTypes.Folder && r.ParentType == ClickUpHierarchyTypes.Space)
-            .ToDictionary(r => r.Id, r => r.ParentId, StringComparer.Ordinal);
+            .Where(r => r.Type == ClickUpHierarchyTypes.Folder
+                        && r.ParentType == ClickUpHierarchyTypes.Space
+                        && !string.IsNullOrWhiteSpace(r.ParentId))
+            .ToDictionary(r => r.Id, r => r.ParentId!, StringComparer.Ordinal);
         var spaceByList = hierarchy
             .Where(r => r.Type == ClickUpHierarchyTypes.List)
             .ToDictionary(r => r.Id, r =>

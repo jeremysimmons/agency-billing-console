@@ -19,6 +19,9 @@ export interface TaskListFilters {
   createdMonth?: string
   doneMonth?: string
   statuses?: string[]
+  listId?: string
+  folderId?: string
+  spaceId?: string
 }
 
 function taskListParams(filters: TaskListFilters): string {
@@ -33,6 +36,9 @@ function taskListParams(filters: TaskListFilters): string {
   if (filters.statuses?.length) {
     for (const status of filters.statuses) params.append('statuses', status)
   }
+  if (filters.listId) params.set('listId', filters.listId)
+  if (filters.folderId) params.set('folderId', filters.folderId)
+  if (filters.spaceId) params.set('spaceId', filters.spaceId)
   return params.toString()
 }
 
@@ -57,6 +63,9 @@ export function taskListQueryKey(filters: TaskListFilters) {
     filters.createdMonth ?? 'all',
     filters.doneMonth ?? 'all',
     filters.statuses?.slice().sort().join('|') ?? 'all',
+    filters.listId ?? '',
+    filters.folderId ?? '',
+    filters.spaceId ?? '',
   ]
 }
 
@@ -80,6 +89,9 @@ function taskSummaryQueryKey(filters: TaskListFilters) {
     filters.createdMonth ?? 'all',
     filters.doneMonth ?? 'all',
     filters.statuses?.slice().sort().join('|') ?? 'all',
+    filters.listId ?? '',
+    filters.folderId ?? '',
+    filters.spaceId ?? '',
   ]
 }
 

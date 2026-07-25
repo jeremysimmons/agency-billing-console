@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { ClickUpHierarchyNode } from '../api/types'
 
 const props = defineProps<{
@@ -14,6 +15,17 @@ const emit = defineEmits<{
 }>()
 
 const open = computed(() => props.expandedIds.has(props.node.id))
+
+const tasksLink = computed(() => {
+  const t = props.node.type.toLowerCase()
+  const id = props.node.id
+  const query: Record<string, string> = { invoiced: 'all', missingOnly: 'false' }
+  if (t === 'list') query.listId = id
+  else if (t === 'folder') query.folderId = id
+  else if (t === 'space') query.spaceId = id
+  else return null
+  return { path: '/tasks', query }
+})
 
 function typeBadge(type: string) {
   switch (type.toLowerCase()) {
@@ -62,7 +74,15 @@ function onRowClick() {
       >{{ node.children.length ? (open ? '▾' : '▸') : '·' }}</button>
       <span :class="badgeClass(node.type)" :data-testid="`hierarchy-node-type-${node.id}`">{{ typeBadge(node.type) }}</span>
       <span class="name" :data-testid="`hierarchy-node-name-${node.id}`">{{ node.name }}</span>
-      <span class="count" :data-testid="`hierarchy-node-count-${node.id}`">{{ node.taskCount }}</span>
+      <RouterLink
+        v-if="tasksLink"
+        class="count count-link"
+        :to="tasksLink"
+        :data-testid="`hierarchy-node-count-${node.id}`"
+        :title="`View tasks in this ${node.type.toLowerCase()}`"
+        @click.stop
+      >{{ node.taskCount }}</RouterLink>
+      <span v-else class="count" :data-testid="`hierarchy-node-count-${node.id}`">{{ node.taskCount }}</span>
     </div>
     <ul v-if="open && node.children.length" :data-testid="`hierarchy-node-children-${node.id}`">
       <HierarchyNode
@@ -124,4 +144,11 @@ ul { list-style: none; margin: 0; padding-left: 1.25rem; }
 .badge-other { background: #f3f4f6; color: #4b5563; }
 .name { font-weight: 500; min-width: 0; flex: 1; }
 .count { color: #9ca3af; font-size: 0.8rem; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.count-link {
+  color: #059669;
+  text-decoration: none;
+  border-radius: 4px;
+  padding: 0 0.15rem;
+}
+.count-link:hover { text-decoration: underline; background: #ecfdf5; }
 </style>
