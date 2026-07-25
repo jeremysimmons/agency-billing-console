@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useClients, useUpdateClient, useDeleteClient } from '../queries/clients'
-import { useProjects, useCreateProject } from '../queries/projects'
+import { useProjects, useCreateProject, useUpdateProject } from '../queries/projects'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -13,6 +13,7 @@ const client = computed(() => clients.value?.find((c) => c.id === clientId.value
 
 const { data: projects } = useProjects(clientId)
 const createProject = useCreateProject()
+const updateProject = useUpdateProject()
 const updateClient = useUpdateClient()
 const deleteClient = useDeleteClient()
 
@@ -68,6 +69,9 @@ async function saveEdit() {
 
 const pName = ref('')
 const projError = ref('')
+const editingProjectId = ref<string | null>(null)
+const projectEditName = ref('')
+const projectEditError = ref('')
 
 async function addProject() {
   projError.value = ''
@@ -76,6 +80,38 @@ async function addProject() {
     pName.value = ''
   } catch (e: any) {
     projError.value = e?.response?.data?.error ?? 'Could not create project.'
+  }
+}
+
+function startProjectEdit(id: string, name: string) {
+  editingProjectId.value = id
+  projectEditName.value = name
+  projectEditError.value = ''
+}
+
+function cancelProjectEdit() {
+  editingProjectId.value = null
+  projectEditName.value = ''
+  projectEditError.value = ''
+}
+
+async function saveProjectEdit() {
+  if (!editingProjectId.value) return
+  const name = projectEditName.value.trim()
+  if (!name) {
+    projectEditError.value = 'Project name is required.'
+    return
+  }
+  projectEditError.value = ''
+  try {
+    await updateProject.mutateAsync({
+      id: editingProjectId.value,
+      clientId: clientId.value,
+      name,
+    })
+    cancelProjectEdit()
+  } catch (e: any) {
+    projectEditError.value = e?.response?.data?.error ?? 'Could not rename project.'
   }
 }
 
@@ -130,9 +166,43 @@ async function remove() {
       </form>
       <p v-if="projError" class="error" data-testid="project-create-error">{{ projError }}</p>
       <ul data-testid="projects-list">
-        <li v-for="p in projects" :key="p.id" :data-testid="`project-item-${p.id}`">{{ p.name }}</li>
+        <li v-for="p in projects" :key="p.id" class="project-item" :data-testid="`project-item-${p.id}`">
+          <template v-if="editingProjectId !== p.id">
+            <span>{{ p.name }}</span>
+            <button
+              type="button"
+              class="link"
+              :data-testid="`project-rename-${p.id}`"
+              @click="startProjectEdit(p.id, p.name)"
+            >Rename</button>
+          </template>
+          <form
+            v-else
+            class="project-edit-form"
+            :data-testid="`project-edit-form-${p.id}`"
+            @submit.prevent="saveProjectEdit"
+          >
+            <input
+              v-model="projectEditName"
+              required
+              :data-testid="`project-edit-name-${p.id}`"
+            />
+            <button
+              type="submit"
+              :disabled="updateProject.isLoading.value"
+              :data-testid="`project-edit-save-${p.id}`"
+            >Save</button>
+            <button
+              type="button"
+              class="link"
+              :data-testid="`project-edit-cancel-${p.id}`"
+              @click="cancelProjectEdit"
+            >Cancel</button>
+          </form>
+        </li>
         <li v-if="projects && projects.length === 0" class="muted" data-testid="projects-empty">No projects yet.</li>
       </ul>
+      <p v-if="projectEditError" class="error" data-testid="project-edit-error">{{ projectEditError }}</p>
 
       <div class="danger-zone">
         <template v-if="!confirmDelete">
@@ -170,4 +240,16 @@ button:not(.link) {
 .error { color: #b91c1c; }
 .danger-zone { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 ul { padding-left: 1.2rem; }
+.project-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.project-edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
 </style>

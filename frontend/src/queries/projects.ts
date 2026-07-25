@@ -24,3 +24,12 @@ export function useCreateProject() {
     onSettled: (_d, _e, input) => cache.invalidateQueries({ key: ['projects', input.clientId] }),
   })
 }
+
+export function useUpdateProject() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: async ({ id, name }: { id: string; name: string; clientId: string }) =>
+      (await http.put<Project>(`/projects/${id}`, { name })).data,
+    onSettled: (_d, _e, vars) => cache.invalidateQueries({ key: ['projects', vars.clientId] }),
+  })
+}

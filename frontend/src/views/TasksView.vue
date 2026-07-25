@@ -625,6 +625,23 @@ function parseHours(v: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+function applyClickUpHoursForBill(
+  bill: string | null | undefined,
+  billableHours: string,
+  nonBillableHours: string,
+  clickUpHours: number | null | undefined,
+): { billableHours: string; nonBillableHours: string } {
+  if (clickUpHours == null) return { billableHours, nonBillableHours }
+  const billNorm = bill?.trim().toLowerCase()
+  if (billNorm === 'yes' && !billableHours.trim()) {
+    return { billableHours: String(clickUpHours), nonBillableHours }
+  }
+  if (billNorm === 'no' && !nonBillableHours.trim()) {
+    return { billableHours, nonBillableHours: String(clickUpHours) }
+  }
+  return { billableHours, nonBillableHours }
+}
+
 async function updateBillInline(t: WorkTask, value: string) {
   const bill = value.trim() || null
   const current = t.bill?.trim() || null
@@ -636,9 +653,30 @@ async function updateBillInline(t: WorkTask, value: string) {
     await updateBill.mutateAsync({ id: t.id, bill })
   } catch (e: any) {
     billErrors.value[t.id] = e?.response?.data?.error ?? 'Could not save bill.'
+    return
   } finally {
     savingBillId.value = null
   }
+
+  const clickUpHours = t.actualHours
+  if (clickUpHours == null) return
+  const billNorm = bill?.toLowerCase()
+  if (billNorm === 'yes' && t.billableHours == null) {
+    await updateBillableHoursInline(t, String(clickUpHours))
+  } else if (billNorm === 'no' && t.nonBillableHours == null) {
+    await updateNonBillableHoursInline(t, String(clickUpHours))
+  }
+}
+
+function onEditBillChange(t: WorkTask) {
+  const filled = applyClickUpHoursForBill(
+    draft.value.bill,
+    draft.value.billableHours,
+    draft.value.nonBillableHours,
+    t.actualHours,
+  )
+  draft.value.billableHours = filled.billableHours
+  draft.value.nonBillableHours = filled.nonBillableHours
 }
 
 async function updateBillableHoursInline(t: WorkTask, raw: string) {
@@ -1370,7 +1408,11 @@ function openDoneMonth(month: string) {
                   </label>
                   <label>
                     Bill
-                    <select v-model="draft.bill" :data-testid="`task-edit-bill-${t.id}`">
+                    <select
+                      v-model="draft.bill"
+                      :data-testid="`task-edit-bill-${t.id}`"
+                      @change="onEditBillChange(t)"
+                    >
                       <option value="">—</option>
                       <option value="yes">yes</option>
                       <option value="no">no</option>
