@@ -927,25 +927,27 @@ function openDoneMonth(month: string) {
               <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">{{ t.clickUpListName ?? '—' }}</td>
               <td v-if="showProjectColumn" :data-testid="`task-project-${t.id}`">{{ t.projectName ?? '—' }}</td>
               <td>
-                <a
-                  v-if="t.clickUpUrl"
-                  class="task-title"
-                  :class="{ 'task-title--child': (taskDepthById.get(t.id) ?? 0) > 0 }"
-                  :style="{ '--task-depth': taskDepthById.get(t.id) ?? 0 }"
-                  :href="t.clickUpUrl"
-                  target="_blank"
-                  rel="noopener"
-                  :title="t.title"
-                  :data-testid="`task-title-${t.id}`"
-                >{{ displayTitle(t.title) }}</a>
                 <span
-                  v-else
-                  class="task-title"
+                  class="task-title-cell"
                   :class="{ 'task-title--child': (taskDepthById.get(t.id) ?? 0) > 0 }"
                   :style="{ '--task-depth': taskDepthById.get(t.id) ?? 0 }"
-                  :title="t.title"
-                  :data-testid="`task-title-${t.id}`"
-                >{{ displayTitle(t.title) }}</span>
+                >
+                  <a
+                    v-if="t.clickUpUrl"
+                    class="task-title"
+                    :href="t.clickUpUrl"
+                    target="_blank"
+                    rel="noopener"
+                    :title="t.title"
+                    :data-testid="`task-title-${t.id}`"
+                  >{{ displayTitle(t.title) }}</a>
+                  <span
+                    v-else
+                    class="task-title"
+                    :title="t.title"
+                    :data-testid="`task-title-${t.id}`"
+                  >{{ displayTitle(t.title) }}</span>
+                </span>
               </td>
               <td class="bill-cell" :data-testid="`task-bill-${t.id}`">
                 <select
@@ -1150,13 +1152,20 @@ function openDoneMonth(month: string) {
   color: #6b7280;
   white-space: nowrap;
 }
-.task-title {
+.task-title-cell {
+  --task-indent: 1.25rem;
   display: inline-block;
-  padding-left: calc(var(--task-depth, 0) * 1.25rem);
+  padding-left: calc(var(--task-depth, 0) * var(--task-indent));
 }
 .task-title--child::before {
-  content: '↳ ';
-  color: #9ca3af;
+  content: '↳';
+  display: inline-block;
+  width: var(--task-indent);
+  margin-left: calc(-1 * var(--task-indent));
+  color: #6b7280;
+  font-weight: 400;
+  text-decoration: none;
+  text-align: left;
 }
 .table-wrap {
   width: 100%;
