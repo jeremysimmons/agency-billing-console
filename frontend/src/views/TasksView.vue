@@ -5,7 +5,7 @@ import ToggleSwitch from 'primevue/toggleswitch'
 import { useClients } from '../queries/clients'
 import { useProjects } from '../queries/projects'
 import { useAgency, useUpdateAgencyUiPreferences } from '../queries/agency'
-import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep } from '../queries/tasks'
+import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep, useSyncTask } from '../queries/tasks'
 import type { WorkTask } from '../api/types'
 
 const FILTERS_STORAGE_KEY = 'aib.tasks.filters'
@@ -162,9 +162,12 @@ const updatePrep = useUpdateTaskPrep()
 const updateBill = useUpdateTaskBill(taskFilters)
 const updateBillableHours = useUpdateTaskBillableHours(taskFilters)
 const updateNonBillableHours = useUpdateTaskNonBillableHours(taskFilters)
+const syncTask = useSyncTask(taskFilters)
 const savingBillId = ref<string | null>(null)
 const savingBillableId = ref<string | null>(null)
 const savingNonBillableId = ref<string | null>(null)
+const syncingTaskId = ref<string | null>(null)
+const syncTaskErrors = ref<Record<string, string>>({})
 const billErrors = ref<Record<string, string>>({})
 const billableWarnings = ref<Record<string, string>>({})
 const nonBillableErrors = ref<Record<string, string>>({})
@@ -401,6 +404,19 @@ function startEdit(t: WorkTask) {
 function cancelEdit() {
   editingId.value = null
   saveError.value = ''
+}
+
+async function syncOne(t: WorkTask) {
+  if (!t.clickUpTaskId || syncingTaskId.value) return
+  syncingTaskId.value = t.id
+  delete syncTaskErrors.value[t.id]
+  try {
+    await syncTask.mutateAsync(t.id)
+  } catch (e: any) {
+    syncTaskErrors.value[t.id] = e?.response?.data?.error ?? e?.message ?? 'Sync failed.'
+  } finally {
+    syncingTaskId.value = null
+  }
 }
 
 function parseHours(v: string): number | null {
@@ -998,12 +1014,24 @@ function openDoneMonth(month: string) {
               <td :title="formatDateTime(t.dateCreated)" :data-testid="`task-date-created-${t.id}`">{{ formatDate(t.dateCreated) }}</td>
               <td :title="formatDateTime(t.dateDone)" :data-testid="`task-date-done-${t.id}`">{{ formatDate(t.dateDone) }}</td>
               <td>
-                <button
-                  v-if="editingId !== t.id"
-                  class="link"
-                  :data-testid="`task-edit-${t.id}`"
-                  @click="startEdit(t)"
-                >Edit</button>
+                <div v-if="editingId !== t.id" class="row-actions">
+                  <button
+                    class="link"
+                    :data-testid="`task-edit-${t.id}`"
+                    @click="startEdit(t)"
+                  >Edit</button>
+                  <button
+                    class="link"
+                    :disabled="!t.clickUpTaskId || syncingTaskId === t.id"
+                    :data-testid="`task-sync-${t.id}`"
+                    @click="syncOne(t)"
+                  >{{ syncingTaskId === t.id ? 'Syncing…' : 'Sync' }}</button>
+                  <span
+                    v-if="syncTaskErrors[t.id]"
+                    class="inline-error"
+                    :data-testid="`task-sync-error-${t.id}`"
+                  >{{ syncTaskErrors[t.id] }}</span>
+                </div>
               </td>
             </tr>
             <tr v-if="editingId === t.id" class="edit-row" :data-testid="`task-edit-row-${t.id}`">
@@ -1448,6 +1476,13 @@ select, input:not([role='switch']) {
   color: #b91c1c;
 }
 .link { background: none; border: none; color: #059669; cursor: pointer; padding: 0; font: inherit; }
+.link:disabled { opacity: 0.6; cursor: default; }
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
 .edit-row td { background: #f0fdf4; }
 .edit-form {
   display: flex;

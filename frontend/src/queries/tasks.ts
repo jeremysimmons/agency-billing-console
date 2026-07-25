@@ -178,3 +178,15 @@ export function useUpdateTaskPrep() {
     },
   })
 }
+
+export function useSyncTask(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async (id: string) =>
+      (await http.post<WorkTask>(`/tasks/${id}/sync`)).data,
+    onSuccess: (updated) => {
+      patchTaskList(cache, f.value, updated)
+    },
+  })
+}

@@ -55,7 +55,7 @@ public sealed class ProjectsController(ProjectService projects) : ControllerBase
 
 [ApiController]
 [Route("api/tasks")]
-public sealed class TasksController(TaskService tasks) : ControllerBase
+public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) : ControllerBase
 {
     [HttpGet("filter-options")]
     public async Task<IActionResult> FilterOptions([FromQuery] Guid? clientId, CancellationToken ct)
@@ -96,6 +96,10 @@ public sealed class TasksController(TaskService tasks) : ControllerBase
         => Ok(await tasks.ListAsync(
             clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
             listId, folderId, spaceId, ct));
+
+    [HttpPost("{id:guid}/sync")]
+    public async Task<IActionResult> Sync(Guid id, CancellationToken ct)
+        => Ok(await sync.SyncTaskAsync(id, ct));
 
     [HttpPatch("{id:guid}/bill")]
     public async Task<IActionResult> UpdateBill(Guid id, [FromBody] UpdateTaskBillRequest request, CancellationToken ct)

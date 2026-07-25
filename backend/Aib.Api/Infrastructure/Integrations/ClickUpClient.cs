@@ -37,6 +37,15 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
         return new ClickUpTaskPage(tasks, lastPage || tasks.Count == 0);
     }
 
+    public async Task<ClickUpTask> GetTaskAsync(string taskId, CancellationToken ct = default)
+    {
+        using var doc = await GetJsonAsync($"task/{Uri.EscapeDataString(taskId)}", ct);
+        var remote = ParseTask(doc.RootElement);
+        if (string.IsNullOrWhiteSpace(remote.Id))
+            throw new InvalidOperationException("ClickUp returned a task without an id.");
+        return remote;
+    }
+
     public async Task SetTaskCustomFieldAsync(string taskId, string fieldId, object? value, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(new { value });

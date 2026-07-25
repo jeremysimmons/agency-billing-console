@@ -41,6 +41,8 @@ public interface IClickUpClient
     Task<ClickUpTaskPage> GetTasksAsync(
         string teamId, string? assigneeExternalUserId, int page, CancellationToken ct = default);
 
+    Task<ClickUpTask> GetTaskAsync(string taskId, CancellationToken ct = default);
+
     Task SetTaskCustomFieldAsync(string taskId, string fieldId, object? value, CancellationToken ct = default);
 
     Task<IReadOnlyList<ClickUpCustomField>> GetListCustomFieldsAsync(string listId, CancellationToken ct = default);

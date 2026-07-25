@@ -13,6 +13,7 @@ public sealed class ClickUpSyncService(
     IClickUpHierarchyBuilder hierarchyBuilder,
     IClickUpContainerRepository containers,
     IClientRepository clients,
+    IProjectRepository projects,
     ITaskRepository tasks,
     IAgencyRepository agencies,
     IClock clock,
@@ -128,6 +129,47 @@ public sealed class ClickUpSyncService(
 
         return dto;
     }
+
+    public async Task<TaskDto> SyncTaskAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var opts = options.Value;
+        if (!opts.IsConfigured)
+            throw new DomainException("ClickUp is not configured (missing API token or team id).");
+
+        var task = await tasks.GetByIdAsync(taskId, ct)
+                   ?? throw new NotFoundException("Task not found.");
+        if (string.IsNullOrWhiteSpace(task.ClickUpTaskId))
+            throw new DomainException("Task has no ClickUp id to sync.");
+
+        var agency = await agencies.GetDefaultAsync(ct)
+                     ?? throw new NotFoundException("No agency configured.");
+        var now = clock.UtcNow;
+        var remote = await clickUp.GetTaskAsync(task.ClickUpTaskId, ct);
+        var client = await EnsureClientAsync(agency.Id, remote, now, ct);
+        ApplyApiFields(task, remote, client.Client.Id, now);
+        await tasks.UpdateApiFieldsAsync(task, ct);
+
+        string? projectName = null;
+        if (task.ProjectId is { } pid)
+            projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
+
+        return new TaskDto(
+            task.Id, task.ShortId, task.ClientId, client.Client.Name, task.ProjectId, projectName,
+            task.Bill, task.BillableHours, task.NonBillableHours, task.InvoiceLabel, task.Note,
+            task.ClickUpUrl, task.ClickUpTaskId, task.ClickUpParentId,
+            task.ClickUpFolderId, task.ClickUpFolderName, task.ClickUpListId, task.ClickUpListName,
+            task.Title, task.Description, task.ClickUpStatus, task.Tags,
+            task.DateCreated, task.DueDate, task.DateDone, task.DateClosed,
+            task.OrderIndex, task.EstimatedHours, task.ActualHours,
+            NeedsAttention(task));
+    }
+
+    private static bool NeedsAttention(WorkTask t) =>
+        string.IsNullOrWhiteSpace(t.Bill)
+        || (string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
+            && !((t.BillableHours is not null || t.NonBillableHours is not null)
+                 && ((t.BillableHours ?? 0) > 0 || (t.NonBillableHours ?? 0) > 0)))
+        || string.IsNullOrWhiteSpace(t.InvoiceLabel);
 
     private static async Task ReportAsync(
         Func<ClickUpSyncProgressEvent, CancellationToken, Task>? reportProgress,
