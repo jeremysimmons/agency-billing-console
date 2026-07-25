@@ -109,8 +109,15 @@ public sealed class ClickUpSyncService(
 
         await RefreshClientBillFieldsAsync(clientLocations, hierarchyRows, now, reportProgress, ct);
 
+        await ReportAsync(
+            reportProgress,
+            new ClickUpSyncProgressEvent("hours", Message: "Filling empty hours from ClickUp"),
+            ct);
+        var hoursFilled = await tasks.FillEmptyHoursFromActualAsync(now, ct);
+
         var summary = $"Synced {tasksCreated + tasksUpdated} tasks ({tasksCreated} new, {tasksUpdated} updated), " +
-                      $"{containerEntities.Count} containers, {clientsCreated} new clients.";
+                      $"{containerEntities.Count} containers, {clientsCreated} new clients" +
+                      (hoursFilled > 0 ? $", filled hours on {hoursFilled} tasks" : "") + ".";
         await agencies.UpdateSyncSummaryAsync(agency.Id, now, summary, ct);
         logger.LogInformation("{Summary}", summary);
 

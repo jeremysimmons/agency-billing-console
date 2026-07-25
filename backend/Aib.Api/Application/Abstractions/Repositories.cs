@@ -78,6 +78,11 @@ public interface ITaskRepository
     Task<Guid> InsertAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateApiFieldsAsync(WorkTask task, CancellationToken ct = default);
+    /// <summary>
+    /// For tasks with bill set: copy actual_hours into empty billable/non-billable hours.
+    /// Returns number of rows updated.
+    /// </summary>
+    Task<int> FillEmptyHoursFromActualAsync(DateTimeOffset updatedAt, CancellationToken ct = default);
     Task<IReadOnlyDictionary<string, int>> CountByClickUpListIdAsync(CancellationToken ct = default);
 }
 

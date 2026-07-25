@@ -646,6 +646,30 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
+    public async Task<int> FillEmptyHoursFromActualAsync(DateTimeOffset updatedAt, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            update task set
+                billable_hours = case
+                    when lower(trim(bill)) = 'yes' and billable_hours is null then actual_hours
+                    else billable_hours
+                end,
+                non_billable_hours = case
+                    when lower(trim(bill)) = 'no' and non_billable_hours is null then actual_hours
+                    else non_billable_hours
+                end,
+                updated_at = {updatedAt}
+            where actual_hours is not null
+              and bill is not null and trim(bill) <> ''
+              and (
+                (lower(trim(bill)) = 'yes' and billable_hours is null)
+                or (lower(trim(bill)) = 'no' and non_billable_hours is null)
+              )
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyDictionary<string, int>> CountByClickUpListIdAsync(CancellationToken ct = default)
     {
         using var conn = await factory.OpenAsync(ct);
