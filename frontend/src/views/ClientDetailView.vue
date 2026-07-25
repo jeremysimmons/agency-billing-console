@@ -18,36 +18,42 @@ const deleteClient = useDeleteClient()
 
 const editing = ref(false)
 const editName = ref('')
-const renameError = ref('')
+const editCode = ref('')
+const editError = ref('')
 const confirmDelete = ref(false)
 const deleteError = ref('')
 
 watch(client, (c) => {
-  if (c && !editing.value) editName.value = c.name
+  if (c && !editing.value) {
+    editName.value = c.name
+    editCode.value = c.code ?? ''
+  }
 }, { immediate: true })
 
-function startRename() {
+function startEdit() {
   editName.value = client.value?.name ?? ''
-  renameError.value = ''
+  editCode.value = client.value?.code ?? ''
+  editError.value = ''
   editing.value = true
 }
 
-function cancelRename() {
+function cancelEdit() {
   editing.value = false
   editName.value = client.value?.name ?? ''
-  renameError.value = ''
+  editCode.value = client.value?.code ?? ''
+  editError.value = ''
 }
 
-async function saveRename() {
+async function saveEdit() {
   const c = client.value
   if (!c) return
-  renameError.value = ''
+  editError.value = ''
   try {
     await updateClient.mutateAsync({
       id: clientId.value,
       input: {
         name: editName.value.trim(),
-        code: c.code,
+        code: editCode.value.trim() || null,
         originalName: c.originalName,
         description: c.description,
         status: c.status,
@@ -56,7 +62,7 @@ async function saveRename() {
     })
     editing.value = false
   } catch (e: any) {
-    renameError.value = e?.response?.data?.error ?? 'Could not rename client.'
+    editError.value = e?.response?.data?.error ?? 'Could not save client.'
   }
 }
 
@@ -92,18 +98,28 @@ async function remove() {
     <template v-if="client">
       <div v-if="!editing" class="title-row">
         <h1 data-testid="client-detail-name">{{ client.name }}</h1>
-        <button class="link" data-testid="client-detail-rename" @click="startRename">Rename</button>
+        <button class="link" data-testid="client-detail-edit" @click="startEdit">Edit</button>
       </div>
-      <form v-else class="row" data-testid="client-rename-form" @submit.prevent="saveRename">
-        <input v-model="editName" required data-testid="client-rename-input" />
-        <button type="submit" :disabled="updateClient.isLoading.value" data-testid="client-rename-save">Save</button>
-        <button type="button" class="link" data-testid="client-rename-cancel" @click="cancelRename">Cancel</button>
+      <form v-else class="edit-form" data-testid="client-edit-form" @submit.prevent="saveEdit">
+        <label>
+          Name
+          <input v-model="editName" required data-testid="client-edit-name" />
+        </label>
+        <label>
+          Code
+          <input v-model="editCode" data-testid="client-edit-code" />
+        </label>
+        <div class="row">
+          <button type="submit" :disabled="updateClient.isLoading.value" data-testid="client-edit-save">Save</button>
+          <button type="button" class="link" data-testid="client-edit-cancel" @click="cancelEdit">Cancel</button>
+        </div>
       </form>
-      <p v-if="renameError" class="error" data-testid="client-rename-error">{{ renameError }}</p>
-      <p class="meta" data-testid="client-detail-meta">
-        Code: {{ client.code ?? '—' }}
-        · Folder id: {{ client.clickUpFolderId ?? '—' }}
-        · <RouterLink :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>
+      <p v-if="editError" class="error" data-testid="client-edit-error">{{ editError }}</p>
+      <p v-if="!editing" class="meta" data-testid="client-detail-meta">
+        Code: {{ client.code ?? '—' }}<br/>
+        Folder id: {{ client.clickUpFolderId ?? '—' }}<br/>
+        List id: {{ client.clickUpListId ?? '—' }}<br/>
+        <RouterLink :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>
       </p>
 
       <h2>Projects</h2>
@@ -136,7 +152,9 @@ async function remove() {
 
 <style scoped>
 .title-row { display: flex; align-items: baseline; gap: 0.75rem; }
-.row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.edit-form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.75rem; max-width: 24rem; }
+.edit-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #6b7280; }
+.row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center; }
 input { padding: 0.5rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; }
 button:not(.link) {
   padding: 0.5rem 0.9rem;
