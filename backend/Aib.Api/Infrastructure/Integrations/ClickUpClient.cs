@@ -82,25 +82,30 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
                 continue;
 
-            var options = new List<ClickUpCustomFieldOption>();
-            if (el.TryGetProperty("type_config", out var config)
-                && config.ValueKind == JsonValueKind.Object
-                && config.TryGetProperty("options", out var optArr)
-                && optArr.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var opt in optArr.EnumerateArray())
-                {
-                    var optId = GetString(opt, "id");
-                    var optName = GetString(opt, "name");
-                    if (!string.IsNullOrWhiteSpace(optId) && !string.IsNullOrWhiteSpace(optName))
-                        options.Add(new ClickUpCustomFieldOption(optId, optName));
-                }
-            }
-
-            fields.Add(new ClickUpCustomField(id, name, type, options));
+            fields.Add(new ClickUpCustomField(id, name, type, ParseFieldOptions(el)));
         }
 
         return fields;
+    }
+
+    private static IReadOnlyList<ClickUpCustomFieldOption> ParseFieldOptions(JsonElement el)
+    {
+        var options = new List<ClickUpCustomFieldOption>();
+        if (!el.TryGetProperty("type_config", out var config)
+            || config.ValueKind != JsonValueKind.Object
+            || !config.TryGetProperty("options", out var optArr)
+            || optArr.ValueKind != JsonValueKind.Array)
+            return options;
+
+        foreach (var opt in optArr.EnumerateArray())
+        {
+            var optId = GetString(opt, "id");
+            var optName = GetString(opt, "name");
+            if (!string.IsNullOrWhiteSpace(optId) && !string.IsNullOrWhiteSpace(optName))
+                options.Add(new ClickUpCustomFieldOption(optId, optName, GetInt(opt, "orderindex")));
+        }
+
+        return options;
     }
 
     public async Task<decimal> GetTaskTimeSpentHoursAsync(string taskId, CancellationToken ct = default)
@@ -206,8 +211,46 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
             EstimatedHours = MsToHours(GetLong(el, "time_estimate")),
             ActualHours = MsToHours(GetLong(el, "time_spent")),
             Url = GetString(el, "url"),
-            Tags = tags
+            Tags = tags,
+            CustomFields = ParseTaskCustomFields(el)
         };
+    }
+
+    private static IReadOnlyList<ClickUpTaskCustomField> ParseTaskCustomFields(JsonElement el)
+    {
+        if (!el.TryGetProperty("custom_fields", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var fields = new List<ClickUpTaskCustomField>();
+        foreach (var field in arr.EnumerateArray())
+        {
+            var id = GetString(field, "id");
+            var name = GetString(field, "name");
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
+                continue;
+
+            string? value = null;
+            if (field.TryGetProperty("value", out var raw) && raw.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined)
+            {
+                value = raw.ValueKind switch
+                {
+                    JsonValueKind.String => raw.GetString(),
+                    JsonValueKind.Number => raw.ToString(),
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    _ => raw.ToString()
+                };
+            }
+
+            fields.Add(new ClickUpTaskCustomField(
+                id,
+                name,
+                GetString(field, "type"),
+                value,
+                ParseFieldOptions(field)));
+        }
+
+        return fields;
     }
 
     private async Task<JsonDocument> GetJsonAsync(string relativeUrl, CancellationToken ct)

@@ -628,6 +628,9 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         var builder = SimpleBuilder.Create($"""
             update task set
                 client_id = {t.ClientId},
+                bill = {t.Bill},
+                billable_hours = {t.BillableHours},
+                non_billable_hours = {t.NonBillableHours},
                 clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
                 clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
                 clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},

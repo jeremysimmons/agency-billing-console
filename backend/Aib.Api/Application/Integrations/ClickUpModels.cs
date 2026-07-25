@@ -24,16 +24,26 @@ public sealed record ClickUpTask
     public decimal? ActualHours { get; init; }
     public string? Url { get; init; }
     public IReadOnlyList<string> Tags { get; init; } = [];
+    public IReadOnlyList<ClickUpTaskCustomField> CustomFields { get; init; } = [];
 }
 
 public sealed record ClickUpTaskPage(IReadOnlyList<ClickUpTask> Tasks, bool LastPage);
 
-public sealed record ClickUpCustomFieldOption(string Id, string Name);
+public sealed record ClickUpCustomFieldOption(string Id, string Name, int? OrderIndex = null);
 
 public sealed record ClickUpCustomField(
     string Id,
     string Name,
     string Type,
+    IReadOnlyList<ClickUpCustomFieldOption> Options);
+
+/// <summary>Custom field value attached to a ClickUp task (includes dropdown options for resolution).</summary>
+public sealed record ClickUpTaskCustomField(
+    string Id,
+    string Name,
+    string? Type,
+    /// <summary>Raw dropdown value: option orderindex (number) or option id (string), or null if unset.</summary>
+    string? Value,
     IReadOnlyList<ClickUpCustomFieldOption> Options);
 
 public interface IClickUpClient

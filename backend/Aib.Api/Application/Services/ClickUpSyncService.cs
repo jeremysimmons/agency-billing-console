@@ -1,3 +1,4 @@
+using System.Globalization;
 using Aib.Application.Abstractions;
 using Aib.Application.Contracts;
 using Aib.Application.Integrations;
@@ -537,7 +538,7 @@ public sealed class ClickUpSyncService(
         return null;
     }
 
-    private static WorkTask MapNewTask(ClickUpTask remote, Guid clientId, DateTimeOffset now) =>
+    private WorkTask MapNewTask(ClickUpTask remote, Guid clientId, DateTimeOffset now) =>
         ApplyApiFields(new WorkTask
         {
             Id = Guid.NewGuid(),
@@ -546,7 +547,7 @@ public sealed class ClickUpSyncService(
             UpdatedAt = now
         }, remote, clientId, now);
 
-    private static WorkTask ApplyApiFields(WorkTask task, ClickUpTask remote, Guid clientId, DateTimeOffset now)
+    private WorkTask ApplyApiFields(WorkTask task, ClickUpTask remote, Guid clientId, DateTimeOffset now)
     {
         task.ClientId = clientId;
         task.ClickUpUrl = remote.Url;
@@ -568,8 +569,105 @@ public sealed class ClickUpSyncService(
         task.OrderIndex = remote.OrderIndex;
         task.EstimatedHours = remote.EstimatedHours;
         task.ActualHours = remote.ActualHours;
+        if (TryResolveBill(remote, out var bill))
+            task.Bill = bill;
+        ApplyClickUpHoursForBill(task);
         task.UpdatedAt = now;
         return task;
+    }
+
+    /// <summary>
+    /// Same as UI bill change: fill empty billable/non-billable hours from ClickUp tracked hours.
+    /// </summary>
+    private static void ApplyClickUpHoursForBill(WorkTask task)
+    {
+        if (task.ActualHours is null)
+            return;
+
+        var billNorm = task.Bill?.Trim();
+        if (string.Equals(billNorm, "yes", StringComparison.OrdinalIgnoreCase)
+            && task.BillableHours is null)
+        {
+            task.BillableHours = task.ActualHours;
+            return;
+        }
+
+        if (string.Equals(billNorm, "no", StringComparison.OrdinalIgnoreCase)
+            && task.NonBillableHours is null)
+        {
+            task.NonBillableHours = task.ActualHours;
+        }
+    }
+
+    /// <summary>
+    /// Maps ClickUp Billable dropdown → local task.bill ("yes"/"no"/null).
+    /// Returns false when the field is absent so local bill is left unchanged.
+    /// </summary>
+    private bool TryResolveBill(ClickUpTask remote, out string? bill)
+    {
+        bill = null;
+        var opts = options.Value;
+        var fieldName = string.IsNullOrWhiteSpace(opts.BillFieldName) ? "Billable" : opts.BillFieldName;
+        var field = remote.CustomFields.FirstOrDefault(f =>
+            (!string.IsNullOrWhiteSpace(opts.BillCustomFieldId)
+             && string.Equals(f.Id, opts.BillCustomFieldId, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(f.Name, fieldName, StringComparison.OrdinalIgnoreCase));
+
+        if (field is null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(field.Value))
+        {
+            bill = null;
+            return true;
+        }
+
+        var option = ResolveDropdownOption(field);
+        if (option is null)
+            return false;
+
+        if (MatchesBillOption(option, opts.BillYesOptionId, "yes", "y", "true"))
+        {
+            bill = "yes";
+            return true;
+        }
+
+        if (MatchesBillOption(option, opts.BillNoOptionId, "no", "n", "false"))
+        {
+            bill = "no";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ClickUpCustomFieldOption? ResolveDropdownOption(ClickUpTaskCustomField field)
+    {
+        if (string.IsNullOrWhiteSpace(field.Value))
+            return null;
+
+        // Task API returns dropdown value as option orderindex; write API uses option id.
+        if (int.TryParse(field.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var orderIndex))
+        {
+            var byOrder = field.Options.FirstOrDefault(o => o.OrderIndex == orderIndex);
+            if (byOrder is not null)
+                return byOrder;
+        }
+
+        return field.Options.FirstOrDefault(o =>
+            string.Equals(o.Id, field.Value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool MatchesBillOption(
+        ClickUpCustomFieldOption option,
+        string? configuredOptionId,
+        params string[] names)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredOptionId)
+            && string.Equals(option.Id, configuredOptionId, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return names.Any(n => string.Equals(option.Name, n, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed record ClientLocationHint(string? ListId, string? FolderId, bool FolderHidden);
