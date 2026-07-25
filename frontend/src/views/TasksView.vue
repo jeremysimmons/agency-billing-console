@@ -1263,23 +1263,31 @@ function openDoneMonth(month: string) {
                   >{{ item.key }}</span>
                 </span>
               </td>
-              <td v-if="showIdColumn" class="id-col" :title="t.id" :data-testid="`task-id-${t.id}`">{{ t.shortId }}</td>
+              <td v-if="showIdColumn" class="id-col" :title="t.id" :data-testid="`task-id-${t.id}`">
+                <span class="cell-text">{{ t.shortId }}</span>
+              </td>
               <td
                 v-if="showClickUpIdColumn"
                 class="id-col"
                 :data-testid="`task-clickup-id-${t.id}`"
               >
-                <a
-                  v-if="t.clickUpTaskId && t.clickUpUrl"
-                  :href="t.clickUpUrl"
-                  target="_blank"
-                  rel="noopener"
-                  :data-testid="`task-clickup-id-link-${t.id}`"
-                >{{ t.clickUpTaskId }}</a>
-                <span v-else>{{ t.clickUpTaskId ?? '—' }}</span>
+                <span class="cell-text">
+                  <a
+                    v-if="t.clickUpTaskId && t.clickUpUrl"
+                    :href="t.clickUpUrl"
+                    target="_blank"
+                    rel="noopener"
+                    :data-testid="`task-clickup-id-link-${t.id}`"
+                  >{{ t.clickUpTaskId }}</a>
+                  <template v-else>{{ t.clickUpTaskId ?? '—' }}</template>
+                </span>
               </td>
-              <td v-if="showClientColumn" :data-testid="`task-client-${t.id}`">{{ t.clientName }}</td>
-              <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">{{ t.clickUpListName ?? '—' }}</td>
+              <td v-if="showClientColumn" :data-testid="`task-client-${t.id}`">
+                <span class="cell-text">{{ t.clientName }}</span>
+              </td>
+              <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">
+                <span class="cell-text">{{ t.clickUpListName ?? '—' }}</span>
+              </td>
               <td v-if="showProjectColumn" class="project-cell" :data-testid="`task-project-${t.id}`">
                 <div v-if="addingProjectTaskId === t.id" class="add-project">
                   <input
@@ -1353,7 +1361,9 @@ function openDoneMonth(month: string) {
                   >{{ displayTitle(t.title) }}</span>
                 </span>
               </td>
-              <td :data-testid="`task-status-${t.id}`">{{ t.clickUpStatus ?? '—' }}</td>
+              <td :data-testid="`task-status-${t.id}`">
+                <span class="cell-text">{{ t.clickUpStatus ?? '—' }}</span>
+              </td>
               <td class="bill-cell" :data-testid="`task-bill-${t.id}`">
                 <select
                   class="inline-select"
@@ -1406,14 +1416,14 @@ function openDoneMonth(month: string) {
               <td
                 v-if="showClickUpEstimateColumn"
                 :data-testid="`task-clickup-estimate-${t.id}`"
-              >{{ t.estimatedHours ?? '—' }}</td>
+              ><span class="cell-text">{{ t.estimatedHours ?? '—' }}</span></td>
               <td
                 v-if="showClickUpHoursColumn"
                 class="hours-cell"
                 :data-testid="`task-clickup-hours-${t.id}`"
               >
                 <div class="hours-control">
-                  <span>{{ t.actualHours ?? '—' }}</span>
+                  <span class="cell-text">{{ t.actualHours ?? '—' }}</span>
                   <ProgressSpinner
                     v-if="savingBillableId === t.id || syncingTaskId === t.id"
                     class="hours-spinner"
@@ -1468,8 +1478,12 @@ function openDoneMonth(month: string) {
                 </select>
                 <span v-if="invoiceErrors[t.id]" class="inline-error" :data-testid="`task-invoice-error-${t.id}`">{{ invoiceErrors[t.id] }}</span>
               </td>
-              <td :title="formatDateTime(t.dateCreated)" :data-testid="`task-date-created-${t.id}`">{{ formatDate(t.dateCreated) }}</td>
-              <td :title="formatDateTime(t.dateDone)" :data-testid="`task-date-done-${t.id}`">{{ formatDate(t.dateDone) }}</td>
+              <td :title="formatDateTime(t.dateCreated)" :data-testid="`task-date-created-${t.id}`">
+                <span class="cell-text">{{ formatDate(t.dateCreated) }}</span>
+              </td>
+              <td :title="formatDateTime(t.dateDone)" :data-testid="`task-date-done-${t.id}`">
+                <span class="cell-text">{{ formatDate(t.dateDone) }}</span>
+              </td>
               <td>
                 <div v-if="editingId !== t.id" class="row-actions">
                   <button
@@ -1652,7 +1666,9 @@ function openDoneMonth(month: string) {
 }
 .task-title-cell {
   --task-indent: 1.25rem;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--inline-control-height);
   padding-left: calc(var(--task-depth, 0) * var(--task-indent));
 }
 .task-title--child::before {
@@ -1952,8 +1968,9 @@ select, input:not([role='switch']) {
   border-radius: 8px;
   font: inherit;
 }
-.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; --inline-control-height: 2rem; }
 .grid th, .grid td { text-align: left; padding: 0.45rem 0.4rem; border-bottom: 1px solid #eee; vertical-align: top; }
+.grid tbody td { vertical-align: middle; }
 .group-header-row { cursor: pointer; }
 .group-header-row--dragging { opacity: 0.55; }
 .group-header-row--drag-over .group-header {
@@ -2003,10 +2020,17 @@ select, input:not([role='switch']) {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  min-height: var(--inline-control-height);
 }
 .hours-spinner {
   width: 1rem !important;
   height: 1rem !important;
+}
+.cell-text {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--inline-control-height);
+  line-height: 1.2;
 }
 .project-cell { min-width: 9rem; }
 .project-cell .inline-select { max-width: 12rem; }
@@ -2020,22 +2044,22 @@ select, input:not([role='switch']) {
   width: 8rem;
   min-width: 6rem;
 }
-.inline-select {
-  padding: 0.25rem 0.35rem;
+.inline-select,
+.inline-input {
+  box-sizing: border-box;
+  height: var(--inline-control-height);
+  min-height: var(--inline-control-height);
+  padding: 0 0.45rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font: inherit;
   font-size: 0.85rem;
+  line-height: normal;
   background: #fff;
+  vertical-align: middle;
 }
 .inline-input {
   width: 4.5rem;
-  padding: 0.25rem 0.35rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font: inherit;
-  font-size: 0.85rem;
-  background: #fff;
 }
 .inline-warning {
   display: block;
