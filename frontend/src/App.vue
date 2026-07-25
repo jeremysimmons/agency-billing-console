@@ -5,7 +5,7 @@ import { RouterView, RouterLink } from 'vue-router'
 <template>
   <div class="app">
     <header class="topbar">
-      <div class="brand" data-testid="app-brand">ClickUp Billing Prep</div>
+      <div class="brand" data-testid="app-brand">ClickUp</div>
       <nav>
         <RouterLink to="/tasks" data-testid="nav-tasks">Tasks</RouterLink>
         <RouterLink to="/clients" data-testid="nav-clients">Clients</RouterLink>

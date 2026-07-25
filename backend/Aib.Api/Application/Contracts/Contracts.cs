@@ -13,9 +13,23 @@ public sealed record UpdateAgencyUiPreferencesRequest(IReadOnlyList<Guid> TaskGr
 public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status);
 public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
 public sealed record ClientDto(
-    Guid Id, string Name, string? Code, string? OriginalName, string? ClickUpFolderId,
+    Guid Id, string Name, string? Code, string? OriginalName, string? ClickUpFolderId, string? ClickUpListId,
     string? Description, ClientStatus Status, bool Active,
     bool BillFieldAvailable);
+
+public sealed record ClickUpSyncProgressEvent(
+    string Phase,
+    string? Message = null,
+    int? ContainersUpserted = null,
+    int? Page = null,
+    int? TasksCreated = null,
+    int? TasksUpdated = null,
+    int? ClientsCreated = null,
+    int? ClientsProcessed = null,
+    int? ClientsTotal = null,
+    DateTimeOffset? SyncedAt = null,
+    string? Summary = null,
+    string? Error = null);
 public sealed record DeleteAllClientsResult(int Deleted);
 
 public sealed record CreateProjectRequest(Guid ClientId, string Name);
@@ -46,7 +60,14 @@ public sealed record TaskDto(
     bool NeedsAttention);
 
 public sealed record ClickUpHierarchyNodeDto(
-    string Type, string Id, string Name, IReadOnlyList<ClickUpHierarchyNodeDto> Children);
+    string Type,
+    string Id,
+    string Name,
+    string? ParentType,
+    string? ParentId,
+    DateTimeOffset UpdatedAt,
+    int TaskCount,
+    IReadOnlyList<ClickUpHierarchyNodeDto> Children);
 
 public sealed record ClickUpSyncResultDto(
     DateTimeOffset SyncedAt,

@@ -19,7 +19,9 @@ public sealed class ClickUpSyncService(
     IOptions<ClickUpOptions> options,
     ILogger<ClickUpSyncService> logger)
 {
-    public async Task<ClickUpSyncResultDto> SyncAsync(CancellationToken ct = default)
+    public async Task<ClickUpSyncResultDto> SyncAsync(
+        Func<ClickUpSyncProgressEvent, CancellationToken, Task>? reportProgress = null,
+        CancellationToken ct = default)
     {
         var opts = options.Value;
         if (!opts.IsConfigured)
@@ -29,6 +31,8 @@ public sealed class ClickUpSyncService(
                      ?? throw new NotFoundException("No agency configured.");
         var now = clock.UtcNow;
         var teamId = opts.TeamId!;
+
+        await ReportAsync(reportProgress, new ClickUpSyncProgressEvent("started", Message: "Sync started"), ct);
 
         var hierarchyRows = await hierarchyBuilder.BuildAsync(teamId, ct);
         var containerEntities = hierarchyRows.Select(r => new ClickUpContainer
@@ -42,6 +46,14 @@ public sealed class ClickUpSyncService(
             UpdatedAt = now
         }).ToList();
         await containers.UpsertManyAsync(containerEntities, ct);
+
+        await ReportAsync(
+            reportProgress,
+            new ClickUpSyncProgressEvent(
+                "hierarchy",
+                Message: "Hierarchy upserted",
+                ContainersUpserted: containerEntities.Count),
+            ct);
 
         var clientsCreated = 0;
         var tasksCreated = 0;
@@ -77,23 +89,59 @@ public sealed class ClickUpSyncService(
                 }
             }
 
+            await ReportAsync(
+                reportProgress,
+                new ClickUpSyncProgressEvent(
+                    "page",
+                    Message: $"Processed page {page}",
+                    Page: page,
+                    ContainersUpserted: containerEntities.Count,
+                    TasksCreated: tasksCreated,
+                    TasksUpdated: tasksUpdated,
+                    ClientsCreated: clientsCreated),
+                ct);
+
             if (result.LastPage) break;
             page++;
         }
 
-        await RefreshClientBillFieldsAsync(clientLocations, hierarchyRows, now, ct);
+        await RefreshClientBillFieldsAsync(clientLocations, hierarchyRows, now, reportProgress, ct);
 
         var summary = $"Synced {tasksCreated + tasksUpdated} tasks ({tasksCreated} new, {tasksUpdated} updated), " +
                       $"{containerEntities.Count} containers, {clientsCreated} new clients.";
         await agencies.UpdateSyncSummaryAsync(agency.Id, now, summary, ct);
         logger.LogInformation("{Summary}", summary);
 
-        return new ClickUpSyncResultDto(now, containerEntities.Count, tasksCreated, tasksUpdated, clientsCreated, summary);
+        var dto = new ClickUpSyncResultDto(now, containerEntities.Count, tasksCreated, tasksUpdated, clientsCreated, summary);
+        await ReportAsync(
+            reportProgress,
+            new ClickUpSyncProgressEvent(
+                "completed",
+                Message: summary,
+                ContainersUpserted: containerEntities.Count,
+                TasksCreated: tasksCreated,
+                TasksUpdated: tasksUpdated,
+                ClientsCreated: clientsCreated,
+                SyncedAt: now,
+                Summary: summary),
+            ct);
+
+        return dto;
+    }
+
+    private static async Task ReportAsync(
+        Func<ClickUpSyncProgressEvent, CancellationToken, Task>? reportProgress,
+        ClickUpSyncProgressEvent evt,
+        CancellationToken ct)
+    {
+        if (reportProgress is not null)
+            await reportProgress(evt, ct);
     }
 
     public async Task<IReadOnlyList<ClickUpHierarchyNodeDto>> GetHierarchyAsync(CancellationToken ct = default)
     {
         var rows = await containers.ListAllAsync(ct);
+        var taskCountsByList = await tasks.CountByClickUpListIdAsync(ct);
         var byParent = rows
             .Where(r => !string.IsNullOrWhiteSpace(r.ParentExternalId))
             .GroupBy(r => r.ParentExternalId!)
@@ -102,54 +150,86 @@ public sealed class ClickUpSyncService(
         var workspaceChildren = rows
             .Where(r => r.ContainerType == ClickUpHierarchyTypes.Space)
             .OrderBy(r => r.Name)
-            .Select(r => BuildNode(r, byParent))
+            .Select(r => BuildNode(r, byParent, taskCountsByList))
             .ToList();
 
         return workspaceChildren;
     }
 
     private static ClickUpHierarchyNodeDto BuildNode(
-        ClickUpContainer node, IReadOnlyDictionary<string, List<ClickUpContainer>> byParent)
+        ClickUpContainer node,
+        IReadOnlyDictionary<string, List<ClickUpContainer>> byParent,
+        IReadOnlyDictionary<string, int> taskCountsByList)
     {
         var children = byParent.TryGetValue(node.ExternalId, out var kids)
-            ? kids.Select(k => BuildNode(k, byParent)).ToList()
+            ? kids.Select(k => BuildNode(k, byParent, taskCountsByList)).ToList()
             : [];
-        return new ClickUpHierarchyNodeDto(node.ContainerType, node.ExternalId, node.Name, children);
+        var ownCount = string.Equals(node.ContainerType, ClickUpHierarchyTypes.List, StringComparison.OrdinalIgnoreCase)
+            ? taskCountsByList.GetValueOrDefault(node.ExternalId)
+            : 0;
+        var taskCount = ownCount + children.Sum(c => c.TaskCount);
+        return new ClickUpHierarchyNodeDto(
+            node.ContainerType,
+            node.ExternalId,
+            node.Name,
+            node.ParentType,
+            node.ParentExternalId,
+            node.UpdatedAt,
+            taskCount,
+            children);
     }
 
     private async Task<(Client Client, bool WasCreated)> EnsureClientAsync(
         Guid agencyId, ClickUpTask remote, DateTimeOffset now, CancellationToken ct)
     {
         var folderId = remote.FolderId;
-        var folderName = remote.FolderName ?? "Unknown Client";
+        var listId = remote.ListId;
+        var displayName = remote.FolderName ?? remote.ListName ?? "Unknown Client";
+        var clientIsFolder = !string.IsNullOrWhiteSpace(folderId) && !remote.FolderHidden;
+        var parsed = ClickUpFolderNaming.Parse(displayName);
+        var name = parsed.Name.Length > 0 ? parsed.Name : displayName;
 
-        if (!string.IsNullOrWhiteSpace(folderId))
+        // Client location is either a ClickUp folder or a ClickUp list (space-level /
+        // hidden folder) — never both. Match only on that location's id.
+        Client? existing;
+        string? keyFolderId;
+        string? keyListId;
+        if (clientIsFolder)
         {
-            var existing = await clients.GetByClickUpFolderIdAsync(folderId, ct);
-            if (existing is not null)
-            {
-                var (name, code, original) = ClickUpFolderNaming.Parse(folderName);
-                if (existing.Name != name || existing.Code != code)
-                {
-                    existing.Name = name;
-                    existing.Code = code;
-                    existing.OriginalName = original;
-                    existing.UpdatedAt = now;
-                    await clients.UpdateAsync(existing, ct);
-                }
-                return (existing, false);
-            }
+            keyFolderId = folderId;
+            keyListId = null;
+            existing = await clients.GetByClickUpFolderIdAsync(folderId!, ct)
+                       // Legacy: same id may have been stored in the list column.
+                       ?? await clients.GetByClickUpListIdAsync(folderId!, ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(listId))
+        {
+            keyFolderId = null;
+            keyListId = listId;
+            existing = await clients.GetByClickUpListIdAsync(listId!, ct)
+                       ?? await clients.GetByClickUpFolderIdAsync(listId!, ct);
+        }
+        else
+        {
+            throw new DomainException(
+                $"ClickUp task {remote.Id} has no folder or list id; cannot resolve client.");
         }
 
-        var parsed = ClickUpFolderNaming.Parse(folderName);
+        if (existing is not null)
+        {
+            await AttachClickUpKeysAndNameAsync(existing, displayName, keyFolderId, keyListId, now, ct);
+            return (existing, false);
+        }
+
         var client = new Client
         {
             Id = Guid.NewGuid(),
             AgencyId = agencyId,
-            Name = parsed.Name.Length > 0 ? parsed.Name : folderName,
+            Name = name,
             Code = parsed.Code,
             OriginalName = parsed.OriginalName,
-            ClickUpFolderId = folderId,
+            ClickUpFolderId = keyFolderId,
+            ClickUpListId = keyListId,
             Status = ClientStatus.Active,
             Active = true,
             BillFieldAvailable = false,
@@ -158,6 +238,43 @@ public sealed class ClickUpSyncService(
         };
         await clients.InsertAsync(client, ct);
         return (client, true);
+    }
+
+    private async Task AttachClickUpKeysAndNameAsync(
+        Client existing,
+        string displayName,
+        string? folderId,
+        string? listId,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var (name, code, original) = ClickUpFolderNaming.Parse(displayName);
+        var changed = false;
+
+        if (existing.Name != name || existing.Code != code)
+        {
+            existing.Name = name;
+            existing.Code = code;
+            existing.OriginalName = original;
+            changed = true;
+        }
+
+        // Keep exactly one ClickUp location key (folder XOR list).
+        if (existing.ClickUpFolderId != folderId)
+        {
+            existing.ClickUpFolderId = folderId;
+            changed = true;
+        }
+
+        if (existing.ClickUpListId != listId)
+        {
+            existing.ClickUpListId = listId;
+            changed = true;
+        }
+
+        if (!changed) return;
+        existing.UpdatedAt = now;
+        await clients.UpdateAsync(existing, ct);
     }
 
     private static void RememberClientLocation(
@@ -183,6 +300,7 @@ public sealed class ClickUpSyncService(
         IReadOnlyDictionary<Guid, ClientLocationHint> locations,
         IReadOnlyList<ClickUpHierarchyNode> hierarchy,
         DateTimeOffset now,
+        Func<ClickUpSyncProgressEvent, CancellationToken, Task>? reportProgress,
         CancellationToken ct)
     {
         var opts = options.Value;
@@ -201,6 +319,17 @@ public sealed class ClickUpSyncService(
                     return spaceId;
                 return null;
             }, StringComparer.Ordinal);
+
+        var clientsTotal = locations.Count;
+        var clientsProcessed = 0;
+        await ReportAsync(
+            reportProgress,
+            new ClickUpSyncProgressEvent(
+                "bill_fields",
+                Message: "Probing billable custom fields",
+                ClientsProcessed: 0,
+                ClientsTotal: clientsTotal),
+            ct);
 
         foreach (var (clientId, hint) in locations)
         {
@@ -240,6 +369,16 @@ public sealed class ClickUpSyncService(
                 client.UpdatedAt = now;
                 await clients.UpdateAsync(client, ct);
             }
+
+            clientsProcessed++;
+            await ReportAsync(
+                reportProgress,
+                new ClickUpSyncProgressEvent(
+                    "bill_fields",
+                    Message: "Probing billable custom fields",
+                    ClientsProcessed: clientsProcessed,
+                    ClientsTotal: clientsTotal),
+                ct);
         }
     }
 

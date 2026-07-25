@@ -81,6 +81,13 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         return await conn.QuerySingleOrDefaultAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
+    public async Task<Client?> GetByClickUpListIdAsync(string listId, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"select * from client where clickup_list_id = {listId}");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Client>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<Client>> ListAsync(Guid agencyId, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"select * from client where agency_id = {agencyId} order by name");
@@ -93,11 +100,11 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     {
         var builder = SimpleBuilder.Create($"""
             insert into client
-                (id, agency_id, name, code, original_name, clickup_folder_id, description, status, active,
+                (id, agency_id, name, code, original_name, clickup_folder_id, clickup_list_id, description, status, active,
                  bill_field_available, bill_custom_field_id, bill_yes_option_id, bill_no_option_id, bill_field_checked_at,
                  created_at, updated_at)
             values
-                ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.ClickUpFolderId}, {c.Description},
+                ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.ClickUpFolderId}, {c.ClickUpListId}, {c.Description},
                  {c.Status}, {c.Active},
                  {c.BillFieldAvailable}, {c.BillCustomFieldId}, {c.BillYesOptionId}, {c.BillNoOptionId}, {c.BillFieldCheckedAt},
                  {c.CreatedAt}, {c.UpdatedAt})
@@ -111,7 +118,7 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     {
         var builder = SimpleBuilder.Create($"""
             update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName},
-                clickup_folder_id = {c.ClickUpFolderId}, description = {c.Description},
+                clickup_folder_id = {c.ClickUpFolderId}, clickup_list_id = {c.ClickUpListId}, description = {c.Description},
                 status = {c.Status}, active = {c.Active},
                 bill_field_available = {c.BillFieldAvailable},
                 bill_custom_field_id = {c.BillCustomFieldId},
@@ -461,6 +468,21 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> CountByClickUpListIdAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<(string ListId, int Count)>(
+            new CommandDefinition(
+                """
+                select clickup_list_id as ListId, count(*)::int as Count
+                from task
+                where clickup_list_id is not null and trim(clickup_list_id) <> ''
+                group by clickup_list_id
+                """,
+                cancellationToken: ct));
+        return rows.ToDictionary(r => r.ListId, r => r.Count);
     }
 }
 

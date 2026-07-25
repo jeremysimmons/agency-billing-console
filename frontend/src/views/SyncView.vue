@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAgency } from '../queries/agency'
-import { useClickUpSync, useCsvImport } from '../queries/clickup'
+import { useClickUpSync, useCsvImport, formatClickUpSyncStatus } from '../queries/clickup'
 
 const { data: agency } = useAgency()
 const sync = useClickUpSync()
@@ -9,17 +9,25 @@ const csvImport = useCsvImport()
 
 const syncMsg = ref('')
 const syncError = ref('')
+const syncStatus = ref('')
 const csvMsg = ref('')
 const csvError = ref('')
 
 async function runSync() {
   syncMsg.value = ''
   syncError.value = ''
+  syncStatus.value = ''
   try {
-    const result = await sync.mutateAsync()
+    const result = await sync.mutateAsync({
+      onProgress: (event) => {
+        syncStatus.value = formatClickUpSyncStatus(event)
+      },
+    })
     syncMsg.value = result.summary
+    syncStatus.value = ''
   } catch (e: any) {
-    syncError.value = e?.response?.data?.error ?? 'Sync failed.'
+    syncError.value = e?.message ?? e?.response?.data?.error ?? 'Sync failed.'
+    syncStatus.value = ''
   }
 }
 
@@ -57,6 +65,7 @@ async function onFile(e: Event) {
       <button :disabled="sync.isLoading.value" data-testid="sync-clickup-button" @click="runSync">
         {{ sync.isLoading.value ? 'Syncing…' : 'Sync now' }}
       </button>
+      <p v-if="syncStatus" class="muted" data-testid="sync-clickup-status">{{ syncStatus }}</p>
       <p v-if="syncMsg" class="ok" data-testid="sync-clickup-result">{{ syncMsg }}</p>
       <p v-if="syncError" class="error" data-testid="sync-clickup-error">{{ syncError }}</p>
     </div>

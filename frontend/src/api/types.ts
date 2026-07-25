@@ -16,6 +16,7 @@ export interface Client {
   code: string | null
   originalName: string | null
   clickUpFolderId: string | null
+  clickUpListId: string | null
   description: string | null
   status: string
   active: boolean
@@ -85,6 +86,10 @@ export interface ClickUpHierarchyNode {
   type: string
   id: string
   name: string
+  parentType: string | null
+  parentId: string | null
+  updatedAt: string
+  taskCount: number
   children: ClickUpHierarchyNode[]
 }
 
@@ -95,6 +100,29 @@ export interface ClickUpSyncResult {
   tasksUpdated: number
   clientsCreated: number
   summary: string
+}
+
+export type ClickUpSyncPhase =
+  | 'started'
+  | 'hierarchy'
+  | 'page'
+  | 'bill_fields'
+  | 'completed'
+  | 'error'
+
+export interface ClickUpSyncProgressEvent {
+  phase: ClickUpSyncPhase
+  message?: string
+  containersUpserted?: number
+  page?: number
+  tasksCreated?: number
+  tasksUpdated?: number
+  clientsCreated?: number
+  clientsProcessed?: number
+  clientsTotal?: number
+  syncedAt?: string
+  summary?: string
+  error?: string
 }
 
 export interface CsvImportResult {

@@ -24,6 +24,7 @@ public class Client
     public string? Code { get; set; }
     public string? OriginalName { get; set; }
     public string? ClickUpFolderId { get; set; }
+    public string? ClickUpListId { get; set; }
     public string? Description { get; set; }
     public ClientStatus Status { get; set; } = ClientStatus.Active;
     public bool Active { get; set; } = true;

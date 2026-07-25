@@ -143,7 +143,7 @@ public sealed class ClientService(
     }
 
     private static ClientDto Map(Client c) =>
-        new(c.Id, c.Name, c.Code, c.OriginalName, c.ClickUpFolderId, c.Description, c.Status, c.Active,
+        new(c.Id, c.Name, c.Code, c.OriginalName, c.ClickUpFolderId, c.ClickUpListId, c.Description, c.Status, c.Active,
             c.BillFieldAvailable);
 }
 

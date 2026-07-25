@@ -13,6 +13,7 @@ public interface IClientRepository
 {
     Task<Client?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Client?> GetByClickUpFolderIdAsync(string folderId, CancellationToken ct = default);
+    Task<Client?> GetByClickUpListIdAsync(string listId, CancellationToken ct = default);
     Task<IReadOnlyList<Client>> ListAsync(Guid agencyId, CancellationToken ct = default);
     Task<Guid> InsertAsync(Client client, CancellationToken ct = default);
     Task UpdateAsync(Client client, CancellationToken ct = default);
@@ -58,6 +59,7 @@ public interface ITaskRepository
     Task<Guid> InsertAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateApiFieldsAsync(WorkTask task, CancellationToken ct = default);
+    Task<IReadOnlyDictionary<string, int>> CountByClickUpListIdAsync(CancellationToken ct = default);
 }
 
 public interface IClickUpContainerRepository
