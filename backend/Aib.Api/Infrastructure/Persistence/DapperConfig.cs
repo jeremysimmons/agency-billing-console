@@ -1,4 +1,5 @@
 using System.Data;
+using Aib.Domain;
 using Dapper;
 
 namespace Aib.Infrastructure.Persistence;
@@ -26,5 +27,18 @@ public static class DapperConfig
 
         DefaultTypeMap.MatchNamesWithUnderscores = true;
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ClientStatus>());
+        SqlMapper.AddTypeHandler(new InvoiceStatusHandler());
     }
+}
+
+public sealed class InvoiceStatusHandler : SqlMapper.TypeHandler<InvoiceStatus>
+{
+    public override void SetValue(IDbDataParameter parameter, InvoiceStatus value)
+    {
+        parameter.DbType = DbType.String;
+        parameter.Value = value.Value;
+    }
+
+    public override InvoiceStatus Parse(object value) =>
+        InvoiceStatus.Parse(value?.ToString());
 }

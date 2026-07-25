@@ -194,6 +194,69 @@ public sealed class ProjectService(
         new(p.Id, p.ClientId, p.Name);
 }
 
+public sealed class InvoiceService(
+    IInvoiceRepository invoices,
+    IClock clock)
+{
+    public async Task<IReadOnlyList<InvoiceDto>> ListAsync(CancellationToken ct = default)
+    {
+        var list = await invoices.ListAsync(ct);
+        return list.Select(Map).ToList();
+    }
+
+    public async Task<InvoiceDto> CreateAsync(CreateInvoiceRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new DomainException("Invoice name is required.");
+
+        var name = request.Name.Trim();
+        var existing = await invoices.GetByNameAsync(name, ct);
+        if (existing is not null)
+            throw new DomainException("An invoice with that name already exists.");
+
+        var status = request.Status ?? InvoiceStatus.Preparing;
+        if (!InvoiceStatus.All.Contains(status))
+            throw new DomainException(
+                "Invoice status must be preparing, sent, partially-paid, or fully-paid.");
+
+        var now = clock.UtcNow;
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Status = status,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        await invoices.InsertAsync(invoice, ct);
+        return Map(invoice);
+    }
+
+    public async Task<InvoiceDto> UpdateAsync(Guid id, UpdateInvoiceRequest request, CancellationToken ct = default)
+    {
+        var invoice = await invoices.GetByIdAsync(id, ct)
+                      ?? throw new NotFoundException("Invoice not found.");
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new DomainException("Invoice name is required.");
+        if (!InvoiceStatus.All.Contains(request.Status))
+            throw new DomainException(
+                "Invoice status must be preparing, sent, partially-paid, or fully-paid.");
+
+        var name = request.Name.Trim();
+        var conflict = await invoices.GetByNameAsync(name, ct);
+        if (conflict is not null && conflict.Id != id)
+            throw new DomainException("An invoice with that name already exists.");
+
+        invoice.Name = name;
+        invoice.Status = request.Status;
+        invoice.UpdatedAt = clock.UtcNow;
+        await invoices.UpdateAsync(invoice, ct);
+        return Map(invoice);
+    }
+
+    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status);
+}
+
 public sealed class TaskService(
     ITaskRepository tasks,
     IClientRepository clients,
@@ -322,6 +385,41 @@ public sealed class TaskService(
         if (task.ProjectId is { } pid)
             projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
 
+        return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    public async Task<TaskDto> UpdateProjectAsync(Guid id, Guid? projectId, CancellationToken ct = default)
+    {
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+        string? projectName = null;
+        if (projectId is { } pid)
+        {
+            var project = await projects.GetByIdAsync(pid, ct)
+                          ?? throw new NotFoundException("Project not found.");
+            if (project.ClientId != task.ClientId)
+                throw new DomainException("Project must belong to the same client as the task.");
+            projectName = project.Name;
+        }
+
+        task.ProjectId = projectId;
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    public async Task<TaskDto> UpdateInvoiceAsync(Guid id, string? invoiceLabel, CancellationToken ct = default)
+    {
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+        task.InvoiceLabel = string.IsNullOrWhiteSpace(invoiceLabel) ? null : invoiceLabel.Trim();
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        string? projectName = null;
+        if (task.ProjectId is { } pid)
+            projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
         return Map(task, client?.Name ?? "Unknown", projectName);
     }
 
@@ -579,9 +677,14 @@ public sealed class TaskService(
     }
 
     private static bool NeedsAttention(WorkTask t) =>
-        string.IsNullOrWhiteSpace(t.Bill)
-        || HasMissingHours(t)
-        || string.IsNullOrWhiteSpace(t.InvoiceLabel);
+        !IsComplete(t)
+        && (string.IsNullOrWhiteSpace(t.Bill)
+            || HasMissingHours(t)
+            || string.IsNullOrWhiteSpace(t.InvoiceLabel));
+
+    private static bool IsComplete(WorkTask t) =>
+        string.Equals(t.ClickUpStatus?.Trim(), "cancelled", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(t.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasMissingHours(WorkTask t) =>
         string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)

@@ -7,7 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
-        o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+    {
+        o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        o.JsonSerializerOptions.Converters.Add(new Aib.Api.Serialization.InvoiceStatusJsonConverter());
+        o.JsonSerializerOptions.Converters.Add(new Aib.Api.Serialization.NullableInvoiceStatusJsonConverter());
+    });
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddScoped<DataSeeder>();

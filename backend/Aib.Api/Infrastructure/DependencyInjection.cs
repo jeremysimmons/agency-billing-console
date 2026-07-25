@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IAgencyRepository, AgencyRepository>();
         services.AddScoped<IClientRepository, ClientRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
+        services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<IClickUpContainerRepository, ClickUpContainerRepository>();
 

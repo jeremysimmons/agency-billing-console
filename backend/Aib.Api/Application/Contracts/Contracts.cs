@@ -36,11 +36,19 @@ public sealed record CreateProjectRequest(Guid ClientId, string Name);
 public sealed record UpdateProjectRequest(string Name);
 public sealed record ProjectDto(Guid Id, Guid ClientId, string Name);
 
+public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null);
+public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status);
+public sealed record InvoiceDto(Guid Id, string Name, InvoiceStatus Status);
+
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,
     string? InvoiceLabel, string? Note);
 
 public sealed record UpdateTaskBillRequest(string? Bill);
+
+public sealed record UpdateTaskProjectRequest(Guid? ProjectId);
+
+public sealed record UpdateTaskInvoiceRequest(string? InvoiceLabel);
 
 public sealed record UpdateTaskHoursRequest(decimal? Hours);
 

@@ -49,6 +49,15 @@ public class Project
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
+public class Invoice
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public InvoiceStatus Status { get; set; } = InvoiceStatus.Preparing;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 /// <summary>Sheet-shaped task row: manual billing cols + ClickUp API cols.</summary>
 public class WorkTask
 {

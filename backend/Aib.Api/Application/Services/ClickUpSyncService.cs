@@ -165,11 +165,16 @@ public sealed class ClickUpSyncService(
     }
 
     private static bool NeedsAttention(WorkTask t) =>
-        string.IsNullOrWhiteSpace(t.Bill)
-        || (string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
-            && !((t.BillableHours is not null || t.NonBillableHours is not null)
-                 && ((t.BillableHours ?? 0) > 0 || (t.NonBillableHours ?? 0) > 0)))
-        || string.IsNullOrWhiteSpace(t.InvoiceLabel);
+        !IsComplete(t)
+        && (string.IsNullOrWhiteSpace(t.Bill)
+            || (string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
+                && !((t.BillableHours is not null || t.NonBillableHours is not null)
+                     && ((t.BillableHours ?? 0) > 0 || (t.NonBillableHours ?? 0) > 0)))
+            || string.IsNullOrWhiteSpace(t.InvoiceLabel));
+
+    private static bool IsComplete(WorkTask t) =>
+        string.Equals(t.ClickUpStatus?.Trim(), "cancelled", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(t.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase);
 
     private static async Task ReportAsync(
         Func<ClickUpSyncProgressEvent, CancellationToken, Task>? reportProgress,

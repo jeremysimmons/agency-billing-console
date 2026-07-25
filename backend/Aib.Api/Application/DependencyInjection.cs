@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddScoped<AgencyService>();
         services.AddScoped<ClientService>();
         services.AddScoped<ProjectService>();
+        services.AddScoped<InvoiceService>();
         services.AddScoped<TaskService>();
         services.AddScoped<ClickUpSyncService>();
         services.AddScoped<CsvTaskImportService>();

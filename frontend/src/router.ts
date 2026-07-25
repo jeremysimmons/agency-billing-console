@@ -5,6 +5,7 @@ const routes = [
   { path: '/tasks', name: 'tasks', component: () => import('./views/TasksView.vue') },
   { path: '/clients', name: 'clients', component: () => import('./views/ClientsView.vue') },
   { path: '/clients/:id', name: 'client-detail', component: () => import('./views/ClientDetailView.vue'), props: true },
+  { path: '/invoices', name: 'invoices', component: () => import('./views/InvoicesView.vue') },
   { path: '/hierarchy', name: 'hierarchy', component: () => import('./views/HierarchyView.vue') },
   { path: '/sync', name: 'sync', component: () => import('./views/SyncView.vue') },
 ]

@@ -29,6 +29,14 @@ export interface Project {
   name: string
 }
 
+export type InvoiceStatus = 'preparing' | 'sent' | 'partially-paid' | 'fully-paid'
+
+export interface Invoice {
+  id: string
+  name: string
+  status: InvoiceStatus | string
+}
+
 export interface WorkTask {
   id: string
   shortId: number

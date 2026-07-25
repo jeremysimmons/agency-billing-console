@@ -144,6 +144,30 @@ export function useUpdateTaskBill(filters: MaybeRefOrGetter<TaskListFilters>) {
   })
 }
 
+export function useUpdateTaskProject(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, projectId }: { id: string; projectId: string | null }) =>
+      (await http.patch<WorkTask>(`/tasks/${id}/project`, { projectId })).data,
+    onSuccess: (updated) => {
+      patchTaskList(cache, f.value, updated)
+    },
+  })
+}
+
+export function useUpdateTaskInvoice(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, invoiceLabel }: { id: string; invoiceLabel: string | null }) =>
+      (await http.patch<WorkTask>(`/tasks/${id}/invoice`, { invoiceLabel })).data,
+    onSuccess: (updated) => {
+      patchTaskList(cache, f.value, updated)
+    },
+  })
+}
+
 export function useUpdateTaskBillableHours(filters: MaybeRefOrGetter<TaskListFilters>) {
   const cache = useQueryCache()
   const f = computed(() => toValue(filters))

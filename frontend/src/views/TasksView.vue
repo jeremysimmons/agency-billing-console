@@ -3,10 +3,12 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { useClients } from '../queries/clients'
-import { useProjects } from '../queries/projects'
+import { useProjects, useCreateProject } from '../queries/projects'
+import { useInvoices, useCreateInvoice } from '../queries/invoices'
 import { useAgency, useUpdateAgencyUiPreferences } from '../queries/agency'
-import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep, useSyncTask } from '../queries/tasks'
-import type { WorkTask } from '../api/types'
+import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskProject, useUpdateTaskInvoice, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep, useSyncTask } from '../queries/tasks'
+import { http } from '../api/http'
+import type { Invoice, Project, WorkTask } from '../api/types'
 
 const FILTERS_STORAGE_KEY = 'aib.tasks.filters'
 
@@ -22,6 +24,7 @@ type StoredTaskFilters = {
   showInvoiceColumn?: boolean
   showIdColumn?: boolean
   showClickUpHoursColumn?: boolean
+  showClickUpEstimateColumn?: boolean
   groupByClient?: boolean
   groupOrderMode?: GroupOrderMode
   collapsedGroups?: Record<string, boolean>
@@ -81,22 +84,25 @@ const invoicedFilter = ref<'all' | 'yes' | 'no'>(
 const showListColumn = ref(typeof storedFilters.showListColumn === 'boolean' ? storedFilters.showListColumn : false)
 const showProjectColumn = ref(typeof storedFilters.showProjectColumn === 'boolean' ? storedFilters.showProjectColumn : false)
 const showInvoiceColumn = ref(
-  invoicedFilter.value === 'yes'
-    ? true
-    : invoicedFilter.value === 'no'
-      ? false
-      : typeof storedFilters.showInvoiceColumn === 'boolean'
-        ? storedFilters.showInvoiceColumn
-        : false,
+  typeof storedFilters.showInvoiceColumn === 'boolean' ? storedFilters.showInvoiceColumn : true,
 )
 const showIdColumn = ref(typeof storedFilters.showIdColumn === 'boolean' ? storedFilters.showIdColumn : true)
 const showClickUpHoursColumn = ref(
   typeof storedFilters.showClickUpHoursColumn === 'boolean' ? storedFilters.showClickUpHoursColumn : false,
 )
+const showClickUpEstimateColumn = ref(
+  typeof storedFilters.showClickUpEstimateColumn === 'boolean' ? storedFilters.showClickUpEstimateColumn : false,
+)
 const groupByClient = ref(typeof storedFilters.groupByClient === 'boolean' ? storedFilters.groupByClient : false)
 const groupOrderMode = ref<GroupOrderMode>(
   storedFilters.groupOrderMode === 'custom' ? 'custom' : 'alphabetical',
 )
+const groupOrderCustom = computed({
+  get: () => groupOrderMode.value === 'custom',
+  set: (v: boolean) => {
+    groupOrderMode.value = v ? 'custom' : 'alphabetical'
+  },
+})
 const customGroupOrder = ref<string[]>([])
 const draggingGroupId = ref<string | null>(null)
 const dragOverGroupId = ref<string | null>(null)
@@ -160,17 +166,34 @@ const clientCounts = computed(() => taskSummary.value?.byClient ?? [])
 const monthCounts = computed(() => taskSummary.value?.byDoneMonth ?? [])
 const updatePrep = useUpdateTaskPrep()
 const updateBill = useUpdateTaskBill(taskFilters)
+const updateProject = useUpdateTaskProject(taskFilters)
+const updateInvoice = useUpdateTaskInvoice(taskFilters)
 const updateBillableHours = useUpdateTaskBillableHours(taskFilters)
 const updateNonBillableHours = useUpdateTaskNonBillableHours(taskFilters)
 const syncTask = useSyncTask(taskFilters)
+const createProject = useCreateProject()
+const { data: invoices } = useInvoices()
+const createInvoice = useCreateInvoice()
 const savingBillId = ref<string | null>(null)
 const savingBillableId = ref<string | null>(null)
 const savingNonBillableId = ref<string | null>(null)
+const savingProjectId = ref<string | null>(null)
+const savingInvoiceId = ref<string | null>(null)
 const syncingTaskId = ref<string | null>(null)
 const syncTaskErrors = ref<Record<string, string>>({})
 const billErrors = ref<Record<string, string>>({})
 const billableWarnings = ref<Record<string, string>>({})
 const nonBillableErrors = ref<Record<string, string>>({})
+const projectErrors = ref<Record<string, string>>({})
+const invoiceErrors = ref<Record<string, string>>({})
+const projectsByClient = ref<Record<string, Project[]>>({})
+const loadingProjectsClientId = ref<string | null>(null)
+const addingProjectTaskId = ref<string | null>(null)
+const newProjectName = ref('')
+const ADD_PROJECT_VALUE = '__add_project__'
+const addingInvoiceTaskId = ref<string | null>(null)
+const newInvoiceName = ref('')
+const ADD_INVOICE_VALUE = '__add_invoice__'
 
 const editingId = ref<string | null>(null)
 const draft = ref({
@@ -227,10 +250,19 @@ const monthTotals = computed(() => ({
 const hasClientSummary = computed(() => clientCounts.value.length > 0)
 const hasMonthSummary = computed(() => monthCounts.value.length > 0)
 const showInvoice = computed(() => {
-  if (invoicedFilter.value === 'yes') return true
-  if (invoicedFilter.value === 'no') return false
+  if (invoicedFilter.value === 'no') return true
   return showInvoiceColumn.value
 })
+const visibleColumnCount = computed(() =>
+  [
+    showIdColumn.value,
+    showListColumn.value,
+    showProjectColumn.value,
+    showClickUpEstimateColumn.value,
+    showClickUpHoursColumn.value,
+    showInvoice.value,
+  ].filter(Boolean).length,
+)
 const showClientColumn = computed(() => !groupByClient.value)
 const taskGroups = computed(() => {
   const list = tasks.value ?? []
@@ -273,6 +305,7 @@ const editColspan = computed(() =>
   + (showClientColumn.value ? 1 : 0)
   + (showListColumn.value ? 1 : 0)
   + (showProjectColumn.value ? 1 : 0)
+  + (showClickUpEstimateColumn.value ? 1 : 0)
   + (showClickUpHoursColumn.value ? 1 : 0)
   + (showInvoice.value ? 1 : 0))
 
@@ -371,13 +404,20 @@ const missingBadgeLegend = [
 ] as const
 
 function hasMissingHours(t: WorkTask) {
+  if (isComplete(t)) return false
   if (t.bill?.toLowerCase() !== 'yes') return false
   const eitherPopulated = t.billableHours != null || t.nonBillableHours != null
   const anyPositive = (t.billableHours ?? 0) > 0 || (t.nonBillableHours ?? 0) > 0
   return !(eitherPopulated && anyPositive)
 }
 
+function isComplete(t: WorkTask) {
+  return t.clickUpStatus?.trim().toLowerCase() === 'cancelled'
+    && t.bill?.trim().toLowerCase() === 'no'
+}
+
 function isTaskMissing(t: WorkTask, key: string) {
+  if (isComplete(t)) return false
   switch (key) {
     case 'B':
       return !t.bill?.trim()
@@ -416,6 +456,165 @@ async function syncOne(t: WorkTask) {
     syncTaskErrors.value[t.id] = e?.response?.data?.error ?? e?.message ?? 'Sync failed.'
   } finally {
     syncingTaskId.value = null
+  }
+}
+
+function projectsForClient(clientId: string): Project[] {
+  return projectsByClient.value[clientId] ?? []
+}
+
+async function ensureProjectsLoaded(clientId: string) {
+  if (projectsByClient.value[clientId] || loadingProjectsClientId.value === clientId) return
+  loadingProjectsClientId.value = clientId
+  try {
+    const list = (await http.get<Project[]>('/projects', { params: { clientId } })).data
+    projectsByClient.value = { ...projectsByClient.value, [clientId]: list }
+  } catch {
+    projectsByClient.value = { ...projectsByClient.value, [clientId]: [] }
+  } finally {
+    if (loadingProjectsClientId.value === clientId) loadingProjectsClientId.value = null
+  }
+}
+
+function rememberProject(project: Project) {
+  const existing = projectsByClient.value[project.clientId] ?? []
+  if (existing.some((p) => p.id === project.id)) return
+  projectsByClient.value = {
+    ...projectsByClient.value,
+    [project.clientId]: [...existing, project].sort((a, b) => a.name.localeCompare(b.name)),
+  }
+}
+
+async function updateProjectInline(t: WorkTask, projectId: string | null) {
+  const current = t.projectId ?? null
+  if (projectId === current) return
+
+  savingProjectId.value = t.id
+  delete projectErrors.value[t.id]
+  try {
+    await updateProject.mutateAsync({ id: t.id, projectId })
+  } catch (e: any) {
+    projectErrors.value[t.id] = e?.response?.data?.error ?? 'Could not save project.'
+  } finally {
+    savingProjectId.value = null
+  }
+}
+
+async function onProjectSelect(t: WorkTask, value: string, selectEl: HTMLSelectElement) {
+  if (value === ADD_PROJECT_VALUE) {
+    selectEl.value = t.projectId ?? ''
+    addingProjectTaskId.value = t.id
+    newProjectName.value = ''
+    return
+  }
+  await updateProjectInline(t, value || null)
+}
+
+function cancelAddProject() {
+  addingProjectTaskId.value = null
+  newProjectName.value = ''
+}
+
+async function confirmAddProject(t: WorkTask) {
+  const name = newProjectName.value.trim()
+  if (!name) return
+  savingProjectId.value = t.id
+  delete projectErrors.value[t.id]
+  try {
+    const project = await createProject.mutateAsync({ clientId: t.clientId, name })
+    rememberProject(project)
+    addingProjectTaskId.value = null
+    newProjectName.value = ''
+    await updateProject.mutateAsync({ id: t.id, projectId: project.id })
+  } catch (e: any) {
+    projectErrors.value[t.id] = e?.response?.data?.error ?? 'Could not create project.'
+  } finally {
+    savingProjectId.value = null
+  }
+}
+
+function invoiceStatusKey(status: string) {
+  const s = status.trim().toLowerCase().replaceAll(' ', '-').replaceAll('_', '-')
+  if (s === 'partiallypaid') return 'partially-paid'
+  if (s === 'fullypaid') return 'fully-paid'
+  return s
+}
+
+function isInvoiceAssignable(inv: Invoice) {
+  return invoiceStatusKey(inv.status) === 'preparing'
+}
+
+function formatInvoiceStatus(status: string) {
+  switch (invoiceStatusKey(status)) {
+    case 'preparing': return 'preparing'
+    case 'sent': return 'sent'
+    case 'partially-paid': return 'partially-paid'
+    case 'fully-paid': return 'fully paid'
+    default: return status
+  }
+}
+
+function invoiceOptionLabel(inv: Invoice) {
+  if (inv.name.trim().toLowerCase() === 'none' || isInvoiceAssignable(inv)) return inv.name
+  return `${inv.name} (${formatInvoiceStatus(inv.status)})`
+}
+
+const assignableInvoices = computed(() => (invoices.value ?? []).filter(isInvoiceAssignable))
+
+function invoiceOptionsFor(t: WorkTask): Invoice[] {
+  const list = assignableInvoices.value
+  const current = t.invoiceLabel?.trim()
+  if (!current) return list
+  if (list.some((i) => i.name === current)) return list
+  const existing = (invoices.value ?? []).find((i) => i.name === current)
+  return existing ? [...list, existing] : [...list, { id: current, name: current, status: 'fully-paid' }]
+}
+
+async function updateInvoiceInline(t: WorkTask, invoiceLabel: string | null) {
+  const current = t.invoiceLabel?.trim() || null
+  const next = invoiceLabel?.trim() || null
+  if (next === current) return
+
+  savingInvoiceId.value = t.id
+  delete invoiceErrors.value[t.id]
+  try {
+    await updateInvoice.mutateAsync({ id: t.id, invoiceLabel: next })
+  } catch (e: any) {
+    invoiceErrors.value[t.id] = e?.response?.data?.error ?? 'Could not save invoice.'
+  } finally {
+    savingInvoiceId.value = null
+  }
+}
+
+async function onInvoiceSelect(t: WorkTask, value: string, selectEl: HTMLSelectElement) {
+  if (value === ADD_INVOICE_VALUE) {
+    selectEl.value = t.invoiceLabel ?? ''
+    addingInvoiceTaskId.value = t.id
+    newInvoiceName.value = ''
+    return
+  }
+  await updateInvoiceInline(t, value || null)
+}
+
+function cancelAddInvoice() {
+  addingInvoiceTaskId.value = null
+  newInvoiceName.value = ''
+}
+
+async function confirmAddInvoice(t: WorkTask) {
+  const name = newInvoiceName.value.trim()
+  if (!name) return
+  savingInvoiceId.value = t.id
+  delete invoiceErrors.value[t.id]
+  try {
+    const invoice = await createInvoice.mutateAsync({ name })
+    addingInvoiceTaskId.value = null
+    newInvoiceName.value = ''
+    await updateInvoice.mutateAsync({ id: t.id, invoiceLabel: invoice.name })
+  } catch (e: any) {
+    invoiceErrors.value[t.id] = e?.response?.data?.error ?? 'Could not create invoice.'
+  } finally {
+    savingInvoiceId.value = null
   }
 }
 
@@ -498,6 +697,15 @@ async function saveEdit() {
 }
 
 watch(viewMode, () => { editingId.value = null })
+watch(
+  [clientId, filterProjects],
+  ([cid, list]) => {
+    if (cid && list) {
+      projectsByClient.value = { ...projectsByClient.value, [cid]: [...list] }
+    }
+  },
+  { immediate: true },
+)
 watch(groupByClient, (on) => {
   if (!on) collapsedGroups.value = {}
 })
@@ -551,10 +759,7 @@ watch(
   { immediate: true },
 )
 watch(missingOnly, () => { editingId.value = null })
-watch(invoicedFilter, (value) => {
-  editingId.value = null
-  showInvoiceColumn.value = value === 'yes'
-})
+watch(invoicedFilter, () => { editingId.value = null })
 watch([createdMonthFilter, doneMonthFilter], () => { editingId.value = null })
 watch(statusFilters, () => { editingId.value = null }, { deep: true })
 
@@ -568,6 +773,7 @@ watch(
     showProjectColumn,
     showInvoiceColumn,
     showIdColumn,
+    showClickUpEstimateColumn,
     showClickUpHoursColumn,
     groupByClient,
     groupOrderMode,
@@ -587,6 +793,7 @@ watch(
       showProjectColumn: showProjectColumn.value,
       showInvoiceColumn: showInvoiceColumn.value,
       showIdColumn: showIdColumn.value,
+      showClickUpEstimateColumn: showClickUpEstimateColumn.value,
       showClickUpHoursColumn: showClickUpHoursColumn.value,
       groupByClient: groupByClient.value,
       groupOrderMode: groupOrderMode.value,
@@ -750,46 +957,80 @@ function openDoneMonth(month: string) {
           </label>
         </div>
       </div>
-      <div v-if="viewMode === 'list'" class="column-toggles">
+      <div v-if="viewMode === 'list' && groupByClient" class="toggle-field">
+        <span id="tasks-group-order-label" class="filter-label">Group order</span>
+        <div class="toggle-row">
+          <span class="toggle-side" :class="{ active: !groupOrderCustom }" data-testid="tasks-group-order-alphabetical">A-Z</span>
+          <ToggleSwitch
+            v-model="groupOrderCustom"
+            aria-labelledby="tasks-group-order-label"
+            :pt="{ input: { 'data-testid': 'tasks-group-order-custom' } }"
+          />
+          <span class="toggle-side" :class="{ active: groupOrderCustom }" data-testid="tasks-group-order-custom-label">Custom</span>
+        </div>
+      </div>
+      <div v-if="viewMode === 'list'" class="column-filters">
         <span class="filter-label">Columns</span>
-        <div class="column-checks">
-          <label class="check">
-            <input v-model="showIdColumn" type="checkbox" data-testid="tasks-show-id-column" />
-            Id
-          </label>
-          <label class="check">
-            <input v-model="showListColumn" type="checkbox" data-testid="tasks-show-list-column" />
-            List
-          </label>
-          <label class="check">
-            <input v-model="showProjectColumn" type="checkbox" data-testid="tasks-show-project-column" />
-            Project
-          </label>
-          <label class="check">
-            <input
-              v-model="showClickUpHoursColumn"
-              type="checkbox"
-              data-testid="tasks-show-clickup-hours-column"
-            />
-            ClickUp hours
-          </label>
-          <label class="check">
-            <input
-              v-model="showInvoiceColumn"
-              type="checkbox"
-              data-testid="tasks-show-invoice-column"
-            />
-            Invoice
-          </label>
+        <button
+          type="button"
+          class="column-popover-trigger"
+          popovertarget="tasks-columns-popover"
+          data-testid="tasks-columns-filter-trigger"
+        >({{ visibleColumnCount }})</button>
+        <div
+          id="tasks-columns-popover"
+          popover
+          class="column-popover"
+          data-testid="tasks-columns-popover"
+        >
+          <div class="column-popover-checks">
+            <label class="check">
+              <input v-model="showIdColumn" type="checkbox" data-testid="tasks-show-id-column" />
+              Id
+            </label>
+            <label class="check">
+              <input v-model="showListColumn" type="checkbox" data-testid="tasks-show-list-column" />
+              List
+            </label>
+            <label class="check">
+              <input v-model="showProjectColumn" type="checkbox" data-testid="tasks-show-project-column" />
+              Project
+            </label>
+            <label class="check">
+              <input
+                v-model="showClickUpEstimateColumn"
+                type="checkbox"
+                data-testid="tasks-show-clickup-estimate-column"
+              />
+              ClickUp estimate
+            </label>
+            <label class="check">
+              <input
+                v-model="showClickUpHoursColumn"
+                type="checkbox"
+                data-testid="tasks-show-clickup-hours-column"
+              />
+              ClickUp hours
+            </label>
+            <label class="check">
+              <input
+                v-model="showInvoiceColumn"
+                type="checkbox"
+                data-testid="tasks-show-invoice-column"
+              />
+              Invoice
+            </label>
+          </div>
         </div>
       </div>
       <div class="status-filters">
+        <span class="filter-label">Statuses</span>
         <button
           type="button"
           class="status-popover-trigger"
           popovertarget="tasks-status-popover"
           data-testid="tasks-status-filter-trigger"
-        >({{ statusFilters.length }}) statuses</button>
+        >({{ statusFilters.length }})</button>
         <div
           id="tasks-status-popover"
           popover
@@ -811,44 +1052,6 @@ function openDoneMonth(month: string) {
       </div>
     </div>
 
-    <div
-      v-if="viewMode === 'list' && groupByClient"
-      class="group-actions"
-      data-testid="tasks-group-actions"
-    >
-      <button
-        type="button"
-        class="link"
-        data-testid="tasks-expand-all-groups"
-        @click="expandAllGroups"
-      >Expand all</button>
-      <button
-        type="button"
-        class="link"
-        data-testid="tasks-collapse-all-groups"
-        @click="collapseAllGroups"
-      >Collapse all</button>
-      <span class="group-order-label">Group order</span>
-      <label class="check">
-        <input
-          v-model="groupOrderMode"
-          type="radio"
-          value="alphabetical"
-          data-testid="tasks-group-order-alphabetical"
-        />
-        Alphabetical
-      </label>
-      <label class="check">
-        <input
-          v-model="groupOrderMode"
-          type="radio"
-          value="custom"
-          data-testid="tasks-group-order-custom"
-        />
-        Custom
-      </label>
-    </div>
-
     <template v-if="viewMode === 'list'">
     <p v-if="isLoading" data-testid="tasks-loading">Loading…</p>
     <p v-else-if="error" class="error" data-testid="tasks-error">Failed to load tasks.</p>
@@ -860,18 +1063,42 @@ function openDoneMonth(month: string) {
     <table class="grid" data-testid="tasks-table">
       <thead>
         <tr>
-          <th class="flags-col" aria-label="Missing data"></th>
+          <th class="flags-col" :aria-label="groupByClient ? undefined : 'Missing data'">
+            <div
+              v-if="groupByClient"
+              class="group-expand-collapse"
+              data-testid="tasks-group-actions"
+            >
+              <button
+                type="button"
+                class="link icon-btn"
+                data-testid="tasks-expand-all-groups"
+                aria-label="Expand all"
+                title="Expand all"
+                @click="expandAllGroups"
+              ><span class="material-icons" aria-hidden="true">unfold_more</span></button>
+              <button
+                type="button"
+                class="link icon-btn"
+                data-testid="tasks-collapse-all-groups"
+                aria-label="Collapse all"
+                title="Collapse all"
+                @click="collapseAllGroups"
+              ><span class="material-icons" aria-hidden="true">unfold_less</span></button>
+            </div>
+          </th>
           <th v-if="showIdColumn">Id</th>
           <th v-if="showClientColumn">Client</th>
           <th v-if="showListColumn">List</th>
           <th v-if="showProjectColumn">Project</th>
           <th>Task</th>
+          <th>Status</th>
           <th>Bill</th>
           <th>Billable hours</th>
           <th>Non-billable hours</th>
+          <th v-if="showClickUpEstimateColumn">ClickUp estimate</th>
           <th v-if="showClickUpHoursColumn">ClickUp hours</th>
           <th v-if="showInvoice">Invoice</th>
-          <th>Status</th>
           <th>Created</th>
           <th>Done</th>
           <th></th>
@@ -941,7 +1168,56 @@ function openDoneMonth(month: string) {
               <td v-if="showIdColumn" class="id-col" :title="t.id" :data-testid="`task-id-${t.id}`">{{ t.shortId }}</td>
               <td v-if="showClientColumn" :data-testid="`task-client-${t.id}`">{{ t.clientName }}</td>
               <td v-if="showListColumn" :data-testid="`task-list-${t.id}`">{{ t.clickUpListName ?? '—' }}</td>
-              <td v-if="showProjectColumn" :data-testid="`task-project-${t.id}`">{{ t.projectName ?? '—' }}</td>
+              <td v-if="showProjectColumn" class="project-cell" :data-testid="`task-project-${t.id}`">
+                <div v-if="addingProjectTaskId === t.id" class="add-project">
+                  <input
+                    v-model="newProjectName"
+                    type="text"
+                    class="inline-input"
+                    placeholder="Project name"
+                    :disabled="savingProjectId === t.id"
+                    :data-testid="`task-project-new-name-${t.id}`"
+                    @keydown.enter.prevent="confirmAddProject(t)"
+                    @keydown.escape.prevent="cancelAddProject"
+                  />
+                  <button
+                    type="button"
+                    class="link"
+                    :disabled="savingProjectId === t.id || !newProjectName.trim()"
+                    :data-testid="`task-project-new-save-${t.id}`"
+                    @click="confirmAddProject(t)"
+                  >Add</button>
+                  <button
+                    type="button"
+                    class="link"
+                    :disabled="savingProjectId === t.id"
+                    :data-testid="`task-project-new-cancel-${t.id}`"
+                    @click="cancelAddProject"
+                  >Cancel</button>
+                </div>
+                <select
+                  v-else
+                  class="inline-select"
+                  :value="t.projectId ?? ''"
+                  :disabled="savingProjectId === t.id"
+                  :data-testid="`task-project-select-${t.id}`"
+                  @focus="ensureProjectsLoaded(t.clientId)"
+                  @change="onProjectSelect(t, ($event.target as HTMLSelectElement).value, $event.target as HTMLSelectElement)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in projectsForClient(t.clientId)"
+                    :key="p.id"
+                    :value="p.id"
+                  >{{ p.name }}</option>
+                  <option
+                    v-if="t.projectId && !projectsForClient(t.clientId).some((p) => p.id === t.projectId)"
+                    :value="t.projectId"
+                  >{{ t.projectName ?? t.projectId }}</option>
+                  <option :value="ADD_PROJECT_VALUE">Add project…</option>
+                </select>
+                <span v-if="projectErrors[t.id]" class="inline-error" :data-testid="`task-project-error-${t.id}`">{{ projectErrors[t.id] }}</span>
+              </td>
               <td>
                 <span
                   class="task-title-cell"
@@ -965,6 +1241,7 @@ function openDoneMonth(month: string) {
                   >{{ displayTitle(t.title) }}</span>
                 </span>
               </td>
+              <td :data-testid="`task-status-${t.id}`">{{ t.clickUpStatus ?? '—' }}</td>
               <td class="bill-cell" :data-testid="`task-bill-${t.id}`">
                 <select
                   class="inline-select"
@@ -1006,11 +1283,58 @@ function openDoneMonth(month: string) {
                 <span v-if="nonBillableErrors[t.id]" class="inline-error" :data-testid="`task-non-billable-hours-error-${t.id}`">{{ nonBillableErrors[t.id] }}</span>
               </td>
               <td
+                v-if="showClickUpEstimateColumn"
+                :data-testid="`task-clickup-estimate-${t.id}`"
+              >{{ t.estimatedHours ?? '—' }}</td>
+              <td
                 v-if="showClickUpHoursColumn"
                 :data-testid="`task-clickup-hours-${t.id}`"
               >{{ t.actualHours ?? '—' }}</td>
-              <td v-if="showInvoice" :data-testid="`task-invoice-${t.id}`">{{ t.invoiceLabel ?? '—' }}</td>
-              <td :data-testid="`task-status-${t.id}`">{{ t.clickUpStatus ?? '—' }}</td>
+              <td v-if="showInvoice" class="invoice-cell" :data-testid="`task-invoice-${t.id}`">
+                <div v-if="addingInvoiceTaskId === t.id" class="add-project">
+                  <input
+                    v-model="newInvoiceName"
+                    type="text"
+                    class="inline-input"
+                    placeholder="Invoice name"
+                    :disabled="savingInvoiceId === t.id"
+                    :data-testid="`task-invoice-new-name-${t.id}`"
+                    @keydown.enter.prevent="confirmAddInvoice(t)"
+                    @keydown.escape.prevent="cancelAddInvoice"
+                  />
+                  <button
+                    type="button"
+                    class="link"
+                    :disabled="savingInvoiceId === t.id || !newInvoiceName.trim()"
+                    :data-testid="`task-invoice-new-save-${t.id}`"
+                    @click="confirmAddInvoice(t)"
+                  >Add</button>
+                  <button
+                    type="button"
+                    class="link"
+                    :disabled="savingInvoiceId === t.id"
+                    :data-testid="`task-invoice-new-cancel-${t.id}`"
+                    @click="cancelAddInvoice"
+                  >Cancel</button>
+                </div>
+                <select
+                  v-else
+                  class="inline-select"
+                  :value="t.invoiceLabel ?? ''"
+                  :disabled="savingInvoiceId === t.id"
+                  :data-testid="`task-invoice-select-${t.id}`"
+                  @change="onInvoiceSelect(t, ($event.target as HTMLSelectElement).value, $event.target as HTMLSelectElement)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="inv in invoiceOptionsFor(t)"
+                    :key="inv.id"
+                    :value="inv.name"
+                  >{{ invoiceOptionLabel(inv) }}</option>
+                  <option :value="ADD_INVOICE_VALUE">Add invoice…</option>
+                </select>
+                <span v-if="invoiceErrors[t.id]" class="inline-error" :data-testid="`task-invoice-error-${t.id}`">{{ invoiceErrors[t.id] }}</span>
+              </td>
               <td :title="formatDateTime(t.dateCreated)" :data-testid="`task-date-created-${t.id}`">{{ formatDate(t.dateCreated) }}</td>
               <td :title="formatDateTime(t.dateDone)" :data-testid="`task-date-done-${t.id}`">{{ formatDate(t.dateDone) }}</td>
               <td>
@@ -1062,7 +1386,14 @@ function openDoneMonth(month: string) {
                   </label>
                   <label>
                     Invoice
-                    <input v-model="draft.invoiceLabel" placeholder="e.g. Aug 2025" :data-testid="`task-edit-invoice-${t.id}`" />
+                    <select v-model="draft.invoiceLabel" :data-testid="`task-edit-invoice-${t.id}`">
+                      <option value="">—</option>
+                      <option
+                        v-for="inv in invoiceOptionsFor(t)"
+                        :key="inv.id"
+                        :value="inv.name"
+                      >{{ invoiceOptionLabel(inv) }}</option>
+                    </select>
                   </label>
                   <label class="grow">
                     Note
@@ -1280,9 +1611,16 @@ function openDoneMonth(month: string) {
 }
 .missing-B { background: #fef3c7; color: #b45309; }
 .missing-H { background: #ede9fe; color: #6d28d9; }
-.filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin-bottom: 1rem; }
+.filters {
+  --filter-control-height: 2.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
 .filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #4b5563; }
-.filters .check { flex-direction: row; align-items: center; gap: 0.4rem; padding-bottom: 0.35rem; }
+.filters .check { flex-direction: row; align-items: center; gap: 0.4rem; padding-bottom: 0; }
 .container-filter {
   display: flex;
   flex-direction: column;
@@ -1303,44 +1641,94 @@ function openDoneMonth(month: string) {
   cursor: pointer;
   font-size: 0.8rem;
 }
-.group-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  margin: -0.35rem 0 0.75rem;
-  font-size: 0.85rem;
-  color: #4b5563;
-}
-.group-order-label {
-  margin-left: 0.5rem;
-  font-weight: 600;
-  color: #374151;
-}
-.group-actions .check {
+.group-expand-collapse {
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.15rem;
+  white-space: nowrap;
+  color: #4b5563;
+}
+.group-expand-collapse .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.group-expand-collapse .material-icons {
+  font-size: 1.25rem;
 }
 .column-toggles { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #4b5563; }
 .filter-label { line-height: 1.2; }
-.column-checks { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; padding-bottom: 0.35rem; }
+.column-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: var(--filter-control-height);
+  box-sizing: border-box;
+}
 .column-checks .check { padding-bottom: 0; }
+.column-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.column-popover-trigger {
+  anchor-name: --tasks-columns-trigger;
+  align-self: flex-start;
+  box-sizing: border-box;
+  min-height: var(--filter-control-height);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  cursor: pointer;
+}
+.column-popover-trigger:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.column-popover {
+  margin: 0;
+  inset: unset;
+  position-anchor: --tasks-columns-trigger;
+  top: anchor(bottom);
+  left: anchor(left);
+  margin-top: 0.35rem;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.column-popover-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+.column-popover-checks .check { padding-bottom: 0; }
 .status-filters {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.85rem;
   color: #4b5563;
-  padding-bottom: 0.35rem;
 }
 .status-popover-trigger {
   anchor-name: --tasks-status-trigger;
   align-self: flex-start;
-  padding: 0.35rem 0.65rem;
+  box-sizing: border-box;
+  min-height: var(--filter-control-height);
+  padding: 0.45rem 0.65rem;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
   color: #374151;
   font: inherit;
@@ -1377,12 +1765,13 @@ function openDoneMonth(month: string) {
   gap: 0.25rem;
   font-size: 0.85rem;
   color: #4b5563;
-  padding-bottom: 0.35rem;
 }
 .toggle-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: var(--filter-control-height);
+  box-sizing: border-box;
 }
 .toggle-side {
   font-size: 0.8rem;
@@ -1392,6 +1781,10 @@ function openDoneMonth(month: string) {
 .toggle-side.active {
   color: #059669;
   font-weight: 600;
+}
+.filters select {
+  box-sizing: border-box;
+  min-height: var(--filter-control-height);
 }
 select, input:not([role='switch']) {
   padding: 0.45rem 0.65rem;
@@ -1446,6 +1839,18 @@ select, input:not([role='switch']) {
 }
 .bill-cell { min-width: 4.5rem; }
 .hours-cell { min-width: 5rem; }
+.project-cell { min-width: 9rem; }
+.project-cell .inline-select { max-width: 12rem; }
+.add-project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.add-project .inline-input {
+  width: 8rem;
+  min-width: 6rem;
+}
 .inline-select {
   padding: 0.25rem 0.35rem;
   border: 1px solid #d1d5db;

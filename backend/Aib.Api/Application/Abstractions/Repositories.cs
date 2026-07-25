@@ -29,6 +29,15 @@ public interface IProjectRepository
     Task UpdateAsync(Project project, CancellationToken ct = default);
 }
 
+public interface IInvoiceRepository
+{
+    Task<Invoice?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<Invoice?> GetByNameAsync(string name, CancellationToken ct = default);
+    Task<IReadOnlyList<Invoice>> ListAsync(CancellationToken ct = default);
+    Task<Guid> InsertAsync(Invoice invoice, CancellationToken ct = default);
+    Task UpdateAsync(Invoice invoice, CancellationToken ct = default);
+}
+
 public interface ITaskRepository
 {
     Task<WorkTask?> GetByIdAsync(Guid id, CancellationToken ct = default);

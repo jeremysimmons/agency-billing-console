@@ -54,6 +54,23 @@ public sealed class ProjectsController(ProjectService projects) : ControllerBase
 }
 
 [ApiController]
+[Route("api/invoices")]
+public sealed class InvoicesController(InvoiceService invoices) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken ct)
+        => Ok(await invoices.ListAsync(ct));
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateInvoiceRequest request, CancellationToken ct)
+        => Ok(await invoices.CreateAsync(request, ct));
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateInvoiceRequest request, CancellationToken ct)
+        => Ok(await invoices.UpdateAsync(id, request, ct));
+}
+
+[ApiController]
 [Route("api/tasks")]
 public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) : ControllerBase
 {
@@ -104,6 +121,14 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
     [HttpPatch("{id:guid}/bill")]
     public async Task<IActionResult> UpdateBill(Guid id, [FromBody] UpdateTaskBillRequest request, CancellationToken ct)
         => Ok(await tasks.UpdateBillAsync(id, request.Bill, ct));
+
+    [HttpPatch("{id:guid}/project")]
+    public async Task<IActionResult> UpdateProject(Guid id, [FromBody] UpdateTaskProjectRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateProjectAsync(id, request.ProjectId, ct));
+
+    [HttpPatch("{id:guid}/invoice")]
+    public async Task<IActionResult> UpdateInvoice(Guid id, [FromBody] UpdateTaskInvoiceRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateInvoiceAsync(id, request.InvoiceLabel, ct));
 
     [HttpPatch("{id:guid}/billable-hours")]
     public async Task<IActionResult> UpdateBillableHours(Guid id, [FromBody] UpdateTaskHoursRequest request, CancellationToken ct)

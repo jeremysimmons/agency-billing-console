@@ -189,6 +189,7 @@ async function runSync() {
     </ul>
 
     <div v-if="tree && tree.length" class="toolbar" data-testid="hierarchy-expand-toolbar">
+      <span class="level-hint" data-testid="hierarchy-expand-level">Level {{ expandLevel }} / {{ maxDepth }}</span>
       <button
         type="button"
         class="secondary"
@@ -205,9 +206,9 @@ async function runSync() {
       >Expand level +</button>
       <button type="button" class="secondary" data-testid="hierarchy-expand-all" @click="expandAll">Expand all</button>
       <button type="button" class="secondary" data-testid="hierarchy-collapse-all" @click="collapseAll">Collapse all</button>
-      <div class="toggle-field">
-        <span id="hierarchy-hide-empty-label" class="toggle-label">Empty nodes</span>
-        <div class="toggle-row">
+      <div class="toggle-field inline-label">
+        <span id="hierarchy-hide-empty-label" class="toggle-label" style="margin-right: 0.7em; align-self: center;">Empty nodes</span>
+        <div class="toggle-row" style="display: inline-flex; align-items: center;">
           <span class="toggle-side" :class="{ active: !hideEmpty }" data-testid="hierarchy-show-empty-label">Show</span>
           <ToggleSwitch
             v-model="hideEmpty"
@@ -217,7 +218,6 @@ async function runSync() {
           <span class="toggle-side" :class="{ active: hideEmpty }" data-testid="hierarchy-hide-empty-label-active">Hide</span>
         </div>
       </div>
-      <span class="level-hint" data-testid="hierarchy-expand-level">Level {{ expandLevel }} / {{ maxDepth }}</span>
     </div>
 
     <p v-if="isLoading" data-testid="hierarchy-loading">Loading…</p>
@@ -301,13 +301,14 @@ button:disabled { opacity: 0.6; cursor: default; }
 }
 .toggle-field {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.85rem;
   color: #4b5563;
   margin-left: 0.25rem;
 }
-.toggle-label { line-height: 1.2; }
+.toggle-label { line-height: 1.2; white-space: nowrap; }
 .toggle-row {
   display: flex;
   align-items: center;

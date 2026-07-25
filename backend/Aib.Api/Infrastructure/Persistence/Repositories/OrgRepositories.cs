@@ -2,6 +2,7 @@ using Aib.Application.Abstractions;
 using Aib.Application.Contracts;
 using Aib.Domain;
 using Aib.Domain.Entities;
+using Aib.Infrastructure.Persistence;
 using Dapper;
 using Dapper.SimpleSqlBuilder;
 
@@ -185,6 +186,64 @@ public sealed class ProjectRepository(IDbConnectionFactory factory) : IProjectRe
     }
 }
 
+public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRepository
+{
+    public async Task<Invoice?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"select * from invoice where id = {id}");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Invoice>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<Invoice?> GetByNameAsync(string name, CancellationToken ct = default)
+    {
+        var trimmed = name.Trim();
+        var builder = SimpleBuilder.Create($"select * from invoice where lower(trim(name)) = lower({trimmed})");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Invoice>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<Invoice>> ListAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<Invoice>(new CommandDefinition(
+            """
+            select * from invoice
+            order by case lower(status)
+                when 'preparing' then 0
+                when 'sent' then 1
+                when 'partially-paid' then 2
+                else 3
+            end, name
+            """, cancellationToken: ct));
+        return rows.ToList();
+    }
+
+    public async Task<Guid> InsertAsync(Invoice invoice, CancellationToken ct = default)
+    {
+        var status = invoice.Status.Value;
+        var builder = SimpleBuilder.Create($"""
+            insert into invoice (id, name, status, created_at, updated_at)
+            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.CreatedAt}, {invoice.UpdatedAt})
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        return invoice.Id;
+    }
+
+    public async Task UpdateAsync(Invoice invoice, CancellationToken ct = default)
+    {
+        var status = invoice.Status.Value;
+        var builder = SimpleBuilder.Create($"""
+            update invoice
+            set name = {invoice.Name}, status = {status}, updated_at = {invoice.UpdatedAt}
+            where id = {invoice.Id}
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+}
+
 public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskRepository
 {
     public async Task<WorkTask?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -257,10 +316,17 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 and (coalesce(t.billable_hours, 0) > 0 or coalesce(t.non_billable_hours, 0) > 0)
             )
             """;
+        const string completeStatusSql = """
+            lower(trim(coalesce(t.clickup_status, ''))) = 'cancelled'
+            and lower(trim(coalesce(t.bill, ''))) = 'no'
+            """;
         const string missingSql = $"""
-            t.bill is null
-            or ({missingHoursSql})
-            or t.invoice_label is null or trim(t.invoice_label) = ''
+            not ({completeStatusSql})
+            and (
+                t.bill is null
+                or ({missingHoursSql})
+                or t.invoice_label is null or trim(t.invoice_label) = ''
+            )
             """;
         const string uninvoicedSql = "t.invoice_label is null or trim(t.invoice_label) = ''";
 
@@ -395,6 +461,10 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         if (missingOnly == true)
         {
             sql += $"""
+                 and not (
+                    lower(trim(coalesce({prefix}clickup_status, ''))) = 'cancelled'
+                    and lower(trim(coalesce({prefix}bill, ''))) = 'no'
+                 )
                  and (
                     {prefix}bill is null
                     or (lower({prefix}bill) = 'yes' and not (
