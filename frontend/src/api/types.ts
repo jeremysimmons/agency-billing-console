@@ -3,6 +3,11 @@ export interface Agency {
   name: string
   lastClickUpSyncAt: string | null
   lastClickUpSyncSummary: string | null
+  uiPreferences: AgencyUiPreferences
+}
+
+export interface AgencyUiPreferences {
+  taskGroupClientOrder: string[]
 }
 
 export interface Client {
@@ -14,6 +19,7 @@ export interface Client {
   description: string | null
   status: string
   active: boolean
+  billFieldAvailable: boolean
 }
 
 export interface Project {
@@ -24,6 +30,7 @@ export interface Project {
 
 export interface WorkTask {
   id: string
+  shortId: number
   clientId: string
   clientName: string
   projectId: string | null

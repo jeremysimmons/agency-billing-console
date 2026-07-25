@@ -44,6 +44,56 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
         await SendAsync(HttpMethod.Post, $"task/{Uri.EscapeDataString(taskId)}/field/{Uri.EscapeDataString(fieldId)}", content, ct);
     }
 
+    public Task<IReadOnlyList<ClickUpCustomField>> GetListCustomFieldsAsync(string listId, CancellationToken ct = default)
+        => GetCustomFieldsAsync($"list/{Uri.EscapeDataString(listId)}/field", ct);
+
+    public Task<IReadOnlyList<ClickUpCustomField>> GetFolderCustomFieldsAsync(string folderId, CancellationToken ct = default)
+        => GetCustomFieldsAsync($"folder/{Uri.EscapeDataString(folderId)}/field", ct);
+
+    public Task<IReadOnlyList<ClickUpCustomField>> GetSpaceCustomFieldsAsync(string spaceId, CancellationToken ct = default)
+        => GetCustomFieldsAsync($"space/{Uri.EscapeDataString(spaceId)}/field", ct);
+
+    private async Task<IReadOnlyList<ClickUpCustomField>> GetCustomFieldsAsync(string relativeUrl, CancellationToken ct)
+    {
+        using var doc = await GetJsonAsync(relativeUrl, ct);
+        return ParseCustomFields(doc.RootElement);
+    }
+
+    private static IReadOnlyList<ClickUpCustomField> ParseCustomFields(JsonElement root)
+    {
+        if (!root.TryGetProperty("fields", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var fields = new List<ClickUpCustomField>();
+        foreach (var el in arr.EnumerateArray())
+        {
+            var id = GetString(el, "id");
+            var name = GetString(el, "name");
+            var type = GetString(el, "type");
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
+                continue;
+
+            var options = new List<ClickUpCustomFieldOption>();
+            if (el.TryGetProperty("type_config", out var config)
+                && config.ValueKind == JsonValueKind.Object
+                && config.TryGetProperty("options", out var optArr)
+                && optArr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var opt in optArr.EnumerateArray())
+                {
+                    var optId = GetString(opt, "id");
+                    var optName = GetString(opt, "name");
+                    if (!string.IsNullOrWhiteSpace(optId) && !string.IsNullOrWhiteSpace(optName))
+                        options.Add(new ClickUpCustomFieldOption(optId, optName));
+                }
+            }
+
+            fields.Add(new ClickUpCustomField(id, name, type, options));
+        }
+
+        return fields;
+    }
+
     public async Task<decimal> GetTaskTimeSpentHoursAsync(string taskId, CancellationToken ct = default)
     {
         using var doc = await GetJsonAsync($"task/{Uri.EscapeDataString(taskId)}", ct);

@@ -4,11 +4,13 @@ using Aib.Application.Contracts;
 using Aib.Application.Integrations;
 using Aib.Domain;
 using Aib.Domain.Entities;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace Aib.Application.Services;
 
-public sealed class AgencyService(IAgencyRepository agencies)
+public sealed class AgencyService(IAgencyRepository agencies, IClock clock)
 {
     public async Task<AgencyDto> GetAsync(CancellationToken ct = default)
     {
@@ -17,8 +19,54 @@ public sealed class AgencyService(IAgencyRepository agencies)
         return Map(agency);
     }
 
+    public async Task<AgencyDto> UpdateUiPreferencesAsync(
+        UpdateAgencyUiPreferencesRequest request,
+        CancellationToken ct = default)
+    {
+        var agency = await agencies.GetDefaultAsync(ct)
+                     ?? throw new NotFoundException("No agency configured.");
+
+        agency.UiPreferences = SerializeUiPreferences(
+            new AgencyUiPreferencesDto(request.TaskGroupClientOrder?.ToList() ?? []));
+        agency.UpdatedAt = clock.UtcNow;
+        await agencies.UpdateAsync(agency, ct);
+        return Map(agency);
+    }
+
     private static AgencyDto Map(Agency a) =>
-        new(a.Id, a.Name, a.LastClickUpSyncAt, a.LastClickUpSyncSummary);
+        new(a.Id, a.Name, a.LastClickUpSyncAt, a.LastClickUpSyncSummary, ParseUiPreferences(a.UiPreferences));
+
+    private static AgencyUiPreferencesDto ParseUiPreferences(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json is "{}")
+            return new AgencyUiPreferencesDto([]);
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<AgencyUiPreferencesPayload>(json, JsonOptions);
+            return new AgencyUiPreferencesDto(parsed?.TaskGroupClientOrder ?? []);
+        }
+        catch (JsonException)
+        {
+            return new AgencyUiPreferencesDto([]);
+        }
+    }
+
+    private static string SerializeUiPreferences(AgencyUiPreferencesDto prefs) =>
+        JsonSerializer.Serialize(
+            new AgencyUiPreferencesPayload { TaskGroupClientOrder = prefs.TaskGroupClientOrder.ToList() },
+            JsonOptions);
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private sealed class AgencyUiPreferencesPayload
+    {
+        public List<Guid> TaskGroupClientOrder { get; set; } = [];
+    }
 }
 
 public sealed class ClientService(
@@ -95,7 +143,8 @@ public sealed class ClientService(
     }
 
     private static ClientDto Map(Client c) =>
-        new(c.Id, c.Name, c.Code, c.OriginalName, c.ClickUpFolderId, c.Description, c.Status, c.Active);
+        new(c.Id, c.Name, c.Code, c.OriginalName, c.ClickUpFolderId, c.Description, c.Status, c.Active,
+            c.BillFieldAvailable);
 }
 
 public sealed class ProjectService(
@@ -151,7 +200,8 @@ public sealed class TaskService(
     IProjectRepository projects,
     IClickUpClient clickUp,
     IOptions<ClickUpOptions> clickUpOptions,
-    IClock clock)
+    IClock clock,
+    ILogger<TaskService> logger)
 {
     private readonly ClickUpOptions _clickUp = clickUpOptions.Value;
     public async Task<IReadOnlyList<TaskDto>> ListAsync(
@@ -165,8 +215,8 @@ public sealed class TaskService(
         IReadOnlyList<string>? statuses,
         CancellationToken ct = default)
     {
-        var list = await tasks.ListAsync(
-            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct);
+        var list = OrderWithChildrenAfterParents(await tasks.ListAsync(
+            clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses, ct));
         var clientNames = new Dictionary<Guid, string>();
         var projectNames = new Dictionary<Guid, string>();
 
@@ -374,22 +424,63 @@ public sealed class TaskService(
     {
         if (string.IsNullOrWhiteSpace(task.ClickUpTaskId))
             return;
-        if (!_clickUp.IsConfigured || string.IsNullOrWhiteSpace(_clickUp.BillCustomFieldId))
+        if (!_clickUp.IsConfigured)
             return;
 
-        var value = BillToClickUpValue(task.Bill);
-        await clickUp.SetTaskCustomFieldAsync(task.ClickUpTaskId, _clickUp.BillCustomFieldId, value, ct);
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        if (client is null || !client.BillFieldAvailable)
+            return;
+
+        var fieldId = client.BillCustomFieldId ?? _clickUp.BillCustomFieldId;
+        if (string.IsNullOrWhiteSpace(fieldId))
+            return;
+
+        try
+        {
+            var value = BillToClickUpValue(task.Bill, client);
+            await clickUp.SetTaskCustomFieldAsync(task.ClickUpTaskId, fieldId, value, ct);
+        }
+        catch (Exception ex)
+        {
+            if (IsMissingBillFieldError(ex))
+            {
+                client.BillFieldAvailable = false;
+                client.BillFieldCheckedAt = clock.UtcNow;
+                client.UpdatedAt = clock.UtcNow;
+                await clients.UpdateAsync(client, ct);
+                logger.LogWarning(
+                    ex,
+                    "Billable field unavailable for client {ClientId}; marked bill_field_available=false",
+                    client.Id);
+                return;
+            }
+
+            logger.LogWarning(
+                ex,
+                "Failed to sync bill={Bill} to ClickUp for task {TaskId} ({ClickUpTaskId})",
+                task.Bill,
+                task.Id,
+                task.ClickUpTaskId);
+        }
     }
 
-    private string? BillToClickUpValue(string? bill)
+    private string? BillToClickUpValue(string? bill, Client client)
     {
         if (string.IsNullOrWhiteSpace(bill))
             return null;
         if (string.Equals(bill, "yes", StringComparison.OrdinalIgnoreCase))
-            return _clickUp.BillYesOptionId;
+            return client.BillYesOptionId ?? _clickUp.BillYesOptionId;
         if (string.Equals(bill, "no", StringComparison.OrdinalIgnoreCase))
-            return _clickUp.BillNoOptionId;
+            return client.BillNoOptionId ?? _clickUp.BillNoOptionId;
         throw new DomainException("Bill must be yes, no, or empty.");
+    }
+
+    private static bool IsMissingBillFieldError(Exception ex)
+    {
+        var message = ex.Message;
+        return message.Contains("FIELD_115", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Custom field does not exist", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Field not found", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? NormalizeBill(string? bill)
@@ -406,7 +497,7 @@ public sealed class TaskService(
 
     private static TaskDto Map(WorkTask t, string clientName, string? projectName) =>
         new(
-            t.Id, t.ClientId, clientName, t.ProjectId, projectName,
+            t.Id, t.ShortId, t.ClientId, clientName, t.ProjectId, projectName,
             t.Bill, t.BillableHours, t.NonBillableHours, t.InvoiceLabel, t.Note,
             t.ClickUpUrl, t.ClickUpTaskId, t.ClickUpParentId,
             t.ClickUpFolderId, t.ClickUpFolderName, t.ClickUpListId, t.ClickUpListName,
@@ -414,6 +505,70 @@ public sealed class TaskService(
             t.DateCreated, t.DueDate, t.DateDone, t.DateClosed,
             t.OrderIndex, t.EstimatedHours, t.ActualHours,
             NeedsAttention(t));
+
+    /// <summary>
+    /// Keep existing list order for roots; emit each child immediately after its parent (DFS).
+    /// Orphans (parent not in the result set) stay as roots.
+    /// </summary>
+    internal static IReadOnlyList<WorkTask> OrderWithChildrenAfterParents(IReadOnlyList<WorkTask> tasks)
+    {
+        if (tasks.Count <= 1) return tasks;
+
+        var byClickUpId = new Dictionary<string, WorkTask>(StringComparer.Ordinal);
+        foreach (var task in tasks)
+        {
+            if (!string.IsNullOrEmpty(task.ClickUpTaskId))
+                byClickUpId.TryAdd(task.ClickUpTaskId, task);
+        }
+
+        var childrenByParent = new Dictionary<string, List<WorkTask>>(StringComparer.Ordinal);
+        var roots = new List<WorkTask>();
+        foreach (var task in tasks)
+        {
+            var parentId = task.ClickUpParentId;
+            if (!string.IsNullOrEmpty(parentId) && byClickUpId.ContainsKey(parentId))
+            {
+                if (!childrenByParent.TryGetValue(parentId, out var kids))
+                {
+                    kids = [];
+                    childrenByParent[parentId] = kids;
+                }
+                kids.Add(task);
+            }
+            else
+            {
+                roots.Add(task);
+            }
+        }
+
+        foreach (var kids in childrenByParent.Values)
+        {
+            kids.Sort(static (a, b) =>
+            {
+                var byIndex = Nullable.Compare(a.OrderIndex, b.OrderIndex);
+                return byIndex != 0 ? byIndex : string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        var ordered = new List<WorkTask>(tasks.Count);
+        var seen = new HashSet<Guid>();
+
+        void Visit(WorkTask task)
+        {
+            if (!seen.Add(task.Id)) return;
+            ordered.Add(task);
+            if (task.ClickUpTaskId is { } id && childrenByParent.TryGetValue(id, out var kids))
+            {
+                foreach (var child in kids)
+                    Visit(child);
+            }
+        }
+
+        foreach (var root in roots)
+            Visit(root);
+
+        return ordered;
+    }
 
     private static bool NeedsAttention(WorkTask t) =>
         string.IsNullOrWhiteSpace(t.Bill)

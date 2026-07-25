@@ -3,13 +3,19 @@ using Aib.Domain;
 namespace Aib.Application.Contracts;
 
 public sealed record AgencyDto(
-    Guid Id, string Name, DateTimeOffset? LastClickUpSyncAt, string? LastClickUpSyncSummary);
+    Guid Id, string Name, DateTimeOffset? LastClickUpSyncAt, string? LastClickUpSyncSummary,
+    AgencyUiPreferencesDto UiPreferences);
+
+public sealed record AgencyUiPreferencesDto(IReadOnlyList<Guid> TaskGroupClientOrder);
+
+public sealed record UpdateAgencyUiPreferencesRequest(IReadOnlyList<Guid> TaskGroupClientOrder);
 
 public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status);
 public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
 public sealed record ClientDto(
     Guid Id, string Name, string? Code, string? OriginalName, string? ClickUpFolderId,
-    string? Description, ClientStatus Status, bool Active);
+    string? Description, ClientStatus Status, bool Active,
+    bool BillFieldAvailable);
 public sealed record DeleteAllClientsResult(int Deleted);
 
 public sealed record CreateProjectRequest(Guid ClientId, string Name);
@@ -30,7 +36,7 @@ public sealed record TaskHoursUpdateDto(
     string? Warning);
 
 public sealed record TaskDto(
-    Guid Id, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
+    Guid Id, int ShortId, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
     string? Bill, decimal? BillableHours, decimal? NonBillableHours, string? InvoiceLabel, string? Note,
     string? ClickUpUrl, string? ClickUpTaskId, string? ClickUpParentId,
     string? ClickUpFolderId, string? ClickUpFolderName, string? ClickUpListId, string? ClickUpListName,

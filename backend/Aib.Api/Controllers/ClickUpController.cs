@@ -1,3 +1,4 @@
+using Aib.Application.Contracts;
 using Aib.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,12 @@ public sealed class AgencyController(AgencyService agency) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct) => Ok(await agency.GetAsync(ct));
+
+    [HttpPut("ui-preferences")]
+    public async Task<IActionResult> UpdateUiPreferences(
+        [FromBody] UpdateAgencyUiPreferencesRequest request,
+        CancellationToken ct)
+        => Ok(await agency.UpdateUiPreferencesAsync(request, ct));
 }
 
 [ApiController]

@@ -11,6 +11,7 @@ public class Agency
     public bool Active { get; set; } = true;
     public DateTimeOffset? LastClickUpSyncAt { get; set; }
     public string? LastClickUpSyncSummary { get; set; }
+    public string UiPreferences { get; set; } = "{}";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -26,6 +27,14 @@ public class Client
     public string? Description { get; set; }
     public ClientStatus Status { get; set; } = ClientStatus.Active;
     public bool Active { get; set; } = true;
+
+    /// <summary>Whether a Billable dropdown custom field is available in this client's ClickUp location.</summary>
+    public bool BillFieldAvailable { get; set; }
+    public string? BillCustomFieldId { get; set; }
+    public string? BillYesOptionId { get; set; }
+    public string? BillNoOptionId { get; set; }
+    public DateTimeOffset? BillFieldCheckedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -43,6 +52,7 @@ public class Project
 public class WorkTask
 {
     public Guid Id { get; set; }
+    public int ShortId { get; set; }
     public Guid ClientId { get; set; }
     public Guid? ProjectId { get; set; }
 

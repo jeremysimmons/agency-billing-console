@@ -28,12 +28,26 @@ public sealed record ClickUpTask
 
 public sealed record ClickUpTaskPage(IReadOnlyList<ClickUpTask> Tasks, bool LastPage);
 
+public sealed record ClickUpCustomFieldOption(string Id, string Name);
+
+public sealed record ClickUpCustomField(
+    string Id,
+    string Name,
+    string Type,
+    IReadOnlyList<ClickUpCustomFieldOption> Options);
+
 public interface IClickUpClient
 {
     Task<ClickUpTaskPage> GetTasksAsync(
         string teamId, string? assigneeExternalUserId, int page, CancellationToken ct = default);
 
     Task SetTaskCustomFieldAsync(string taskId, string fieldId, object? value, CancellationToken ct = default);
+
+    Task<IReadOnlyList<ClickUpCustomField>> GetListCustomFieldsAsync(string listId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<ClickUpCustomField>> GetFolderCustomFieldsAsync(string folderId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<ClickUpCustomField>> GetSpaceCustomFieldsAsync(string spaceId, CancellationToken ct = default);
 
     Task<decimal> GetTaskTimeSpentHoursAsync(string taskId, CancellationToken ct = default);
 

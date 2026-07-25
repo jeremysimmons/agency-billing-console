@@ -43,6 +43,7 @@ public sealed class AgencyRepository(IDbConnectionFactory factory) : IAgencyRepo
                 active = {a.Active},
                 last_clickup_sync_at = {a.LastClickUpSyncAt},
                 last_clickup_sync_summary = {a.LastClickUpSyncSummary},
+                ui_preferences = cast({a.UiPreferences} as jsonb),
                 updated_at = {a.UpdatedAt}
             where id = {a.Id}
             """);
@@ -92,10 +93,14 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
     {
         var builder = SimpleBuilder.Create($"""
             insert into client
-                (id, agency_id, name, code, original_name, clickup_folder_id, description, status, active, created_at, updated_at)
+                (id, agency_id, name, code, original_name, clickup_folder_id, description, status, active,
+                 bill_field_available, bill_custom_field_id, bill_yes_option_id, bill_no_option_id, bill_field_checked_at,
+                 created_at, updated_at)
             values
                 ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.ClickUpFolderId}, {c.Description},
-                 {c.Status}, {c.Active}, {c.CreatedAt}, {c.UpdatedAt})
+                 {c.Status}, {c.Active},
+                 {c.BillFieldAvailable}, {c.BillCustomFieldId}, {c.BillYesOptionId}, {c.BillNoOptionId}, {c.BillFieldCheckedAt},
+                 {c.CreatedAt}, {c.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -107,7 +112,13 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         var builder = SimpleBuilder.Create($"""
             update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName},
                 clickup_folder_id = {c.ClickUpFolderId}, description = {c.Description},
-                status = {c.Status}, active = {c.Active}, updated_at = {c.UpdatedAt}
+                status = {c.Status}, active = {c.Active},
+                bill_field_available = {c.BillFieldAvailable},
+                bill_custom_field_id = {c.BillCustomFieldId},
+                bill_yes_option_id = {c.BillYesOptionId},
+                bill_no_option_id = {c.BillNoOptionId},
+                bill_field_checked_at = {c.BillFieldCheckedAt},
+                updated_at = {c.UpdatedAt}
             where id = {c.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
@@ -403,9 +414,10 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                  {t.Title}, {t.Description}, {t.ClickUpStatus}, {t.ClickUpStatusOrder}, {t.Tags}, {t.DateCreated}, {t.DueDate},
                  {t.DateDone}, {t.DateClosed}, {t.OrderIndex}, {t.EstimatedHours}, {t.ActualHours},
                  {t.CreatedAt}, {t.UpdatedAt})
+            returning short_id
             """);
         using var conn = await factory.OpenAsync(ct);
-        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        t.ShortId = await conn.ExecuteScalarAsync<int>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
         return t.Id;
     }
 
