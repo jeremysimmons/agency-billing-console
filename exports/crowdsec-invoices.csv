@@ -1,0 +1,10 @@
+invoice_number,date_range,amount,filename
+CROWDSEC-4668,"Nov 3–Dec 3, 2025",29.00,Receipt-2314-0976.pdf
+CROWDSEC-5256,"Dec 3, 2025–Jan 3, 2026",29.00,Receipt-2022-0472.pdf
+CROWDSEC-6039,"Jan 3–Feb 3, 2026",29.00,Receipt-2085-1380.pdf
+CROWDSEC-6799,"Feb 3–Mar 3, 2026",29.00,Receipt-2185-4981.pdf
+CROWDSEC-7548,"Mar 3–Apr 3, 2026",29.00,Receipt-2393-3347.pdf
+CROWDSEC-8383,"Apr 3–May 3, 2026",29.00,Receipt-2702-7602.pdf
+CROWDSEC-9255,"May 3–Jun 3, 2026",29.00,Receipt-2585-0981.pdf
+CROWDSEC-10206,"Jun 3–Jul 3, 2026",29.00,Receipt-2663-1829.pdf
+CROWDSEC-11185,"Jul 3–Aug 3, 2026",29.00,Receipt-2632-9595.pdf
