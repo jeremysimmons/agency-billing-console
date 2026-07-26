@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useClients } from '../queries/clients'
 import { useAllProjects, useCreateProject, useUpdateProject } from '../queries/projects'
 import type { Project } from '../api/types'
@@ -15,13 +15,31 @@ const sharedClient = computed(() =>
   (clients.value ?? []).find((c) => c.name.trim().toLowerCase() === SHARED_CLIENT_NAME.toLowerCase()),
 )
 
+const sortedClients = computed(() =>
+  (clients.value ?? []).slice().sort((a, b) => {
+    const aShared = a.name.trim().toLowerCase() === SHARED_CLIENT_NAME.toLowerCase()
+    const bShared = b.name.trim().toLowerCase() === SHARED_CLIENT_NAME.toLowerCase()
+    if (aShared !== bShared) return aShared ? -1 : 1
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  }),
+)
+
 const name = ref('')
+const createClientId = ref('')
 const formError = ref('')
 const editingId = ref<string | null>(null)
 const editName = ref('')
 const editClientId = ref('')
 const editError = ref('')
 const sharingId = ref<string | null>(null)
+
+watch(
+  sharedClient,
+  (shared) => {
+    if (shared && !createClientId.value) createClientId.value = shared.id
+  },
+  { immediate: true },
+)
 
 const sortedProjects = computed(() =>
   (projects.value ?? []).slice().sort((a, b) => {
@@ -41,16 +59,17 @@ function isSharedProject(p: Project) {
 
 async function add() {
   formError.value = ''
-  if (!sharedClient.value) {
-    formError.value = 'Shared client is missing. Restart the API to seed it.'
+  if (!createClientId.value) {
+    formError.value = 'Client is required.'
     return
   }
   try {
     await createProject.mutateAsync({
-      clientId: sharedClient.value.id,
+      clientId: createClientId.value,
       name: name.value.trim(),
     })
     name.value = ''
+    if (sharedClient.value) createClientId.value = sharedClient.value.id
   } catch (e: any) {
     formError.value = e?.response?.data?.error ?? 'Could not create project.'
   }
@@ -123,15 +142,18 @@ async function moveToShared(p: Project) {
   <section data-testid="projects-view">
     <h1>Projects</h1>
     <p class="hint">
-      New projects are added under the <strong>Shared</strong> client. Edit a project to move it to a specific client (or back to Shared).
+      New projects default to the <strong>Shared</strong> client. Choose another client when creating, or edit later to move.
     </p>
 
     <form class="row" data-testid="project-create-form" @submit.prevent="add">
+      <select v-model="createClientId" required data-testid="project-create-client">
+        <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
+      </select>
       <input v-model="name" placeholder="Project name" required data-testid="project-create-name" />
       <button
-        :disabled="createProject.isLoading.value || !name.trim() || !sharedClient"
+        :disabled="createProject.isLoading.value || !name.trim() || !createClientId"
         data-testid="project-create-submit"
-      >Add to Shared</button>
+      >Add project</button>
     </form>
     <p v-if="formError" class="error" data-testid="project-create-error">{{ formError }}</p>
     <p v-if="editError" class="error" data-testid="project-edit-error">{{ editError }}</p>
@@ -182,7 +204,7 @@ async function moveToShared(p: Project) {
                 :data-testid="`project-edit-name-${p.id}`"
               />
               <select v-model="editClientId" required :data-testid="`project-edit-client-${p.id}`">
-                <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
+                <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
               <button
                 type="submit"
