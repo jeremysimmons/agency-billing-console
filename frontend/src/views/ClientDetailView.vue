@@ -147,16 +147,19 @@ async function remove() {
         </div>
       </form>
       <p v-if="editError" class="error" data-testid="client-edit-error">{{ editError }}</p>
-      <p v-if="!editing" class="meta" data-testid="client-detail-meta">
+      <div v-if="!editing" class="meta" data-testid="client-detail-meta">
         Original name: {{ client.originalName ?? '—' }}<br/>
         Folder id: {{ client.clickUpFolderId ?? '—' }}<br/>
         List id: {{ client.clickUpListId ?? '—' }}<br/>
-      </p>
+      </div>
 
       <h2>Projects</h2>
-      <p class="hint">not ClickUp lists</p>
-      <form class="row" data-testid="project-create-form" @submit.prevent="addProject">
-        <input v-model="pName" placeholder="Project name" required data-testid="project-create-name" />
+      <p class="hint" style="font-size: 0.85em;">(not ClickUp lists)</p>
+      <form class="row create-form" data-testid="project-create-form" @submit.prevent="addProject">
+        <label>
+          Project
+          <input v-model="pName" placeholder="Project name" required data-testid="project-create-name" />
+        </label>
         <button :disabled="createProject.isLoading.value" data-testid="project-create-submit">Add project</button>
       </form>
       <p v-if="projError" class="error" data-testid="project-create-error">{{ projError }}</p>
@@ -220,6 +223,14 @@ async function remove() {
 .edit-form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.75rem; max-width: 24rem; }
 .edit-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #6b7280; }
 .row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center; }
+.create-form { align-items: flex-end; }
+.create-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
 input { padding: 0.5rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; }
 button:not(.link) {
   padding: 0.5rem 0.9rem;
