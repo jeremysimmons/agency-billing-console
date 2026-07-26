@@ -9,12 +9,12 @@ export interface TaskFilterOptions {
   statuses: string[]
 }
 
-export type InvoicedFilter = 'all' | 'yes' | 'no'
+export type InvoicedFilter = 'paid' | 'pending' | 'none'
 
 export interface TaskListFilters {
   clientId?: string
   missingOnly?: boolean
-  invoiced?: InvoicedFilter
+  invoiced?: InvoicedFilter[]
   projectFilter?: string
   createdMonth?: string
   doneMonth?: string
@@ -28,7 +28,9 @@ function taskListParams(filters: TaskListFilters): string {
   const params = new URLSearchParams()
   if (filters.clientId) params.set('clientId', filters.clientId)
   if (filters.missingOnly) params.set('missingOnly', 'true')
-  if (filters.invoiced) params.set('invoiced', filters.invoiced)
+  if (filters.invoiced?.length) {
+    for (const value of filters.invoiced) params.append('invoiced', value)
+  }
   if (filters.projectFilter === '__unassigned__') params.set('unassignedOnly', 'true')
   else if (filters.projectFilter) params.set('projectId', filters.projectFilter)
   if (filters.createdMonth) params.set('createdMonth', filters.createdMonth)
@@ -58,7 +60,7 @@ export function taskListQueryKey(filters: TaskListFilters) {
     'tasks',
     filters.clientId ?? 'all',
     filters.missingOnly ? 'missing' : 'all',
-    filters.invoiced ?? 'no',
+    filters.invoiced?.slice().sort().join('|') ?? 'all',
     filters.projectFilter ?? 'all',
     filters.createdMonth ?? 'all',
     filters.doneMonth ?? 'all',
@@ -84,7 +86,7 @@ function taskSummaryQueryKey(filters: TaskListFilters) {
     'summary',
     filters.clientId ?? 'all',
     filters.missingOnly ? 'missing' : 'all',
-    filters.invoiced ?? 'no',
+    filters.invoiced?.slice().sort().join('|') ?? 'all',
     filters.projectFilter ?? 'all',
     filters.createdMonth ?? 'all',
     filters.doneMonth ?? 'all',

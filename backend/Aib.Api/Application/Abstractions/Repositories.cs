@@ -52,7 +52,7 @@ public interface ITaskRepository
     Task<IReadOnlyList<WorkTask>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -65,7 +65,7 @@ public interface ITaskRepository
     Task<(IReadOnlyList<TaskClientCountRow> ByClient, IReadOnlyList<TaskMonthCountRow> ByDoneMonth)> GetSummaryAsync(
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,

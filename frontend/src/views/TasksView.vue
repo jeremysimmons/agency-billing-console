@@ -7,11 +7,16 @@ import { useClients } from '../queries/clients'
 import { useProjects, useCreateProject } from '../queries/projects'
 import { useInvoices, useCreateInvoice } from '../queries/invoices'
 import { useAgency, useUpdateAgencyUiPreferences } from '../queries/agency'
-import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskProject, useUpdateTaskInvoice, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep, useSyncTask } from '../queries/tasks'
+import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskProject, useUpdateTaskInvoice, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep, useSyncTask, type InvoicedFilter } from '../queries/tasks'
 import { http } from '../api/http'
 import type { Invoice, Project, WorkTask } from '../api/types'
 
 const FILTERS_STORAGE_KEY = 'aib.tasks.filters'
+const INVOICED_OPTIONS: { value: InvoicedFilter; label: string }[] = [
+  { value: 'paid', label: 'Paid' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'none', label: 'None' },
+]
 
 type GroupOrderMode = 'alphabetical' | 'custom'
 
@@ -19,7 +24,7 @@ type StoredTaskFilters = {
   viewMode?: 'list' | 'clients' | 'months'
   clientFilter?: string
   missingOnly?: boolean
-  invoicedFilter?: 'all' | 'yes' | 'no'
+  invoicedFilter?: InvoicedFilter[] | 'all' | 'paid' | 'pending' | 'none' | 'yes' | 'no'
   showListColumn?: boolean
   showProjectColumn?: boolean
   showInvoiceColumn?: boolean
@@ -45,6 +50,17 @@ function readStoredFilters(): StoredTaskFilters {
   } catch {
     return {}
   }
+}
+
+function normalizeInvoicedFilters(value: unknown): InvoicedFilter[] {
+  const allowed = new Set<InvoicedFilter>(['paid', 'pending', 'none'])
+  if (Array.isArray(value)) {
+    return value.filter((v): v is InvoicedFilter => typeof v === 'string' && allowed.has(v as InvoicedFilter))
+  }
+  if (value === 'paid' || value === 'pending' || value === 'none') return [value]
+  if (value === 'no') return ['none']
+  if (value === 'all' || value === 'yes') return ['paid', 'pending', 'none']
+  return ['none']
 }
 
 const storedFilters = readStoredFilters()
@@ -76,12 +92,8 @@ const missingOnly = ref(
         ? storedFilters.missingOnly
         : true,
 )
-const invoicedFilter = ref<'all' | 'yes' | 'no'>(
-  route.query.invoiced === 'all' || route.query.invoiced === 'yes' || route.query.invoiced === 'no'
-    ? route.query.invoiced
-    : storedFilters.invoicedFilter === 'all' || storedFilters.invoicedFilter === 'yes' || storedFilters.invoicedFilter === 'no'
-      ? storedFilters.invoicedFilter
-      : 'no',
+const invoicedFilters = ref<InvoicedFilter[]>(
+  normalizeInvoicedFilters(route.query.invoiced ?? storedFilters.invoicedFilter),
 )
 const showListColumn = ref(typeof storedFilters.showListColumn === 'boolean' ? storedFilters.showListColumn : false)
 const showProjectColumn = ref(typeof storedFilters.showProjectColumn === 'boolean' ? storedFilters.showProjectColumn : false)
@@ -150,8 +162,8 @@ watch(
     if (!route.query.listId && !route.query.folderId && !route.query.spaceId) return
     if (route.query.missingOnly === 'false') missingOnly.value = false
     else if (route.query.missingOnly === 'true') missingOnly.value = true
-    if (route.query.invoiced === 'all' || route.query.invoiced === 'yes' || route.query.invoiced === 'no') {
-      invoicedFilter.value = route.query.invoiced
+    if (route.query.invoiced != null) {
+      invoicedFilters.value = normalizeInvoicedFilters(route.query.invoiced)
     }
   },
 )
@@ -159,7 +171,7 @@ watch(
 const taskFilters = computed(() => ({
   clientId: clientId.value,
   missingOnly: missingOnly.value,
-  invoiced: invoicedFilter.value,
+  invoiced: invoicedFilters.value.length ? invoicedFilters.value : undefined,
   projectFilter: projectFilter.value || undefined,
   createdMonth: createdMonthFilter.value || undefined,
   doneMonth: doneMonthFilter.value || undefined,
@@ -267,7 +279,7 @@ const monthTotals = computed(() => ({
 const hasClientSummary = computed(() => clientCounts.value.length > 0)
 const hasMonthSummary = computed(() => monthCounts.value.length > 0)
 const showInvoice = computed(() => {
-  if (invoicedFilter.value === 'no') return true
+  if (invoicedFilters.value.includes('none')) return true
   return showInvoiceColumn.value
 })
 const visibleColumnCount = computed(() =>
@@ -669,13 +681,12 @@ function applyClickUpHoursForBill(
   nonBillableHours: string,
   clickUpHours: number | null | undefined,
 ): { billableHours: string; nonBillableHours: string } {
-  if (clickUpHours == null) return { billableHours, nonBillableHours }
   const billNorm = bill?.trim().toLowerCase()
-  if (billNorm === 'yes' && !billableHours.trim()) {
+  if (billNorm === 'yes' && !billableHours.trim() && clickUpHours != null) {
     return { billableHours: String(clickUpHours), nonBillableHours }
   }
   if (billNorm === 'no' && !nonBillableHours.trim()) {
-    return { billableHours, nonBillableHours: String(clickUpHours) }
+    return { billableHours, nonBillableHours: String(clickUpHours ?? 0) }
   }
   return { billableHours, nonBillableHours }
 }
@@ -697,12 +708,11 @@ async function updateBillInline(t: WorkTask, value: string) {
   }
 
   const clickUpHours = t.actualHours
-  if (clickUpHours == null) return
   const billNorm = bill?.toLowerCase()
-  if (billNorm === 'yes' && t.billableHours == null) {
+  if (billNorm === 'yes' && t.billableHours == null && clickUpHours != null) {
     await updateBillableHoursInline(t, String(clickUpHours))
   } else if (billNorm === 'no' && t.nonBillableHours == null) {
-    await updateNonBillableHoursInline(t, String(clickUpHours))
+    await updateNonBillableHoursInline(t, String(clickUpHours ?? 0))
   }
 }
 
@@ -836,7 +846,7 @@ watch(
   { immediate: true },
 )
 watch(missingOnly, () => { editingId.value = null })
-watch(invoicedFilter, () => { editingId.value = null })
+watch(invoicedFilters, () => { editingId.value = null }, { deep: true })
 watch([createdMonthFilter, doneMonthFilter], () => { editingId.value = null })
 watch(statusFilters, () => { editingId.value = null }, { deep: true })
 
@@ -845,7 +855,7 @@ watch(
     viewMode,
     clientFilter,
     missingOnly,
-    invoicedFilter,
+    invoicedFilters,
     showListColumn,
     showProjectColumn,
     showInvoiceColumn,
@@ -866,7 +876,7 @@ watch(
       viewMode: viewMode.value,
       clientFilter: clientFilter.value,
       missingOnly: missingOnly.value,
-      invoicedFilter: invoicedFilter.value,
+      invoicedFilter: invoicedFilters.value,
       showListColumn: showListColumn.value,
       showProjectColumn: showProjectColumn.value,
       showInvoiceColumn: showInvoiceColumn.value,
@@ -1028,14 +1038,33 @@ function openDoneMonth(month: string) {
           </option>
         </select>
       </label>
-      <label>
-        Invoiced
-        <select v-model="invoicedFilter" data-testid="tasks-invoiced-filter">
-          <option value="all">All</option>
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-        </select>
-      </label>
+      <div class="invoiced-filters">
+        <span class="filter-label">Invoiced</span>
+        <button
+          type="button"
+          class="invoiced-popover-trigger"
+          popovertarget="tasks-invoiced-popover"
+          data-testid="tasks-invoiced-filter-trigger"
+        >({{ invoicedFilters.length }})</button>
+        <div
+          id="tasks-invoiced-popover"
+          popover
+          class="invoiced-popover"
+          data-testid="tasks-invoiced-popover"
+        >
+          <div class="invoiced-checks">
+            <label v-for="opt in INVOICED_OPTIONS" :key="opt.value" class="check">
+              <input
+                v-model="invoicedFilters"
+                type="checkbox"
+                :value="opt.value"
+                :data-testid="`tasks-invoiced-filter-${opt.value}`"
+              />
+              {{ opt.label }}
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="toggle-field">
         <span id="tasks-missing-only-label" class="filter-label">Missing data only</span>
         <div class="toggle-row">
@@ -1877,6 +1906,51 @@ function openDoneMonth(month: string) {
   font-size: 0.85rem;
   color: #4b5563;
 }
+.invoiced-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.invoiced-popover-trigger {
+  anchor-name: --tasks-invoiced-trigger;
+  align-self: flex-start;
+  box-sizing: border-box;
+  min-height: var(--filter-control-height);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  cursor: pointer;
+}
+.invoiced-popover-trigger:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.invoiced-popover {
+  margin: 0;
+  inset: unset;
+  position-anchor: --tasks-invoiced-trigger;
+  top: anchor(bottom);
+  left: anchor(left);
+  margin-top: 0.35rem;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.invoiced-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+.invoiced-checks .check { padding-bottom: 0; }
 .column-popover-trigger {
   anchor-name: --tasks-columns-trigger;
   align-self: flex-start;

@@ -93,7 +93,7 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
     public async Task<IActionResult> Summary(
         [FromQuery] Guid? clientId,
         [FromQuery] bool? missingOnly,
-        [FromQuery] string? invoiced,
+        [FromQuery] string[]? invoiced,
         [FromQuery] Guid? projectId,
         [FromQuery] bool? unassignedOnly,
         [FromQuery] string? createdMonth,
@@ -111,7 +111,7 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
     public async Task<IActionResult> List(
         [FromQuery] Guid? clientId,
         [FromQuery] bool? missingOnly,
-        [FromQuery] string? invoiced,
+        [FromQuery] string[]? invoiced,
         [FromQuery] Guid? projectId,
         [FromQuery] bool? unassignedOnly,
         [FromQuery] string? createdMonth,

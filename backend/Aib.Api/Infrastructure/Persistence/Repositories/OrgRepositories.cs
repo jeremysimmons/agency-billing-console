@@ -348,7 +348,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     public async Task<IReadOnlyList<WorkTask>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -377,7 +377,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     public async Task<(IReadOnlyList<TaskClientCountRow> ByClient, IReadOnlyList<TaskMonthCountRow> ByDoneMonth)> GetSummaryAsync(
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -457,7 +457,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         DynamicParameters parameters,
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -554,14 +554,60 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 """;
         }
 
-        if (string.Equals(invoiced, "yes", StringComparison.OrdinalIgnoreCase))
+        ApplyInvoicedFilters(ref sql, invoiced, prefix);
+    }
+
+    private static void ApplyInvoicedFilters(ref string sql, IReadOnlyList<string>? invoiced, string prefix)
+    {
+        var selected = (invoiced ?? [])
+            .Select(v => v.Trim().ToLowerInvariant())
+            .Where(v => v is "paid" or "pending" or "none" or "no")
+            .Select(v => v == "no" ? "none" : v)
+            .Distinct()
+            .ToList();
+
+        // Empty or all three buckets → no filter (same as "all").
+        if (selected.Count is 0 or 3)
+            return;
+
+        var parts = new List<string>();
+        if (selected.Contains("paid"))
         {
-            sql += $" and ({prefix}invoice_label is not null and trim({prefix}invoice_label) <> '')";
+            parts.Add($"""
+                exists (
+                   select 1 from invoice i
+                   where lower(trim(i.name)) = lower(trim({prefix}invoice_label))
+                     and lower(trim(i.status)) in ('fully-paid', 'partially-paid')
+                )
+                """);
         }
-        else if (!string.Equals(invoiced, "all", StringComparison.OrdinalIgnoreCase))
+
+        if (selected.Contains("pending"))
         {
-            sql += $" and ({prefix}invoice_label is null or trim({prefix}invoice_label) = '')";
+            parts.Add($"""
+                exists (
+                   select 1 from invoice i
+                   where lower(trim(i.name)) = lower(trim({prefix}invoice_label))
+                     and lower(trim(i.status)) in ('preparing', 'sent')
+                )
+                """);
         }
+
+        if (selected.Contains("none"))
+        {
+            parts.Add($"""
+                (
+                   {prefix}invoice_label is null
+                   or trim({prefix}invoice_label) = ''
+                   or lower(trim({prefix}invoice_label)) = 'none'
+                )
+                """);
+        }
+
+        if (parts.Count == 0)
+            return;
+
+        sql += " and (" + string.Join(" or ", parts) + ")";
     }
 
     public async Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths, IReadOnlyList<string> Statuses)> ListFilterOptionsAsync(
@@ -727,18 +773,21 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         var builder = SimpleBuilder.Create($"""
             update task set
                 billable_hours = case
-                    when lower(trim(bill)) = 'yes' and billable_hours is null then actual_hours
+                    when lower(trim(bill)) = 'yes'
+                         and billable_hours is null
+                         and actual_hours is not null
+                    then actual_hours
                     else billable_hours
                 end,
                 non_billable_hours = case
-                    when lower(trim(bill)) = 'no' and non_billable_hours is null then actual_hours
+                    when lower(trim(bill)) = 'no' and non_billable_hours is null
+                    then coalesce(actual_hours, 0)
                     else non_billable_hours
                 end,
                 updated_at = {updatedAt}
-            where actual_hours is not null
-              and bill is not null and trim(bill) <> ''
+            where bill is not null and trim(bill) <> ''
               and (
-                (lower(trim(bill)) = 'yes' and billable_hours is null)
+                (lower(trim(bill)) = 'yes' and billable_hours is null and actual_hours is not null)
                 or (lower(trim(bill)) = 'no' and non_billable_hours is null)
               )
             """);

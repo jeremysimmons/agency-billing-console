@@ -336,7 +336,7 @@ public sealed class TaskService(
     public async Task<IReadOnlyList<TaskDto>> ListAsync(
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -382,7 +382,7 @@ public sealed class TaskService(
     public async Task<TaskSummaryDto> GetSummaryAsync(
         Guid? clientId,
         bool? missingOnly,
-        string? invoiced,
+        IReadOnlyList<string>? invoiced,
         Guid? projectId,
         bool? unassignedOnly,
         string? createdMonth,
@@ -429,6 +429,7 @@ public sealed class TaskService(
         task.InvoiceLabel = request.InvoiceLabel;
         task.Note = request.Note;
         ApplyInvoiceForBill(task);
+        ApplyHoursForBill(task);
         if (request.ProjectId is not null)
             await ApplyDefaultInvoiceForBillableAsync(task, ct);
         task.UpdatedAt = clock.UtcNow;
@@ -452,6 +453,7 @@ public sealed class TaskService(
 
         task.Bill = normalized;
         ApplyInvoiceForBill(task);
+        ApplyHoursForBill(task);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
         await SyncBillToClickUpAsync(task, ct);
@@ -531,6 +533,28 @@ public sealed class TaskService(
     {
         if (string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
             task.InvoiceLabel = InvoiceLabels.None;
+    }
+
+    /// <summary>
+    /// Fill empty hours from ClickUp tracked hours when bill is set.
+    /// Bill=no with no ClickUp hours → non-billable 0.
+    /// </summary>
+    private static void ApplyHoursForBill(WorkTask task)
+    {
+        var billNorm = task.Bill?.Trim();
+        if (string.Equals(billNorm, "yes", StringComparison.OrdinalIgnoreCase)
+            && task.BillableHours is null
+            && task.ActualHours is not null)
+        {
+            task.BillableHours = task.ActualHours;
+            return;
+        }
+
+        if (string.Equals(billNorm, "no", StringComparison.OrdinalIgnoreCase)
+            && task.NonBillableHours is null)
+        {
+            task.NonBillableHours = task.ActualHours ?? 0;
+        }
     }
 
     public async Task<TaskDto> UpdateInvoiceAsync(Guid id, string? invoiceLabel, CancellationToken ct = default)

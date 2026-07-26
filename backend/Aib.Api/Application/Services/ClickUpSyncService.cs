@@ -593,15 +593,14 @@ public sealed class ClickUpSyncService(
 
     /// <summary>
     /// Same as UI bill change: fill empty billable/non-billable hours from ClickUp tracked hours.
+    /// Bill=no with no ClickUp hours → non-billable 0.
     /// </summary>
     private static void ApplyClickUpHoursForBill(WorkTask task)
     {
-        if (task.ActualHours is null)
-            return;
-
         var billNorm = task.Bill?.Trim();
         if (string.Equals(billNorm, "yes", StringComparison.OrdinalIgnoreCase)
-            && task.BillableHours is null)
+            && task.BillableHours is null
+            && task.ActualHours is not null)
         {
             task.BillableHours = task.ActualHours;
             return;
@@ -610,7 +609,7 @@ public sealed class ClickUpSyncService(
         if (string.Equals(billNorm, "no", StringComparison.OrdinalIgnoreCase)
             && task.NonBillableHours is null)
         {
-            task.NonBillableHours = task.ActualHours;
+            task.NonBillableHours = task.ActualHours ?? 0;
         }
     }
 

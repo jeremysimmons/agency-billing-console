@@ -19,7 +19,7 @@ const open = computed(() => props.expandedIds.has(props.node.id))
 const tasksLink = computed(() => {
   const t = props.node.type.toLowerCase()
   const id = props.node.id
-  const query: Record<string, string> = { invoiced: 'all', missingOnly: 'false' }
+  const query: Record<string, string> = { missingOnly: 'false' }
   if (t === 'list') query.listId = id
   else if (t === 'folder') query.folderId = id
   else if (t === 'space') query.spaceId = id
