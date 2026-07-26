@@ -300,6 +300,7 @@ function onDragEnd() {
                 min="0"
                 class="rate-input"
                 :value="inv.rate ?? ''"
+                :placeholder="String(inv.effectiveRate)"
                 :disabled="savingRateId === inv.id"
                 :data-testid="`invoice-rate-${inv.id}`"
                 :aria-label="`Rate for ${inv.name}`"

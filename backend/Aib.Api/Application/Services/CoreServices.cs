@@ -225,8 +225,11 @@ public sealed class ProjectService(
 
 public sealed class InvoiceService(
     IInvoiceRepository invoices,
-    IClock clock)
+    IClock clock,
+    IOptions<InvoiceOptions> invoiceOptions)
 {
+    private decimal DefaultRate => invoiceOptions.Value.DefaultRate;
+
     public async Task<IReadOnlyList<InvoiceDto>> ListAsync(CancellationToken ct = default)
     {
         var list = await invoices.ListAsync(ct);
@@ -329,7 +332,8 @@ public sealed class InvoiceService(
         return (await invoices.ListAsync(ct)).Select(Map).ToList();
     }
 
-    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault, i.Rate);
+    private InvoiceDto Map(Invoice i) =>
+        new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault, i.Rate, i.Rate ?? DefaultRate);
 }
 
 public sealed class TaskService(

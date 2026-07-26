@@ -40,6 +40,7 @@ export interface Invoice {
   sortOrder: number
   isDefault: boolean
   rate: number | null
+  effectiveRate: number
 }
 
 export interface WorkTask {

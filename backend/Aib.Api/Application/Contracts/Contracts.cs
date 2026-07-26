@@ -39,7 +39,8 @@ public sealed record ProjectDto(Guid Id, Guid ClientId, string ClientName, strin
 public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null, bool IsDefault = false, decimal? Rate = null);
 public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status, bool IsDefault = false, decimal? Rate = null);
 public sealed record ReorderInvoicesRequest(IReadOnlyList<Guid> OrderedIds);
-public sealed record InvoiceDto(Guid Id, string Name, InvoiceStatus Status, int SortOrder, bool IsDefault, decimal? Rate);
+public sealed record InvoiceDto(
+    Guid Id, string Name, InvoiceStatus Status, int SortOrder, bool IsDefault, decimal? Rate, decimal EffectiveRate);
 
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,

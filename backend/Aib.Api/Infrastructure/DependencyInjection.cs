@@ -23,6 +23,8 @@ public static class DependencyInjection
 
         services.AddSingleton<IDbConnectionFactory>(new NpgsqlConnectionFactory(connectionString));
         services.AddSingleton<IClock, SystemClock>();
+        services.AddOptions<InvoiceOptions>()
+            .Bind(configuration.GetSection(InvoiceOptions.SectionName));
         AddClickUp(services, configuration);
 
         services.AddScoped<IAgencyRepository, AgencyRepository>();

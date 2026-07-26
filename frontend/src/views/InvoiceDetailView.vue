@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useInvoices } from '../queries/invoices'
+import { useInvoices, useUpdateInvoice } from '../queries/invoices'
 import { useTasks, useUpdateTaskDiscount } from '../queries/tasks'
-import type { WorkTask } from '../api/types'
+import type { InvoiceStatus, WorkTask } from '../api/types'
 
 const props = defineProps<{ id: string }>()
 
 const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = useInvoices()
 const invoice = computed(() => invoices.value?.find((i) => i.id === props.id))
+const updateInvoice = useUpdateInvoice()
 
 const taskFilters = computed(() => ({
   invoiceLabel: invoice.value?.name,
@@ -18,13 +19,23 @@ const updateDiscount = useUpdateTaskDiscount(taskFilters)
 
 const savingDiscountId = ref<string | null>(null)
 const discountErrors = ref<Record<string, string>>({})
+const savingRate = ref(false)
+const rateError = ref('')
+
+function toApiStatus(status: string): InvoiceStatus {
+  const s = status.trim().toLowerCase().replaceAll(' ', '-').replaceAll('_', '-')
+  if (s === 'sent') return 'sent'
+  if (s === 'partially-paid' || s === 'partiallypaid') return 'partially-paid'
+  if (s === 'fully-paid' || s === 'fullypaid') return 'fully-paid'
+  return 'preparing'
+}
 
 interface LineRow {
   task: WorkTask
   hours: number
-  rate: number | null
+  rate: number
   discountPercent: number
-  subtotal: number | null
+  subtotal: number
 }
 
 interface ClientGroup {
@@ -32,7 +43,7 @@ interface ClientGroup {
   clientName: string
   rows: LineRow[]
   hours: number
-  subtotal: number | null
+  subtotal: number
 }
 
 function compareDate(a: string | null, b: string | null) {
@@ -42,16 +53,17 @@ function compareDate(a: string | null, b: string | null) {
   return a.localeCompare(b)
 }
 
-function lineSubtotal(hours: number, rate: number | null, discountPercent: number) {
-  if (rate == null) return null
+function lineSubtotal(hours: number, rate: number, discountPercent: number) {
   return hours * rate * (1 - discountPercent / 100)
 }
 
-const invoiceRate = computed(() => invoice.value?.rate ?? null)
+const invoiceRate = computed(() => invoice.value?.effectiveRate ?? null)
 
 const clientGroups = computed((): ClientGroup[] => {
   const list = tasks.value ?? []
   const rate = invoiceRate.value
+  if (rate == null) return []
+
   const byClient = new Map<string, WorkTask[]>()
   for (const t of list) {
     const key = t.clientId
@@ -79,7 +91,7 @@ const clientGroups = computed((): ClientGroup[] => {
       }
     })
     const hours = rows.reduce((sum, r) => sum + r.hours, 0)
-    const subtotal = rate == null ? null : rows.reduce((sum, r) => sum + (r.subtotal ?? 0), 0)
+    const subtotal = rows.reduce((sum, r) => sum + r.subtotal, 0)
     groups.push({
       clientId,
       clientName: clientTasks[0]?.clientName ?? 'Unknown',
@@ -95,7 +107,7 @@ const clientGroups = computed((): ClientGroup[] => {
 const grandHours = computed(() => clientGroups.value.reduce((sum, g) => sum + g.hours, 0))
 const grandTotal = computed(() => {
   if (invoiceRate.value == null) return null
-  return clientGroups.value.reduce((sum, g) => sum + (g.subtotal ?? 0), 0)
+  return clientGroups.value.reduce((sum, g) => sum + g.subtotal, 0)
 })
 
 const money = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' })
@@ -121,6 +133,43 @@ function parseDiscount(raw: string): number | undefined {
   const n = Number(trimmed)
   if (!Number.isFinite(n) || n < 0 || n > 100) return undefined
   return n
+}
+
+function parseRate(raw: string): number | null | undefined {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n) || n < 0) return undefined
+  return n
+}
+
+async function onRateChange(raw: string) {
+  const inv = invoice.value
+  if (!inv) return
+  const rate = parseRate(raw)
+  if (rate === undefined) {
+    rateError.value = 'Rate must be a non-negative number.'
+    return
+  }
+  if ((inv.rate ?? null) === rate) {
+    rateError.value = ''
+    return
+  }
+  savingRate.value = true
+  rateError.value = ''
+  try {
+    await updateInvoice.mutateAsync({
+      id: inv.id,
+      name: inv.name,
+      status: toApiStatus(inv.status),
+      isDefault: !!inv.isDefault,
+      rate,
+    })
+  } catch (e: any) {
+    rateError.value = e?.response?.data?.error ?? 'Could not update rate.'
+  } finally {
+    savingRate.value = false
+  }
 }
 
 async function onDiscountChange(task: WorkTask, raw: string) {
@@ -156,8 +205,34 @@ async function onDiscountChange(task: WorkTask, raw: string) {
     <template v-else>
       <h1 data-testid="invoice-detail-name">{{ invoice.name }}</h1>
       <p class="meta" data-testid="invoice-detail-meta">
-        Status: {{ invoice.status }} · Rate: {{ formatRate(invoice.rate) }}
+        Status: {{ invoice.status }}
       </p>
+      <div class="rate-row" data-testid="invoice-detail-rate-row">
+        <label class="rate-label" for="invoice-detail-rate">Hourly rate</label>
+        <input
+          id="invoice-detail-rate"
+          type="number"
+          step="0.01"
+          min="0"
+          class="rate-input"
+          :value="invoice.rate ?? ''"
+          :placeholder="String(invoice.effectiveRate)"
+          :disabled="savingRate"
+          data-testid="invoice-detail-rate"
+          aria-label="Invoice hourly rate"
+          @blur="onRateChange(($event.target as HTMLInputElement).value)"
+        />
+        <span
+          v-if="invoice.rate == null"
+          class="muted rate-hint"
+          data-testid="invoice-detail-rate-default-hint"
+        >Using default ({{ formatRate(invoice.effectiveRate) }})</span>
+        <span
+          v-if="rateError"
+          class="error inline"
+          data-testid="invoice-detail-rate-error"
+        >{{ rateError }}</span>
+      </div>
 
       <p v-if="tasksLoading" data-testid="invoice-detail-tasks-loading">Loading tasks…</p>
       <p v-else-if="tasksError" class="error" data-testid="invoice-detail-tasks-error">Failed to load tasks.</p>
@@ -249,6 +324,23 @@ async function onDiscountChange(task: WorkTask, raw: string) {
 .meta, .muted { color: #6b7280; font-size: 0.9rem; }
 .error { color: #dc2626; }
 .error.inline { display: block; margin-top: 0.25rem; font-size: 0.85rem; }
+.rate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.rate-label { font-weight: 600; }
+.rate-input {
+  width: 6rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+  text-align: right;
+}
+.rate-hint { font-size: 0.85rem; }
 .grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
 .grid th.num, .grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
