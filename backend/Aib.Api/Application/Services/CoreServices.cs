@@ -106,7 +106,6 @@ public sealed class ClientService(
             Description = request.Description,
             Status = request.Status ?? ClientStatus.Active,
             Active = true,
-            DefaultHourlyRate = request.DefaultHourlyRate,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -126,7 +125,6 @@ public sealed class ClientService(
         client.Description = request.Description;
         client.Status = request.Status;
         client.Active = request.Active;
-        client.DefaultHourlyRate = request.DefaultHourlyRate;
         client.UpdatedAt = clock.UtcNow;
         await clients.UpdateAsync(client, ct);
         return Map(client);
@@ -146,7 +144,7 @@ public sealed class ClientService(
 
     private static ClientDto Map(Client c) =>
         new(c.Id, c.Name, c.Code, c.OriginalName, c.ClickUpFolderId, c.ClickUpListId, c.Description, c.Status, c.Active,
-            c.DefaultHourlyRate, c.BillFieldAvailable);
+            c.BillFieldAvailable);
 }
 
 public sealed class ProjectService(
@@ -491,6 +489,7 @@ public sealed class TaskService(
         task.BillableHours = request.BillableHours;
         task.NonBillableHours = request.NonBillableHours;
         task.InvoiceLabel = request.InvoiceLabel;
+        task.FlatFee = NormalizeMoney(request.FlatFee);
         task.Note = request.Note;
         ApplyInvoiceForBill(task);
         ApplyHoursForBill(task);
@@ -595,7 +594,9 @@ public sealed class TaskService(
 
     private static void ApplyInvoiceForBill(WorkTask task)
     {
-        if (string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
+            return;
+        if (string.IsNullOrWhiteSpace(task.InvoiceLabel))
             task.InvoiceLabel = InvoiceLabels.None;
     }
 
@@ -639,6 +640,20 @@ public sealed class TaskService(
     {
         var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
         task.DiscountPercent = NormalizeDiscountPercent(discountPercent);
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        string? projectName = null;
+        if (task.ProjectId is { } pid)
+            projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
+        return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    public async Task<TaskDto> UpdateFlatFeeAsync(Guid id, decimal? flatFee, CancellationToken ct = default)
+    {
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+        task.FlatFee = NormalizeMoney(flatFee);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
 
@@ -752,6 +767,15 @@ public sealed class TaskService(
         return Math.Round(hours.Value, 2);
     }
 
+    private static decimal? NormalizeMoney(decimal? amount)
+    {
+        if (amount is null)
+            return null;
+        if (amount < 0)
+            throw new DomainException("Flat fee cannot be negative.");
+        return Math.Round(amount.Value, 2, MidpointRounding.AwayFromZero);
+    }
+
     private async Task SyncBillToClickUpAsync(WorkTask task, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(task.ClickUpTaskId))
@@ -837,7 +861,7 @@ public sealed class TaskService(
     private static TaskDto Map(WorkTask t, string clientName, string? projectName) =>
         new(
             t.Id, t.ShortId, t.ClientId, clientName, t.ProjectId, projectName,
-            t.Bill, t.BillableHours, t.NonBillableHours, t.InvoiceLabel, t.DiscountPercent, t.Note,
+            t.Bill, t.BillableHours, t.NonBillableHours, t.InvoiceLabel, t.DiscountPercent, t.FlatFee, t.Note,
             t.ClickUpUrl, t.ClickUpTaskId, t.ClickUpParentId,
             t.ClickUpFolderId, t.ClickUpFolderName, t.ClickUpListId, t.ClickUpListName,
             t.Title, t.Description, t.ClickUpStatus, t.Tags,
@@ -921,6 +945,7 @@ public sealed class TaskService(
 
     private static bool HasMissingHours(WorkTask t) =>
         string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
+        && t.FlatFee is null
         && !((t.BillableHours is not null || t.NonBillableHours is not null)
              && ((t.BillableHours ?? 0) > 0 || (t.NonBillableHours ?? 0) > 0));
 }

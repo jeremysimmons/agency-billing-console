@@ -36,6 +36,7 @@ interface LineRow {
   rate: number
   discountPercent: number
   subtotal: number
+  isFlatFee: boolean
 }
 
 interface ClientGroup {
@@ -53,16 +54,15 @@ function compareDate(a: string | null, b: string | null) {
   return a.localeCompare(b)
 }
 
-function lineSubtotal(hours: number, rate: number, discountPercent: number) {
-  return hours * rate * (1 - discountPercent / 100)
+function lineSubtotal(units: number, rate: number, discountPercent: number) {
+  return units * rate * (1 - discountPercent / 100)
 }
 
 const invoiceRate = computed(() => invoice.value?.effectiveRate ?? null)
 
 const clientGroups = computed((): ClientGroup[] => {
   const list = tasks.value ?? []
-  const rate = invoiceRate.value
-  if (rate == null) return []
+  const hourlyRate = invoiceRate.value
 
   const byClient = new Map<string, WorkTask[]>()
   for (const t of list) {
@@ -79,17 +79,32 @@ const clientGroups = computed((): ClientGroup[] => {
       if (projectCmp !== 0) return projectCmp
       return compareDate(a.dateDone, b.dateDone)
     })
-    const rows: LineRow[] = sorted.map((task) => {
-      const hours = task.billableHours ?? 0
+    const rows: LineRow[] = []
+    for (const task of sorted) {
       const discountPercent = task.discountPercent ?? 0
-      return {
+      if (task.flatFee != null) {
+        rows.push({
+          task,
+          hours: 1,
+          rate: task.flatFee,
+          discountPercent,
+          subtotal: lineSubtotal(1, task.flatFee, discountPercent),
+          isFlatFee: true,
+        })
+        continue
+      }
+      if (hourlyRate == null) continue
+      const hours = task.billableHours ?? 0
+      rows.push({
         task,
         hours,
-        rate,
+        rate: hourlyRate,
         discountPercent,
-        subtotal: lineSubtotal(hours, rate, discountPercent),
-      }
-    })
+        subtotal: lineSubtotal(hours, hourlyRate, discountPercent),
+        isFlatFee: false,
+      })
+    }
+    if (rows.length === 0) continue
     const hours = rows.reduce((sum, r) => sum + r.hours, 0)
     const subtotal = rows.reduce((sum, r) => sum + r.subtotal, 0)
     groups.push({
@@ -106,7 +121,7 @@ const clientGroups = computed((): ClientGroup[] => {
 
 const grandHours = computed(() => clientGroups.value.reduce((sum, g) => sum + g.hours, 0))
 const grandTotal = computed(() => {
-  if (invoiceRate.value == null) return null
+  if (clientGroups.value.length === 0) return null
   return clientGroups.value.reduce((sum, g) => sum + g.subtotal, 0)
 })
 
@@ -275,7 +290,9 @@ async function onDiscountChange(task: WorkTask, raw: string) {
               <td :data-testid="`invoice-task-project-${row.task.id}`">{{ row.task.projectName ?? '—' }}</td>
               <td :data-testid="`invoice-task-title-${row.task.id}`">{{ row.task.title }}</td>
               <td class="num" :data-testid="`invoice-task-hours-${row.task.id}`">{{ formatHours(row.hours) }}</td>
-              <td class="num" :data-testid="`invoice-task-rate-${row.task.id}`">{{ formatRate(row.rate) }}</td>
+              <td class="num" :data-testid="`invoice-task-rate-${row.task.id}`">
+                {{ formatRate(row.rate) }}<span v-if="row.isFlatFee" class="muted flat-fee-tag"> flat</span>
+              </td>
               <td class="num discount-cell">
                 <input
                   type="number"
@@ -341,6 +358,7 @@ async function onDiscountChange(task: WorkTask, raw: string) {
   text-align: right;
 }
 .rate-hint { font-size: 0.85rem; }
+.flat-fee-tag { font-size: 0.8rem; margin-left: 0.25rem; }
 .grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
 .grid th.num, .grid td.num { text-align: right; font-variant-numeric: tabular-nums; }

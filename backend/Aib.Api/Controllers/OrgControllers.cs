@@ -147,6 +147,10 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
     public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateTaskDiscountRequest request, CancellationToken ct)
         => Ok(await tasks.UpdateDiscountAsync(id, request.DiscountPercent, ct));
 
+    [HttpPatch("{id:guid}/flat-fee")]
+    public async Task<IActionResult> UpdateFlatFee(Guid id, [FromBody] UpdateTaskFlatFeeRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateFlatFeeAsync(id, request.FlatFee, ct));
+
     [HttpPatch("{id:guid}/billable-hours")]
     public async Task<IActionResult> UpdateBillableHours(Guid id, [FromBody] UpdateTaskHoursRequest request, CancellationToken ct)
         => Ok(await tasks.UpdateBillableHoursAsync(id, request.Hours, ct));

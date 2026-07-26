@@ -20,7 +20,6 @@ export interface Client {
   description: string | null
   status: string
   active: boolean
-  defaultHourlyRate: number | null
   billFieldAvailable: boolean
 }
 
@@ -55,6 +54,7 @@ export interface WorkTask {
   nonBillableHours: number | null
   invoiceLabel: string | null
   discountPercent: number
+  flatFee: number | null
   note: string | null
   clickUpUrl: string | null
   clickUpTaskId: string | null

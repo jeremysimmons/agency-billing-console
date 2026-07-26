@@ -7,7 +7,7 @@ import { useClients } from '../queries/clients'
 import { useProjects, useCreateProject } from '../queries/projects'
 import { useInvoices, useCreateInvoice } from '../queries/invoices'
 import { useAgency, useUpdateAgencyUiPreferences } from '../queries/agency'
-import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskProject, useUpdateTaskInvoice, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskPrep, useSyncTask, type InvoicedFilter } from '../queries/tasks'
+import { useTasks, useTaskSummary, useTaskFilterOptions, useUpdateTaskBill, useUpdateTaskProject, useUpdateTaskInvoice, useUpdateTaskBillableHours, useUpdateTaskNonBillableHours, useUpdateTaskFlatFee, useUpdateTaskPrep, useSyncTask, type InvoicedFilter } from '../queries/tasks'
 import { http } from '../api/http'
 import type { Invoice, Project, WorkTask } from '../api/types'
 
@@ -230,6 +230,7 @@ const updateProject = useUpdateTaskProject(taskFilters)
 const updateInvoice = useUpdateTaskInvoice(taskFilters)
 const updateBillableHours = useUpdateTaskBillableHours(taskFilters)
 const updateNonBillableHours = useUpdateTaskNonBillableHours(taskFilters)
+const updateFlatFee = useUpdateTaskFlatFee(taskFilters)
 const syncTask = useSyncTask(taskFilters)
 const createProject = useCreateProject()
 const { data: invoices } = useInvoices()
@@ -237,6 +238,7 @@ const createInvoice = useCreateInvoice()
 const savingBillId = ref<string | null>(null)
 const savingBillableId = ref<string | null>(null)
 const savingNonBillableId = ref<string | null>(null)
+const savingFlatFeeId = ref<string | null>(null)
 const savingProjectId = ref<string | null>(null)
 const savingInvoiceId = ref<string | null>(null)
 const syncingTaskId = ref<string | null>(null)
@@ -244,6 +246,7 @@ const syncTaskErrors = ref<Record<string, string>>({})
 const billErrors = ref<Record<string, string>>({})
 const billableWarnings = ref<Record<string, string>>({})
 const nonBillableErrors = ref<Record<string, string>>({})
+const flatFeeErrors = ref<Record<string, string>>({})
 const projectErrors = ref<Record<string, string>>({})
 const invoiceErrors = ref<Record<string, string>>({})
 const projectsByClient = ref<Record<string, Project[]>>({})
@@ -261,6 +264,7 @@ const draft = ref({
   bill: '' as string,
   billableHours: '' as string,
   nonBillableHours: '' as string,
+  flatFee: '' as string,
   invoiceLabel: '' as string,
   note: '' as string,
 })
@@ -401,7 +405,7 @@ const taskGroups = computed(() => {
   return groups
 })
 const editColspan = computed(() =>
-  9
+  10
   + (showIdColumn.value ? 1 : 0)
   + (showClickUpIdColumn.value ? 1 : 0)
   + (showClientColumn.value ? 1 : 0)
@@ -508,6 +512,7 @@ const missingBadgeLegend = [
 function hasMissingHours(t: WorkTask) {
   if (isComplete(t)) return false
   if (t.bill?.toLowerCase() !== 'yes') return false
+  if (t.flatFee != null) return false
   const eitherPopulated = t.billableHours != null || t.nonBillableHours != null
   const anyPositive = (t.billableHours ?? 0) > 0 || (t.nonBillableHours ?? 0) > 0
   return !(eitherPopulated && anyPositive)
@@ -537,6 +542,7 @@ function startEdit(t: WorkTask) {
     bill: t.bill ?? '',
     billableHours: t.billableHours != null ? String(t.billableHours) : '',
     nonBillableHours: t.nonBillableHours != null ? String(t.nonBillableHours) : '',
+    flatFee: t.flatFee != null ? String(t.flatFee) : '',
     invoiceLabel: t.invoiceLabel ?? '',
     note: t.note ?? '',
   }
@@ -601,7 +607,8 @@ function rememberProject(project: Project, forClientId?: string) {
 
 async function updateProjectInline(t: WorkTask, projectId: string | null) {
   const current = t.projectId ?? null
-  if (projectId === current) return
+  // Re-calling with the same project still cascades to unassigned descendants.
+  if (projectId === current && !(projectId && taskHasChildren(t))) return
 
   savingProjectId.value = t.id
   delete projectErrors.value[t.id]
@@ -612,6 +619,11 @@ async function updateProjectInline(t: WorkTask, projectId: string | null) {
   } finally {
     savingProjectId.value = null
   }
+}
+
+async function applyProjectToUnassignedChildren(t: WorkTask) {
+  if (!t.projectId || !taskHasChildren(t)) return
+  await updateProjectInline(t, t.projectId)
 }
 
 async function onProjectSelect(t: WorkTask, value: string, selectEl: HTMLSelectElement) {
@@ -809,7 +821,7 @@ function onEditBillChange(t: WorkTask) {
   )
   draft.value.billableHours = filled.billableHours
   draft.value.nonBillableHours = filled.nonBillableHours
-  if (draft.value.bill?.trim().toLowerCase() === 'no') {
+  if (draft.value.bill?.trim().toLowerCase() === 'no' && !draft.value.invoiceLabel.trim()) {
     draft.value.invoiceLabel = 'none'
   }
 }
@@ -848,6 +860,22 @@ async function updateNonBillableHoursInline(t: WorkTask, raw: string) {
   }
 }
 
+async function updateFlatFeeInline(t: WorkTask, raw: string) {
+  const flatFee = parseHours(raw)
+  const current = t.flatFee
+  if (flatFee === current || (flatFee == null && current == null)) return
+
+  savingFlatFeeId.value = t.id
+  delete flatFeeErrors.value[t.id]
+  try {
+    await updateFlatFee.mutateAsync({ id: t.id, flatFee })
+  } catch (e: any) {
+    flatFeeErrors.value[t.id] = e?.response?.data?.error ?? 'Could not save flat fee.'
+  } finally {
+    savingFlatFeeId.value = null
+  }
+}
+
 async function saveEdit() {
   if (!editingId.value) return
   saveError.value = ''
@@ -859,6 +887,7 @@ async function saveEdit() {
         bill: draft.value.bill.trim() || null,
         billableHours: parseHours(draft.value.billableHours),
         nonBillableHours: parseHours(draft.value.nonBillableHours),
+        flatFee: parseHours(draft.value.flatFee),
         invoiceLabel: draft.value.invoiceLabel.trim() || null,
         note: draft.value.note.trim() || null,
       },
@@ -1342,6 +1371,7 @@ function openDoneMonth(month: string) {
           <th>Status</th>
           <th>Bill</th>
           <th>Billable hours</th>
+          <th>Flat fee</th>
           <th>Non-billable hours</th>
           <th v-if="showClickUpEstimateColumn">ClickUp estimate</th>
           <th v-if="showClickUpHoursColumn">ClickUp hours</th>
@@ -1464,27 +1494,37 @@ function openDoneMonth(month: string) {
                     @click="cancelAddProject"
                   >Cancel</button>
                 </div>
-                <select
-                  v-else
-                  class="inline-select"
-                  :value="t.projectId ?? ''"
-                  :disabled="savingProjectId === t.id"
-                  :data-testid="`task-project-select-${t.id}`"
-                  @focus="ensureProjectsLoaded(t.clientId)"
-                  @change="onProjectSelect(t, ($event.target as HTMLSelectElement).value, $event.target as HTMLSelectElement)"
-                >
-                  <option value="">—</option>
-                  <option
-                    v-for="p in projectsForClient(t.clientId)"
-                    :key="p.id"
-                    :value="p.id"
-                  >{{ projectOptionLabel(p, t.clientId) }}</option>
-                  <option
-                    v-if="t.projectId && !projectsForClient(t.clientId).some((p) => p.id === t.projectId)"
-                    :value="t.projectId"
-                  >{{ t.projectName ?? t.projectId }}</option>
-                  <option :value="ADD_PROJECT_VALUE">Add project…</option>
-                </select>
+                <div v-else class="project-control">
+                  <select
+                    class="inline-select"
+                    :value="t.projectId ?? ''"
+                    :disabled="savingProjectId === t.id"
+                    :data-testid="`task-project-select-${t.id}`"
+                    @focus="ensureProjectsLoaded(t.clientId)"
+                    @change="onProjectSelect(t, ($event.target as HTMLSelectElement).value, $event.target as HTMLSelectElement)"
+                  >
+                    <option value="">—</option>
+                    <option
+                      v-for="p in projectsForClient(t.clientId)"
+                      :key="p.id"
+                      :value="p.id"
+                    >{{ projectOptionLabel(p, t.clientId) }}</option>
+                    <option
+                      v-if="t.projectId && !projectsForClient(t.clientId).some((p) => p.id === t.projectId)"
+                      :value="t.projectId"
+                    >{{ t.projectName ?? t.projectId }}</option>
+                    <option :value="ADD_PROJECT_VALUE">Add project…</option>
+                  </select>
+                  <button
+                    v-if="taskHasChildren(t) && t.projectId"
+                    type="button"
+                    class="link bill-all-link"
+                    :disabled="savingProjectId != null"
+                    :data-testid="`task-project-all-${t.id}`"
+                    title="Set project on child tasks that have none"
+                    @click="applyProjectToUnassignedChildren(t)"
+                  >All</button>
+                </div>
                 <span v-if="projectErrors[t.id]" class="inline-error" :data-testid="`task-project-error-${t.id}`">{{ projectErrors[t.id] }}</span>
               </td>
               <td>
@@ -1559,6 +1599,19 @@ function openDoneMonth(month: string) {
                   />
                 </div>
                 <span v-if="billableWarnings[t.id]" class="inline-warning" :data-testid="`task-billable-hours-warning-${t.id}`">{{ billableWarnings[t.id] }}</span>
+              </td>
+              <td class="hours-cell" :data-testid="`task-flat-fee-${t.id}`">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="inline-input"
+                  :value="t.flatFee ?? ''"
+                  :disabled="savingFlatFeeId === t.id"
+                  :data-testid="`task-flat-fee-input-${t.id}`"
+                  @blur="updateFlatFeeInline(t, ($event.target as HTMLInputElement).value)"
+                />
+                <span v-if="flatFeeErrors[t.id]" class="inline-error" :data-testid="`task-flat-fee-error-${t.id}`">{{ flatFeeErrors[t.id] }}</span>
               </td>
               <td class="hours-cell" :data-testid="`task-non-billable-hours-${t.id}`">
                 <input
@@ -1692,6 +1745,10 @@ function openDoneMonth(month: string) {
                   <label>
                     Billable hours
                     <input v-model="draft.billableHours" type="number" step="0.01" min="0" :data-testid="`task-edit-billable-hours-${t.id}`" />
+                  </label>
+                  <label>
+                    Flat fee
+                    <input v-model="draft.flatFee" type="number" step="0.01" min="0" :data-testid="`task-edit-flat-fee-${t.id}`" />
                   </label>
                   <label>
                     Non-billable hours
@@ -2274,6 +2331,11 @@ tr:hover .bill-all-link {
 }
 .project-cell { min-width: 9rem; }
 .project-cell .inline-select { max-width: 12rem; }
+.project-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 .add-project {
   display: flex;
   flex-wrap: wrap;

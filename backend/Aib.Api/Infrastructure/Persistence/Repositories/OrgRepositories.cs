@@ -114,13 +114,11 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         var builder = SimpleBuilder.Create($"""
             insert into client
                 (id, agency_id, name, code, original_name, clickup_folder_id, clickup_list_id, description, status, active,
-                 default_hourly_rate,
                  bill_field_available, bill_custom_field_id, bill_yes_option_id, bill_no_option_id, bill_field_checked_at,
                  created_at, updated_at)
             values
                 ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.ClickUpFolderId}, {c.ClickUpListId}, {c.Description},
                  {c.Status}, {c.Active},
-                 {c.DefaultHourlyRate},
                  {c.BillFieldAvailable}, {c.BillCustomFieldId}, {c.BillYesOptionId}, {c.BillNoOptionId}, {c.BillFieldCheckedAt},
                  {c.CreatedAt}, {c.UpdatedAt})
             """);
@@ -135,7 +133,6 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
             update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName},
                 clickup_folder_id = {c.ClickUpFolderId}, clickup_list_id = {c.ClickUpListId}, description = {c.Description},
                 status = {c.Status}, active = {c.Active},
-                default_hourly_rate = {c.DefaultHourlyRate},
                 bill_field_available = {c.BillFieldAvailable},
                 bill_custom_field_id = {c.BillCustomFieldId},
                 bill_yes_option_id = {c.BillYesOptionId},
@@ -394,7 +391,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         CancellationToken ct = default)
     {
         const string missingHoursSql = """
-            lower(t.bill) = 'yes' and not (
+            lower(t.bill) = 'yes' and t.flat_fee is null and not (
                 (t.billable_hours is not null or t.non_billable_hours is not null)
                 and (coalesce(t.billable_hours, 0) > 0 or coalesce(t.non_billable_hours, 0) > 0)
             )
@@ -557,7 +554,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                  )
                  and (
                     {prefix}bill is null
-                    or (lower({prefix}bill) = 'yes' and not (
+                    or (lower({prefix}bill) = 'yes' and {prefix}flat_fee is null and not (
                         ({prefix}billable_hours is not null or {prefix}non_billable_hours is not null)
                         and (coalesce({prefix}billable_hours, 0) > 0 or coalesce({prefix}non_billable_hours, 0) > 0)
                     ))
@@ -661,14 +658,14 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     {
         var builder = SimpleBuilder.Create($"""
             insert into task
-                (id, client_id, project_id, bill, billable_hours, non_billable_hours, invoice_label, discount_percent, note,
+                (id, client_id, project_id, bill, billable_hours, non_billable_hours, invoice_label, discount_percent, flat_fee, note,
                  clickup_url, clickup_task_id, clickup_parent_id, clickup_folder_id, clickup_folder_name,
                  clickup_list_id, clickup_list_name, title, description, clickup_status, clickup_status_order, tags,
                  date_created, due_date, date_done, date_closed, order_index, estimated_hours, actual_hours,
                  created_at, updated_at)
             values
                 ({t.Id}, {t.ClientId}, {t.ProjectId}, {t.Bill}, {t.BillableHours}, {t.NonBillableHours},
-                 {t.InvoiceLabel}, {t.DiscountPercent}, {t.Note}, {t.ClickUpUrl}, {t.ClickUpTaskId}, {t.ClickUpParentId},
+                 {t.InvoiceLabel}, {t.DiscountPercent}, {t.FlatFee}, {t.Note}, {t.ClickUpUrl}, {t.ClickUpTaskId}, {t.ClickUpParentId},
                  {t.ClickUpFolderId}, {t.ClickUpFolderName}, {t.ClickUpListId}, {t.ClickUpListName},
                  {t.Title}, {t.Description}, {t.ClickUpStatus}, {t.ClickUpStatusOrder}, {t.Tags}, {t.DateCreated}, {t.DueDate},
                  {t.DateDone}, {t.DateClosed}, {t.OrderIndex}, {t.EstimatedHours}, {t.ActualHours},
@@ -686,7 +683,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             update task set
                 client_id = {t.ClientId}, project_id = {t.ProjectId},
                 bill = {t.Bill}, billable_hours = {t.BillableHours}, non_billable_hours = {t.NonBillableHours},
-                invoice_label = {t.InvoiceLabel}, discount_percent = {t.DiscountPercent}, note = {t.Note},
+                invoice_label = {t.InvoiceLabel}, discount_percent = {t.DiscountPercent}, flat_fee = {t.FlatFee}, note = {t.Note},
                 clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
                 clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
                 clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},
@@ -769,6 +766,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                     project_id = {projectId},
                     invoice_label = case
                         when lower(trim(coalesce(bill, ''))) = 'yes'
+                             and (invoice_label is null or trim(invoice_label) = '')
                         then {defaultInvoiceLabelForBillable}
                         else invoice_label
                     end,
@@ -818,7 +816,6 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
               and (
                 invoice_label is null
                 or trim(invoice_label) = ''
-                or lower(trim(invoice_label)) <> lower({none})
               )
             """);
         using var conn = await factory.OpenAsync(ct);

@@ -306,7 +306,7 @@ public sealed class ClickUpSyncService(
 
         return new TaskDto(
             task.Id, task.ShortId, task.ClientId, client.Client.Name, task.ProjectId, projectName,
-            task.Bill, task.BillableHours, task.NonBillableHours, task.InvoiceLabel, task.DiscountPercent, task.Note,
+            task.Bill, task.BillableHours, task.NonBillableHours, task.InvoiceLabel, task.DiscountPercent, task.FlatFee, task.Note,
             task.ClickUpUrl, task.ClickUpTaskId, task.ClickUpParentId,
             task.ClickUpFolderId, task.ClickUpFolderName, task.ClickUpListId, task.ClickUpListName,
             task.Title, task.Description, task.ClickUpStatus, task.Tags,
@@ -435,6 +435,7 @@ public sealed class ClickUpSyncService(
         !IsComplete(t)
         && (string.IsNullOrWhiteSpace(t.Bill)
             || (string.Equals(t.Bill, "yes", StringComparison.OrdinalIgnoreCase)
+                && t.FlatFee is null
                 && !((t.BillableHours is not null || t.NonBillableHours is not null)
                      && ((t.BillableHours ?? 0) > 0 || (t.NonBillableHours ?? 0) > 0)))
             || string.IsNullOrWhiteSpace(t.InvoiceLabel));
@@ -890,7 +891,9 @@ public sealed class ClickUpSyncService(
 
     private static void ApplyInvoiceForBill(WorkTask task)
     {
-        if (string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
+            return;
+        if (string.IsNullOrWhiteSpace(task.InvoiceLabel))
             task.InvoiceLabel = InvoiceLabels.None;
     }
 

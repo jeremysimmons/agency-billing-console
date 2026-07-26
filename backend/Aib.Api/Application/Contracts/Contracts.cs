@@ -10,11 +10,11 @@ public sealed record AgencyUiPreferencesDto(IReadOnlyList<Guid> TaskGroupClientO
 
 public sealed record UpdateAgencyUiPreferencesRequest(IReadOnlyList<Guid> TaskGroupClientOrder);
 
-public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status, decimal? DefaultHourlyRate = null);
-public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active, decimal? DefaultHourlyRate = null);
+public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status);
+public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
 public sealed record ClientDto(
     Guid Id, string Name, string? Code, string? OriginalName, string? ClickUpFolderId, string? ClickUpListId,
-    string? Description, ClientStatus Status, bool Active, decimal? DefaultHourlyRate,
+    string? Description, ClientStatus Status, bool Active,
     bool BillFieldAvailable);
 
 public sealed record ClickUpSyncProgressEvent(
@@ -71,7 +71,7 @@ public sealed record InvoiceDto(
 
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,
-    string? InvoiceLabel, string? Note);
+    string? InvoiceLabel, decimal? FlatFee, string? Note);
 
 public sealed record UpdateTaskBillRequest(string? Bill);
 
@@ -83,6 +83,8 @@ public sealed record UpdateTaskHoursRequest(decimal? Hours);
 
 public sealed record UpdateTaskDiscountRequest(decimal DiscountPercent);
 
+public sealed record UpdateTaskFlatFeeRequest(decimal? FlatFee);
+
 public sealed record TaskHoursUpdateDto(
     TaskDto Task,
     decimal? ClickUpTrackedHours,
@@ -90,7 +92,8 @@ public sealed record TaskHoursUpdateDto(
 
 public sealed record TaskDto(
     Guid Id, int ShortId, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
-    string? Bill, decimal? BillableHours, decimal? NonBillableHours, string? InvoiceLabel, decimal DiscountPercent, string? Note,
+    string? Bill, decimal? BillableHours, decimal? NonBillableHours, string? InvoiceLabel, decimal DiscountPercent,
+    decimal? FlatFee, string? Note,
     string? ClickUpUrl, string? ClickUpTaskId, string? ClickUpParentId,
     string? ClickUpFolderId, string? ClickUpFolderName, string? ClickUpListId, string? ClickUpListName,
     string Title, string? Description, string? ClickUpStatus, string? Tags,

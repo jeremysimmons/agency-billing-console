@@ -126,6 +126,7 @@ export interface TaskPrepInput {
   billableHours?: number | null
   nonBillableHours?: number | null
   invoiceLabel?: string | null
+  flatFee?: number | null
   note?: string | null
 }
 
@@ -234,6 +235,18 @@ export function useUpdateTaskDiscount(filters: MaybeRefOrGetter<TaskListFilters>
   return useMutation({
     mutation: async ({ id, discountPercent }: { id: string; discountPercent: number }) =>
       (await http.patch<WorkTask>(`/tasks/${id}/discount`, { discountPercent })).data,
+    onSuccess: (updated) => {
+      patchTaskList(cache, f.value, updated)
+    },
+  })
+}
+
+export function useUpdateTaskFlatFee(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, flatFee }: { id: string; flatFee: number | null }) =>
+      (await http.patch<WorkTask>(`/tasks/${id}/flat-fee`, { flatFee })).data,
     onSuccess: (updated) => {
       patchTaskList(cache, f.value, updated)
     },

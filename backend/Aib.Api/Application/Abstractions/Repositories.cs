@@ -98,7 +98,7 @@ public interface ITaskRepository
     /// </summary>
     Task<int> FillEmptyHoursFromActualAsync(DateTimeOffset updatedAt, CancellationToken ct = default);
     /// <summary>
-    /// Sets invoice_label to "none" for all tasks with bill=no.
+    /// Sets invoice_label to "none" for bill=no tasks that have no invoice yet.
     /// Returns number of rows updated.
     /// </summary>
     Task<int> SetNoneInvoiceForNonBillableAsync(DateTimeOffset updatedAt, CancellationToken ct = default);

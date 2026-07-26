@@ -149,16 +149,6 @@ async function onFile(e: Event) {
       </div>
     </div>
 
-    <div class="card" data-testid="sync-csv-card">
-      <h2>CSV bootstrap</h2>
-      <p class="muted">
-        One-shot import of the sheet export (manual cols + ClickUp cols), keyed by task URL.
-      </p>
-      <input type="file" accept=".csv,text/csv" data-testid="sync-csv-input" @change="onFile" />
-      <p v-if="csvImport.isLoading.value" class="muted" data-testid="sync-csv-loading">Importing…</p>
-      <p v-if="csvMsg" class="ok" data-testid="sync-csv-result">{{ csvMsg }}</p>
-      <p v-if="csvError" class="error" data-testid="sync-csv-error">{{ csvError }}</p>
-    </div>
   </section>
 </template>
 

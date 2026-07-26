@@ -28,7 +28,6 @@ public class Client
     public string? Description { get; set; }
     public ClientStatus Status { get; set; } = ClientStatus.Active;
     public bool Active { get; set; } = true;
-    public decimal? DefaultHourlyRate { get; set; }
 
     /// <summary>Whether a Billable dropdown custom field is available in this client's ClickUp location.</summary>
     public bool BillFieldAvailable { get; set; }
@@ -75,6 +74,7 @@ public class WorkTask
     public decimal? NonBillableHours { get; set; }
     public string? InvoiceLabel { get; set; }
     public decimal DiscountPercent { get; set; }
+    public decimal? FlatFee { get; set; }
     public string? Note { get; set; }
 
     public string? ClickUpUrl { get; set; }

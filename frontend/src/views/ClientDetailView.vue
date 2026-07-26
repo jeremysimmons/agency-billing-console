@@ -19,7 +19,6 @@ const deleteClient = useDeleteClient()
 
 const editing = ref(false)
 const editName = ref('')
-const editRate = ref('')
 const editError = ref('')
 const confirmDelete = ref(false)
 const deleteError = ref('')
@@ -27,13 +26,11 @@ const deleteError = ref('')
 watch(client, (c) => {
   if (c && !editing.value) {
     editName.value = c.name
-    editRate.value = c.defaultHourlyRate != null ? String(c.defaultHourlyRate) : ''
   }
 }, { immediate: true })
 
 function startEdit() {
   editName.value = client.value?.name ?? ''
-  editRate.value = client.value?.defaultHourlyRate != null ? String(client.value.defaultHourlyRate) : ''
   editError.value = ''
   editing.value = true
 }
@@ -41,7 +38,6 @@ function startEdit() {
 function cancelEdit() {
   editing.value = false
   editName.value = client.value?.name ?? ''
-  editRate.value = client.value?.defaultHourlyRate != null ? String(client.value.defaultHourlyRate) : ''
   editError.value = ''
 }
 
@@ -49,16 +45,6 @@ async function saveEdit() {
   const c = client.value
   if (!c) return
   editError.value = ''
-  const rateTrim = editRate.value.trim()
-  let defaultHourlyRate: number | null = null
-  if (rateTrim) {
-    const parsed = Number(rateTrim)
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      editError.value = 'Hourly rate must be a non-negative number.'
-      return
-    }
-    defaultHourlyRate = parsed
-  }
   try {
     await updateClient.mutateAsync({
       id: clientId.value,
@@ -69,7 +55,6 @@ async function saveEdit() {
         description: c.description,
         status: c.status,
         active: c.active,
-        defaultHourlyRate,
       },
     })
     editing.value = false
@@ -140,7 +125,11 @@ async function remove() {
 
 <template>
   <section data-testid="client-detail-view">
-    <p><RouterLink to="/clients" data-testid="client-detail-back">← Clients</RouterLink></p>
+    <p>
+      <RouterLink to="/clients" data-testid="client-detail-back">← Clients</RouterLink> &nbsp; 
+      <RouterLink v-if="client"Assign tasks to these on the Tasks page :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>
+    
+    </p>
 
     <template v-if="client">
       <div v-if="!editing" class="title-row">
@@ -152,10 +141,6 @@ async function remove() {
           Name
           <input v-model="editName" required data-testid="client-edit-name" />
         </label>
-        <label>
-          Hourly rate
-          <input v-model="editRate" type="number" step="0.01" min="0" data-testid="client-edit-rate" />
-        </label>
         <div class="row">
           <button type="submit" :disabled="updateClient.isLoading.value" data-testid="client-edit-save">Save</button>
           <button type="button" class="link" data-testid="client-edit-cancel" @click="cancelEdit">Cancel</button>
@@ -163,14 +148,13 @@ async function remove() {
       </form>
       <p v-if="editError" class="error" data-testid="client-edit-error">{{ editError }}</p>
       <p v-if="!editing" class="meta" data-testid="client-detail-meta">
-        Hourly rate: {{ client.defaultHourlyRate != null ? `$${client.defaultHourlyRate}` : '—' }}<br/>
+        Original name: {{ client.originalName ?? '—' }}<br/>
         Folder id: {{ client.clickUpFolderId ?? '—' }}<br/>
         List id: {{ client.clickUpListId ?? '—' }}<br/>
-        <RouterLink :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>
       </p>
 
       <h2>Projects</h2>
-      <p class="hint">Your projects (not ClickUp lists). Assign tasks to these on the Tasks page.</p>
+      <p class="hint">not ClickUp lists</p>
       <form class="row" data-testid="project-create-form" @submit.prevent="addProject">
         <input v-model="pName" placeholder="Project name" required data-testid="project-create-name" />
         <button :disabled="createProject.isLoading.value" data-testid="project-create-submit">Add project</button>
