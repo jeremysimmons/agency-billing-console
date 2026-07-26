@@ -20,6 +20,7 @@ const deleteClient = useDeleteClient()
 const editing = ref(false)
 const editName = ref('')
 const editCode = ref('')
+const editRate = ref('')
 const editError = ref('')
 const confirmDelete = ref(false)
 const deleteError = ref('')
@@ -28,12 +29,14 @@ watch(client, (c) => {
   if (c && !editing.value) {
     editName.value = c.name
     editCode.value = c.code ?? ''
+    editRate.value = c.defaultHourlyRate != null ? String(c.defaultHourlyRate) : ''
   }
 }, { immediate: true })
 
 function startEdit() {
   editName.value = client.value?.name ?? ''
   editCode.value = client.value?.code ?? ''
+  editRate.value = client.value?.defaultHourlyRate != null ? String(client.value.defaultHourlyRate) : ''
   editError.value = ''
   editing.value = true
 }
@@ -42,6 +45,7 @@ function cancelEdit() {
   editing.value = false
   editName.value = client.value?.name ?? ''
   editCode.value = client.value?.code ?? ''
+  editRate.value = client.value?.defaultHourlyRate != null ? String(client.value.defaultHourlyRate) : ''
   editError.value = ''
 }
 
@@ -49,6 +53,16 @@ async function saveEdit() {
   const c = client.value
   if (!c) return
   editError.value = ''
+  const rateTrim = editRate.value.trim()
+  let defaultHourlyRate: number | null = null
+  if (rateTrim) {
+    const parsed = Number(rateTrim)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      editError.value = 'Hourly rate must be a non-negative number.'
+      return
+    }
+    defaultHourlyRate = parsed
+  }
   try {
     await updateClient.mutateAsync({
       id: clientId.value,
@@ -59,6 +73,7 @@ async function saveEdit() {
         description: c.description,
         status: c.status,
         active: c.active,
+        defaultHourlyRate,
       },
     })
     editing.value = false
@@ -145,6 +160,10 @@ async function remove() {
           Code
           <input v-model="editCode" data-testid="client-edit-code" />
         </label>
+        <label>
+          Hourly rate
+          <input v-model="editRate" type="number" step="0.01" min="0" data-testid="client-edit-rate" />
+        </label>
         <div class="row">
           <button type="submit" :disabled="updateClient.isLoading.value" data-testid="client-edit-save">Save</button>
           <button type="button" class="link" data-testid="client-edit-cancel" @click="cancelEdit">Cancel</button>
@@ -153,6 +172,7 @@ async function remove() {
       <p v-if="editError" class="error" data-testid="client-edit-error">{{ editError }}</p>
       <p v-if="!editing" class="meta" data-testid="client-detail-meta">
         Code: {{ client.code ?? '—' }}<br/>
+        Hourly rate: {{ client.defaultHourlyRate != null ? `$${client.defaultHourlyRate}` : '—' }}<br/>
         Folder id: {{ client.clickUpFolderId ?? '—' }}<br/>
         List id: {{ client.clickUpListId ?? '—' }}<br/>
         <RouterLink :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>

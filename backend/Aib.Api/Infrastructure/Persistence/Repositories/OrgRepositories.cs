@@ -114,11 +114,13 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
         var builder = SimpleBuilder.Create($"""
             insert into client
                 (id, agency_id, name, code, original_name, clickup_folder_id, clickup_list_id, description, status, active,
+                 default_hourly_rate,
                  bill_field_available, bill_custom_field_id, bill_yes_option_id, bill_no_option_id, bill_field_checked_at,
                  created_at, updated_at)
             values
                 ({c.Id}, {c.AgencyId}, {c.Name}, {c.Code}, {c.OriginalName}, {c.ClickUpFolderId}, {c.ClickUpListId}, {c.Description},
                  {c.Status}, {c.Active},
+                 {c.DefaultHourlyRate},
                  {c.BillFieldAvailable}, {c.BillCustomFieldId}, {c.BillYesOptionId}, {c.BillNoOptionId}, {c.BillFieldCheckedAt},
                  {c.CreatedAt}, {c.UpdatedAt})
             """);
@@ -133,6 +135,7 @@ public sealed class ClientRepository(IDbConnectionFactory factory) : IClientRepo
             update client set name = {c.Name}, code = {c.Code}, original_name = {c.OriginalName},
                 clickup_folder_id = {c.ClickUpFolderId}, clickup_list_id = {c.ClickUpListId}, description = {c.Description},
                 status = {c.Status}, active = {c.Active},
+                default_hourly_rate = {c.DefaultHourlyRate},
                 bill_field_available = {c.BillFieldAvailable},
                 bill_custom_field_id = {c.BillCustomFieldId},
                 bill_yes_option_id = {c.BillYesOptionId},
@@ -274,8 +277,8 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
     {
         var status = invoice.Status.Value;
         var builder = SimpleBuilder.Create($"""
-            insert into invoice (id, name, status, sort_order, is_default, created_at, updated_at)
-            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.IsDefault}, {invoice.CreatedAt}, {invoice.UpdatedAt})
+            insert into invoice (id, name, status, sort_order, is_default, rate, created_at, updated_at)
+            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.IsDefault}, {invoice.Rate}, {invoice.CreatedAt}, {invoice.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -288,7 +291,7 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
         var builder = SimpleBuilder.Create($"""
             update invoice
             set name = {invoice.Name}, status = {status}, sort_order = {invoice.SortOrder},
-                is_default = {invoice.IsDefault}, updated_at = {invoice.UpdatedAt}
+                is_default = {invoice.IsDefault}, rate = {invoice.Rate}, updated_at = {invoice.UpdatedAt}
             where id = {invoice.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
@@ -357,6 +360,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string? clickUpListId,
         string? clickUpFolderId,
         string? clickUpSpaceId,
+        string? invoiceLabel,
         CancellationToken ct = default)
     {
         var sql = """
@@ -365,7 +369,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             """;
         var parameters = new DynamicParameters();
         ApplyTaskFilters(ref sql, parameters, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            clickUpListId, clickUpFolderId, clickUpSpaceId);
+            clickUpListId, clickUpFolderId, clickUpSpaceId, invoiceLabel);
 
         sql += " order by date_done asc nulls last, date_created asc nulls last, title";
 
@@ -386,6 +390,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string? clickUpListId,
         string? clickUpFolderId,
         string? clickUpSpaceId,
+        string? invoiceLabel,
         CancellationToken ct = default)
     {
         const string missingHoursSql = """
@@ -421,7 +426,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             """;
         var clientParams = new DynamicParameters();
         ApplyTaskFilters(ref clientSql, clientParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            clickUpListId, clickUpFolderId, clickUpSpaceId, "t.");
+            clickUpListId, clickUpFolderId, clickUpSpaceId, invoiceLabel, "t.");
         clientSql += """
              group by t.client_id, c.name
              order by c.name asc
@@ -438,7 +443,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             """;
         var monthParams = new DynamicParameters();
         ApplyTaskFilters(ref monthSql, monthParams, clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            clickUpListId, clickUpFolderId, clickUpSpaceId, "t.");
+            clickUpListId, clickUpFolderId, clickUpSpaceId, invoiceLabel, "t.");
         monthSql += """
              group by to_char(t.date_done, 'YYYY-MM')
              order by month asc
@@ -466,6 +471,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string? clickUpListId,
         string? clickUpFolderId,
         string? clickUpSpaceId,
+        string? invoiceLabel,
         string prefix = "")
     {
         if (clientId is { } cid)
@@ -534,6 +540,12 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                  )
                 """;
             parameters.Add("clickUpSpaceId", clickUpSpaceId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(invoiceLabel))
+        {
+            sql += $" and lower(trim({prefix}invoice_label)) = lower(trim(@invoiceLabel))";
+            parameters.Add("invoiceLabel", invoiceLabel);
         }
 
         if (missingOnly == true)
@@ -649,14 +661,14 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
     {
         var builder = SimpleBuilder.Create($"""
             insert into task
-                (id, client_id, project_id, bill, billable_hours, non_billable_hours, invoice_label, note,
+                (id, client_id, project_id, bill, billable_hours, non_billable_hours, invoice_label, discount_percent, note,
                  clickup_url, clickup_task_id, clickup_parent_id, clickup_folder_id, clickup_folder_name,
                  clickup_list_id, clickup_list_name, title, description, clickup_status, clickup_status_order, tags,
                  date_created, due_date, date_done, date_closed, order_index, estimated_hours, actual_hours,
                  created_at, updated_at)
             values
                 ({t.Id}, {t.ClientId}, {t.ProjectId}, {t.Bill}, {t.BillableHours}, {t.NonBillableHours},
-                 {t.InvoiceLabel}, {t.Note}, {t.ClickUpUrl}, {t.ClickUpTaskId}, {t.ClickUpParentId},
+                 {t.InvoiceLabel}, {t.DiscountPercent}, {t.Note}, {t.ClickUpUrl}, {t.ClickUpTaskId}, {t.ClickUpParentId},
                  {t.ClickUpFolderId}, {t.ClickUpFolderName}, {t.ClickUpListId}, {t.ClickUpListName},
                  {t.Title}, {t.Description}, {t.ClickUpStatus}, {t.ClickUpStatusOrder}, {t.Tags}, {t.DateCreated}, {t.DueDate},
                  {t.DateDone}, {t.DateClosed}, {t.OrderIndex}, {t.EstimatedHours}, {t.ActualHours},
@@ -674,7 +686,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
             update task set
                 client_id = {t.ClientId}, project_id = {t.ProjectId},
                 bill = {t.Bill}, billable_hours = {t.BillableHours}, non_billable_hours = {t.NonBillableHours},
-                invoice_label = {t.InvoiceLabel}, note = {t.Note},
+                invoice_label = {t.InvoiceLabel}, discount_percent = {t.DiscountPercent}, note = {t.Note},
                 clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
                 clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
                 clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},

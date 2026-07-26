@@ -61,6 +61,7 @@ public interface ITaskRepository
         string? clickUpListId,
         string? clickUpFolderId,
         string? clickUpSpaceId,
+        string? invoiceLabel,
         CancellationToken ct = default);
     Task<(IReadOnlyList<TaskClientCountRow> ByClient, IReadOnlyList<TaskMonthCountRow> ByDoneMonth)> GetSummaryAsync(
         Guid? clientId,
@@ -74,6 +75,7 @@ public interface ITaskRepository
         string? clickUpListId,
         string? clickUpFolderId,
         string? clickUpSpaceId,
+        string? invoiceLabel,
         CancellationToken ct = default);
     Task<(IReadOnlyList<string> CreatedMonths, IReadOnlyList<string> DoneMonths, IReadOnlyList<string> Statuses)> ListFilterOptionsAsync(
         Guid? clientId, CancellationToken ct = default);

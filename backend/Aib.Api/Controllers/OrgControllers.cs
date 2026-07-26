@@ -102,10 +102,11 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
         [FromQuery] string? listId,
         [FromQuery] string? folderId,
         [FromQuery] string? spaceId,
+        [FromQuery] string? invoiceLabel,
         CancellationToken ct)
         => Ok(await tasks.GetSummaryAsync(
             clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            listId, folderId, spaceId, ct));
+            listId, folderId, spaceId, invoiceLabel, ct));
 
     [HttpGet]
     public async Task<IActionResult> List(
@@ -120,10 +121,11 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
         [FromQuery] string? listId,
         [FromQuery] string? folderId,
         [FromQuery] string? spaceId,
+        [FromQuery] string? invoiceLabel,
         CancellationToken ct)
         => Ok(await tasks.ListAsync(
             clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            listId, folderId, spaceId, ct));
+            listId, folderId, spaceId, invoiceLabel, ct));
 
     [HttpPost("{id:guid}/sync")]
     public async Task<IActionResult> Sync(Guid id, CancellationToken ct)
@@ -140,6 +142,10 @@ public sealed class TasksController(TaskService tasks, ClickUpSyncService sync) 
     [HttpPatch("{id:guid}/invoice")]
     public async Task<IActionResult> UpdateInvoice(Guid id, [FromBody] UpdateTaskInvoiceRequest request, CancellationToken ct)
         => Ok(await tasks.UpdateInvoiceAsync(id, request.InvoiceLabel, ct));
+
+    [HttpPatch("{id:guid}/discount")]
+    public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateTaskDiscountRequest request, CancellationToken ct)
+        => Ok(await tasks.UpdateDiscountAsync(id, request.DiscountPercent, ct));
 
     [HttpPatch("{id:guid}/billable-hours")]
     public async Task<IActionResult> UpdateBillableHours(Guid id, [FromBody] UpdateTaskHoursRequest request, CancellationToken ct)

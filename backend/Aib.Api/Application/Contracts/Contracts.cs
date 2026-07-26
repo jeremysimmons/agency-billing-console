@@ -10,11 +10,11 @@ public sealed record AgencyUiPreferencesDto(IReadOnlyList<Guid> TaskGroupClientO
 
 public sealed record UpdateAgencyUiPreferencesRequest(IReadOnlyList<Guid> TaskGroupClientOrder);
 
-public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status);
-public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active);
+public sealed record CreateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus? Status, decimal? DefaultHourlyRate = null);
+public sealed record UpdateClientRequest(string Name, string? Code, string? OriginalName, string? Description, ClientStatus Status, bool Active, decimal? DefaultHourlyRate = null);
 public sealed record ClientDto(
     Guid Id, string Name, string? Code, string? OriginalName, string? ClickUpFolderId, string? ClickUpListId,
-    string? Description, ClientStatus Status, bool Active,
+    string? Description, ClientStatus Status, bool Active, decimal? DefaultHourlyRate,
     bool BillFieldAvailable);
 
 public sealed record ClickUpSyncProgressEvent(
@@ -36,10 +36,10 @@ public sealed record CreateProjectRequest(Guid ClientId, string Name);
 public sealed record UpdateProjectRequest(string Name, Guid ClientId);
 public sealed record ProjectDto(Guid Id, Guid ClientId, string ClientName, string Name);
 
-public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null, bool IsDefault = false);
-public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status, bool IsDefault = false);
+public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null, bool IsDefault = false, decimal? Rate = null);
+public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status, bool IsDefault = false, decimal? Rate = null);
 public sealed record ReorderInvoicesRequest(IReadOnlyList<Guid> OrderedIds);
-public sealed record InvoiceDto(Guid Id, string Name, InvoiceStatus Status, int SortOrder, bool IsDefault);
+public sealed record InvoiceDto(Guid Id, string Name, InvoiceStatus Status, int SortOrder, bool IsDefault, decimal? Rate);
 
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,
@@ -53,6 +53,8 @@ public sealed record UpdateTaskInvoiceRequest(string? InvoiceLabel);
 
 public sealed record UpdateTaskHoursRequest(decimal? Hours);
 
+public sealed record UpdateTaskDiscountRequest(decimal DiscountPercent);
+
 public sealed record TaskHoursUpdateDto(
     TaskDto Task,
     decimal? ClickUpTrackedHours,
@@ -60,7 +62,7 @@ public sealed record TaskHoursUpdateDto(
 
 public sealed record TaskDto(
     Guid Id, int ShortId, Guid ClientId, string ClientName, Guid? ProjectId, string? ProjectName,
-    string? Bill, decimal? BillableHours, decimal? NonBillableHours, string? InvoiceLabel, string? Note,
+    string? Bill, decimal? BillableHours, decimal? NonBillableHours, string? InvoiceLabel, decimal DiscountPercent, string? Note,
     string? ClickUpUrl, string? ClickUpTaskId, string? ClickUpParentId,
     string? ClickUpFolderId, string? ClickUpFolderName, string? ClickUpListId, string? ClickUpListName,
     string Title, string? Description, string? ClickUpStatus, string? Tags,

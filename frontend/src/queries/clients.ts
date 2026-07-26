@@ -9,6 +9,7 @@ export interface ClientInput {
   description?: string | null
   status?: string
   active?: boolean
+  defaultHourlyRate?: number | null
 }
 
 export function useClients() {

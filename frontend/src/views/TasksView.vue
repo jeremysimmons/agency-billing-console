@@ -36,6 +36,7 @@ type StoredTaskFilters = {
   groupOrderMode?: GroupOrderMode
   collapsedGroups?: Record<string, boolean>
   projectFilter?: string
+  clickUpIdFilter?: string
   createdMonthFilter?: string
   doneMonthFilter?: string
   statusFilters?: string[]
@@ -129,6 +130,7 @@ const collapsedGroups = ref<Record<string, boolean>>(
     : {},
 )
 const projectFilter = ref(storedFilters.projectFilter || '')
+const clickUpIdFilter = ref(storedFilters.clickUpIdFilter || '')
 const createdMonthFilter = ref(storedFilters.createdMonthFilter || '')
 const doneMonthFilter = ref(storedFilters.doneMonthFilter || '')
 const statusFilters = ref<string[]>(statusFiltersRestored ? [...storedFilters.statusFilters!] : [])
@@ -148,12 +150,41 @@ function clearScopeFilters() {
   createdMonthFilter.value = ''
   doneMonthFilter.value = ''
   projectFilter.value = ''
+  clickUpIdFilter.value = ''
   clientFilter.value = ''
   if (route.query.clientId) {
     const query = { ...route.query }
     delete query.clientId
     router.replace({ path: '/tasks', query })
   }
+}
+
+function filterTasksByClickUpId(list: WorkTask[], query: string): WorkTask[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return list
+
+  const childrenByParentClickUpId = new Map<string, WorkTask[]>()
+  for (const t of list) {
+    if (!t.clickUpParentId) continue
+    const kids = childrenByParentClickUpId.get(t.clickUpParentId)
+    if (kids) kids.push(t)
+    else childrenByParentClickUpId.set(t.clickUpParentId, [t])
+  }
+
+  const matched = new Set<string>()
+  function includeWithDescendants(t: WorkTask) {
+    if (matched.has(t.id)) return
+    matched.add(t.id)
+    if (!t.clickUpTaskId) return
+    for (const child of childrenByParentClickUpId.get(t.clickUpTaskId) ?? []) {
+      includeWithDescendants(child)
+    }
+  }
+
+  for (const t of list) {
+    if (t.clickUpTaskId?.toLowerCase().includes(q)) includeWithDescendants(t)
+  }
+  return list.filter((t) => matched.has(t.id))
 }
 
 watch(
@@ -241,9 +272,49 @@ const editClientId = computed(() => {
 })
 const { data: projects } = useProjects(editClientId, { includeShared: true })
 
-const missingCount = computed(() => tasks.value?.filter((t) => t.needsAttention).length ?? 0)
+const filteredTasks = computed(() => filterTasksByClickUpId(tasks.value ?? [], clickUpIdFilter.value))
+const missingCount = computed(() => filteredTasks.value.filter((t) => t.needsAttention).length)
+const childrenByParentClickUpId = computed(() => {
+  const map = new Map<string, WorkTask[]>()
+  for (const t of tasks.value ?? []) {
+    if (!t.clickUpParentId) continue
+    const kids = map.get(t.clickUpParentId)
+    if (kids) kids.push(t)
+    else map.set(t.clickUpParentId, [t])
+  }
+  return map
+})
+const parentIdsWithChildren = computed(() => {
+  const ids = new Set<string>()
+  for (const t of tasks.value ?? []) {
+    if (t.clickUpTaskId && childrenByParentClickUpId.value.has(t.clickUpTaskId)) {
+      ids.add(t.id)
+    }
+  }
+  return ids
+})
+function taskHasChildren(t: WorkTask) {
+  return parentIdsWithChildren.value.has(t.id)
+}
+function billIsYesOrNo(t: WorkTask) {
+  const bill = t.bill?.trim().toLowerCase()
+  return bill === 'yes' || bill === 'no'
+}
+function descendantsOf(t: WorkTask): WorkTask[] {
+  if (!t.clickUpTaskId) return []
+  const out: WorkTask[] = []
+  const queue = [...(childrenByParentClickUpId.value.get(t.clickUpTaskId) ?? [])]
+  while (queue.length > 0) {
+    const child = queue.shift()!
+    out.push(child)
+    if (child.clickUpTaskId) {
+      queue.push(...(childrenByParentClickUpId.value.get(child.clickUpTaskId) ?? []))
+    }
+  }
+  return out
+}
 const taskDepthById = computed(() => {
-  const list = tasks.value ?? []
+  const list = filteredTasks.value
   const byClickUpId = new Map<string, WorkTask>()
   for (const t of list) {
     if (t.clickUpTaskId) byClickUpId.set(t.clickUpTaskId, t)
@@ -295,7 +366,7 @@ const visibleColumnCount = computed(() =>
 )
 const showClientColumn = computed(() => !groupByClient.value)
 const taskGroups = computed(() => {
-  const list = tasks.value ?? []
+  const list = filteredTasks.value
   if (!groupByClient.value) {
     return [{ key: 'all', clientId: '', clientName: '', showHeader: false, tasks: list }]
   }
@@ -707,12 +778,25 @@ async function updateBillInline(t: WorkTask, value: string) {
     savingBillId.value = null
   }
 
-  const clickUpHours = t.actualHours
+  // Re-read task after mutation so hours checks use updated fields when available.
+  const latest = tasks.value?.find((x) => x.id === t.id) ?? t
+  const clickUpHours = latest.actualHours
   const billNorm = bill?.toLowerCase()
-  if (billNorm === 'yes' && t.billableHours == null && clickUpHours != null) {
-    await updateBillableHoursInline(t, String(clickUpHours))
-  } else if (billNorm === 'no' && t.nonBillableHours == null) {
-    await updateNonBillableHoursInline(t, String(clickUpHours ?? 0))
+  if (billNorm === 'yes' && latest.billableHours == null && clickUpHours != null) {
+    await updateBillableHoursInline(latest, String(clickUpHours))
+  } else if (billNorm === 'no' && latest.nonBillableHours == null) {
+    await updateNonBillableHoursInline(latest, String(clickUpHours ?? 0))
+  }
+}
+
+async function applyBillToAllChildren(t: WorkTask) {
+  const bill = t.bill?.trim().toLowerCase()
+  if (bill !== 'yes' && bill !== 'no') return
+  const kids = descendantsOf(t)
+  if (kids.length === 0) return
+  for (const child of kids) {
+    const latest = tasks.value?.find((x) => x.id === child.id) ?? child
+    await updateBillInline(latest, bill)
   }
 }
 
@@ -867,6 +951,7 @@ watch(
     groupOrderMode,
     collapsedGroups,
     projectFilter,
+    clickUpIdFilter,
     createdMonthFilter,
     doneMonthFilter,
     statusFilters,
@@ -888,6 +973,7 @@ watch(
       groupOrderMode: groupOrderMode.value,
       collapsedGroups: collapsedGroups.value,
       projectFilter: projectFilter.value,
+      clickUpIdFilter: clickUpIdFilter.value,
       createdMonthFilter: createdMonthFilter.value,
       doneMonthFilter: doneMonthFilter.value,
       statusFilters: statusFilters.value,
@@ -1037,6 +1123,15 @@ function openDoneMonth(month: string) {
             {{ clientFilter && p.clientId !== clientFilter ? `${p.name} (Shared)` : p.name }}
           </option>
         </select>
+      </label>
+      <label>
+        ClickUp ID
+        <input
+          v-model="clickUpIdFilter"
+          type="search"
+          placeholder="Contains…"
+          data-testid="tasks-clickup-id-filter"
+        />
       </label>
       <div class="invoiced-filters">
         <span class="filter-label">Invoiced</span>
@@ -1206,7 +1301,7 @@ function openDoneMonth(month: string) {
     <template v-if="viewMode === 'list'">
     <p v-if="isLoading" data-testid="tasks-loading">Loading…</p>
     <p v-else-if="error" class="error" data-testid="tasks-error">Failed to load tasks.</p>
-    <p v-else-if="tasks && tasks.length === 0" class="empty" data-testid="tasks-empty">
+    <p v-else-if="tasks && filteredTasks.length === 0" class="empty" data-testid="tasks-empty">
       No tasks match. Sync from ClickUp or clear the missing-data filter.
     </p>
 
@@ -1419,17 +1514,28 @@ function openDoneMonth(month: string) {
                 <span class="cell-text">{{ t.clickUpStatus ?? '—' }}</span>
               </td>
               <td class="bill-cell" :data-testid="`task-bill-${t.id}`">
-                <select
-                  class="inline-select"
-                  :value="t.bill ?? ''"
-                  :disabled="savingBillId === t.id"
-                  :data-testid="`task-bill-select-${t.id}`"
-                  @change="updateBillInline(t, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">—</option>
-                  <option value="yes">yes</option>
-                  <option value="no">no</option>
-                </select>
+                <div class="bill-control">
+                  <select
+                    class="inline-select"
+                    :value="t.bill ?? ''"
+                    :disabled="savingBillId === t.id"
+                    :data-testid="`task-bill-select-${t.id}`"
+                    @change="updateBillInline(t, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">—</option>
+                    <option value="yes">yes</option>
+                    <option value="no">no</option>
+                  </select>
+                  <button
+                    v-if="taskHasChildren(t) && billIsYesOrNo(t)"
+                    type="button"
+                    class="link bill-all-link"
+                    :disabled="savingBillId != null"
+                    :data-testid="`task-bill-all-${t.id}`"
+                    title="Set bill on all child tasks"
+                    @click="applyBillToAllChildren(t)"
+                  >All</button>
+                </div>
                 <span v-if="billErrors[t.id]" class="inline-error" :data-testid="`task-bill-error-${t.id}`">{{ billErrors[t.id] }}</span>
               </td>
               <td class="hours-cell" :data-testid="`task-billable-hours-${t.id}`">
@@ -2076,7 +2182,8 @@ function openDoneMonth(month: string) {
   color: #059669;
   font-weight: 600;
 }
-.filters select {
+.filters select,
+.filters input[type='search'] {
   box-sizing: border-box;
   min-height: var(--filter-control-height);
 }
@@ -2133,6 +2240,21 @@ select, input:not([role='switch']) {
   font-weight: 500;
 }
 .bill-cell { min-width: 4.5rem; }
+.bill-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: var(--inline-control-height);
+}
+.bill-all-link {
+  opacity: 0;
+  pointer-events: none;
+  font-size: 0.8rem;
+}
+tr:hover .bill-all-link {
+  opacity: 1;
+  pointer-events: auto;
+}
 .hours-cell { min-width: 5rem; }
 .hours-control {
   display: inline-flex;

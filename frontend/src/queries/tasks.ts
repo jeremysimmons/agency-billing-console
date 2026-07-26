@@ -22,6 +22,7 @@ export interface TaskListFilters {
   listId?: string
   folderId?: string
   spaceId?: string
+  invoiceLabel?: string
 }
 
 function taskListParams(filters: TaskListFilters): string {
@@ -41,6 +42,7 @@ function taskListParams(filters: TaskListFilters): string {
   if (filters.listId) params.set('listId', filters.listId)
   if (filters.folderId) params.set('folderId', filters.folderId)
   if (filters.spaceId) params.set('spaceId', filters.spaceId)
+  if (filters.invoiceLabel) params.set('invoiceLabel', filters.invoiceLabel)
   return params.toString()
 }
 
@@ -68,13 +70,19 @@ export function taskListQueryKey(filters: TaskListFilters) {
     filters.listId ?? '',
     filters.folderId ?? '',
     filters.spaceId ?? '',
+    filters.invoiceLabel ?? '',
   ]
 }
 
-export function useTasks(filters: MaybeRefOrGetter<TaskListFilters>) {
+export function useTasks(
+  filters: MaybeRefOrGetter<TaskListFilters>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
   const f = computed(() => toValue(filters))
+  const on = computed(() => toValue(enabled))
   return useQuery({
     key: () => taskListQueryKey(f.value),
+    enabled: () => on.value,
     query: async () =>
       (await http.get<WorkTask[]>(`/tasks?${taskListParams(f.value)}`)).data,
   })
@@ -94,6 +102,7 @@ function taskSummaryQueryKey(filters: TaskListFilters) {
     filters.listId ?? '',
     filters.folderId ?? '',
     filters.spaceId ?? '',
+    filters.invoiceLabel ?? '',
   ]
 }
 
@@ -134,6 +143,54 @@ function patchTaskList(cache: ReturnType<typeof useQueryCache>, filters: TaskLis
   )
 }
 
+/** Mirror backend cascade: assign project to unassigned ClickUp descendants. */
+function patchTaskListAfterProjectAssign(
+  cache: ReturnType<typeof useQueryCache>,
+  filters: TaskListFilters,
+  updated: WorkTask,
+) {
+  cache.setQueryData(taskListQueryKey(filters), (tasks) => {
+    if (!Array.isArray(tasks)) return tasks
+
+    const list = tasks.map((t) => (t.id === updated.id ? updated : t))
+    if (!updated.projectId || !updated.clickUpTaskId) return list
+
+    const descendantClickUpIds = new Set<string>()
+    let frontier = new Set<string>([updated.clickUpTaskId])
+    while (frontier.size > 0) {
+      const next = new Set<string>()
+      for (const t of list) {
+        if (
+          t.clickUpParentId
+          && frontier.has(t.clickUpParentId)
+          && t.clickUpTaskId
+          && !descendantClickUpIds.has(t.clickUpTaskId)
+        ) {
+          descendantClickUpIds.add(t.clickUpTaskId)
+          next.add(t.clickUpTaskId)
+        }
+      }
+      frontier = next
+    }
+    if (descendantClickUpIds.size === 0) return list
+
+    return list.map((t) => {
+      if (
+        !t.clickUpTaskId
+        || !descendantClickUpIds.has(t.clickUpTaskId)
+        || t.projectId != null
+      ) {
+        return t
+      }
+      return {
+        ...t,
+        projectId: updated.projectId,
+        projectName: updated.projectName,
+      }
+    })
+  })
+}
+
 export function useUpdateTaskBill(filters: MaybeRefOrGetter<TaskListFilters>) {
   const cache = useQueryCache()
   const f = computed(() => toValue(filters))
@@ -153,9 +210,8 @@ export function useUpdateTaskProject(filters: MaybeRefOrGetter<TaskListFilters>)
     mutation: async ({ id, projectId }: { id: string; projectId: string | null }) =>
       (await http.patch<WorkTask>(`/tasks/${id}/project`, { projectId })).data,
     onSuccess: (updated) => {
-      patchTaskList(cache, f.value, updated)
-      // Project may cascade to unassigned children — refresh list.
-      cache.invalidateQueries({ key: ['tasks'] })
+      // Patch in place (incl. cascaded children) — avoid invalidate/refetch scroll jump.
+      patchTaskListAfterProjectAssign(cache, f.value, updated)
     },
   })
 }
@@ -166,6 +222,18 @@ export function useUpdateTaskInvoice(filters: MaybeRefOrGetter<TaskListFilters>)
   return useMutation({
     mutation: async ({ id, invoiceLabel }: { id: string; invoiceLabel: string | null }) =>
       (await http.patch<WorkTask>(`/tasks/${id}/invoice`, { invoiceLabel })).data,
+    onSuccess: (updated) => {
+      patchTaskList(cache, f.value, updated)
+    },
+  })
+}
+
+export function useUpdateTaskDiscount(filters: MaybeRefOrGetter<TaskListFilters>) {
+  const cache = useQueryCache()
+  const f = computed(() => toValue(filters))
+  return useMutation({
+    mutation: async ({ id, discountPercent }: { id: string; discountPercent: number }) =>
+      (await http.patch<WorkTask>(`/tasks/${id}/discount`, { discountPercent })).data,
     onSuccess: (updated) => {
       patchTaskList(cache, f.value, updated)
     },

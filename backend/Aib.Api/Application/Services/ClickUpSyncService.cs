@@ -170,7 +170,7 @@ public sealed class ClickUpSyncService(
 
         return new TaskDto(
             task.Id, task.ShortId, task.ClientId, client.Client.Name, task.ProjectId, projectName,
-            task.Bill, task.BillableHours, task.NonBillableHours, task.InvoiceLabel, task.Note,
+            task.Bill, task.BillableHours, task.NonBillableHours, task.InvoiceLabel, task.DiscountPercent, task.Note,
             task.ClickUpUrl, task.ClickUpTaskId, task.ClickUpParentId,
             task.ClickUpFolderId, task.ClickUpFolderName, task.ClickUpListId, task.ClickUpListName,
             task.Title, task.Description, task.ClickUpStatus, task.Tags,

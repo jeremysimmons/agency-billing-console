@@ -26,12 +26,14 @@ export function useUpdateInvoice() {
       name,
       status,
       isDefault,
+      rate,
     }: {
       id: string
       name: string
       status: InvoiceStatus
       isDefault: boolean
-    }) => (await http.put<Invoice>(`/invoices/${id}`, { name, status, isDefault })).data,
+      rate: number | null
+    }) => (await http.put<Invoice>(`/invoices/${id}`, { name, status, isDefault, rate })).data,
     onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
   })
 }

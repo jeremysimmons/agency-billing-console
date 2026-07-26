@@ -106,6 +106,7 @@ public sealed class ClientService(
             Description = request.Description,
             Status = request.Status ?? ClientStatus.Active,
             Active = true,
+            DefaultHourlyRate = request.DefaultHourlyRate,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -125,6 +126,7 @@ public sealed class ClientService(
         client.Description = request.Description;
         client.Status = request.Status;
         client.Active = request.Active;
+        client.DefaultHourlyRate = request.DefaultHourlyRate;
         client.UpdatedAt = clock.UtcNow;
         await clients.UpdateAsync(client, ct);
         return Map(client);
@@ -144,7 +146,7 @@ public sealed class ClientService(
 
     private static ClientDto Map(Client c) =>
         new(c.Id, c.Name, c.Code, c.OriginalName, c.ClickUpFolderId, c.ClickUpListId, c.Description, c.Status, c.Active,
-            c.BillFieldAvailable);
+            c.DefaultHourlyRate, c.BillFieldAvailable);
 }
 
 public sealed class ProjectService(
@@ -252,6 +254,9 @@ public sealed class InvoiceService(
         if (isDefault && InvoiceLabels.IsNone(name))
             throw new DomainException("The none invoice cannot be the default.");
 
+        if (request.Rate is < 0)
+            throw new DomainException("Invoice rate cannot be negative.");
+
         if (isDefault)
             await invoices.ClearDefaultsAsync(ct);
 
@@ -263,6 +268,7 @@ public sealed class InvoiceService(
             Status = status,
             SortOrder = await invoices.GetNextSortOrderAsync(ct),
             IsDefault = isDefault,
+            Rate = request.Rate,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -285,6 +291,9 @@ public sealed class InvoiceService(
         if (conflict is not null && conflict.Id != id)
             throw new DomainException("An invoice with that name already exists.");
 
+        if (request.Rate is < 0)
+            throw new DomainException("Invoice rate cannot be negative.");
+
         var isDefault = request.IsDefault;
         if (request.Status != InvoiceStatus.Preparing)
             isDefault = false;
@@ -299,6 +308,7 @@ public sealed class InvoiceService(
         invoice.Name = name;
         invoice.Status = request.Status;
         invoice.IsDefault = isDefault;
+        invoice.Rate = request.Rate;
         invoice.UpdatedAt = clock.UtcNow;
         await invoices.UpdateAsync(invoice, ct);
         return Map(invoice);
@@ -319,7 +329,7 @@ public sealed class InvoiceService(
         return (await invoices.ListAsync(ct)).Select(Map).ToList();
     }
 
-    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault);
+    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault, i.Rate);
 }
 
 public sealed class TaskService(
@@ -345,11 +355,13 @@ public sealed class TaskService(
         string? clickUpListId = null,
         string? clickUpFolderId = null,
         string? clickUpSpaceId = null,
+        string? invoiceLabel = null,
         CancellationToken ct = default)
     {
-        var list = OrderWithChildrenAfterParents(await tasks.ListAsync(
+        var matched = await tasks.ListAsync(
             clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            clickUpListId, clickUpFolderId, clickUpSpaceId, ct));
+            clickUpListId, clickUpFolderId, clickUpSpaceId, invoiceLabel, ct);
+        var list = OrderWithChildrenAfterParents(await IncludeAncestorTasksAsync(matched, ct));
         var clientNames = new Dictionary<Guid, string>();
         var projectNames = new Dictionary<Guid, string>();
 
@@ -379,6 +391,53 @@ public sealed class TaskService(
         return result;
     }
 
+    /// <summary>
+    /// Pull in ClickUp parents/ancestors missing from a filtered result so children
+    /// are not shown as orphans when the parent failed the filter (e.g. missing-only).
+    /// </summary>
+    private async Task<IReadOnlyList<WorkTask>> IncludeAncestorTasksAsync(
+        IReadOnlyList<WorkTask> matched,
+        CancellationToken ct)
+    {
+        if (matched.Count == 0) return matched;
+
+        var byClickUpId = new Dictionary<string, WorkTask>(StringComparer.Ordinal);
+        foreach (var task in matched)
+        {
+            if (!string.IsNullOrEmpty(task.ClickUpTaskId))
+                byClickUpId.TryAdd(task.ClickUpTaskId, task);
+        }
+
+        var extras = new List<WorkTask>();
+        var pending = new Queue<string>();
+        foreach (var task in matched)
+        {
+            if (!string.IsNullOrEmpty(task.ClickUpParentId) && !byClickUpId.ContainsKey(task.ClickUpParentId))
+                pending.Enqueue(task.ClickUpParentId);
+        }
+
+        while (pending.Count > 0)
+        {
+            var parentId = pending.Dequeue();
+            if (byClickUpId.ContainsKey(parentId)) continue;
+
+            var parent = await tasks.GetByClickUpTaskIdAsync(parentId, ct);
+            if (parent is null) continue;
+
+            byClickUpId[parentId] = parent;
+            extras.Add(parent);
+            if (!string.IsNullOrEmpty(parent.ClickUpParentId) && !byClickUpId.ContainsKey(parent.ClickUpParentId))
+                pending.Enqueue(parent.ClickUpParentId);
+        }
+
+        if (extras.Count == 0) return matched;
+
+        var combined = new List<WorkTask>(matched.Count + extras.Count);
+        combined.AddRange(matched);
+        combined.AddRange(extras);
+        return combined;
+    }
+
     public async Task<TaskSummaryDto> GetSummaryAsync(
         Guid? clientId,
         bool? missingOnly,
@@ -391,11 +450,12 @@ public sealed class TaskService(
         string? clickUpListId = null,
         string? clickUpFolderId = null,
         string? clickUpSpaceId = null,
+        string? invoiceLabel = null,
         CancellationToken ct = default)
     {
         var (byClient, byDoneMonth) = await tasks.GetSummaryAsync(
             clientId, missingOnly, invoiced, projectId, unassignedOnly, createdMonth, doneMonth, statuses,
-            clickUpListId, clickUpFolderId, clickUpSpaceId, ct);
+            clickUpListId, clickUpFolderId, clickUpSpaceId, invoiceLabel, ct);
         return new TaskSummaryDto(
             byClient.Select(r => new TaskClientCountDto(r.ClientId, r.ClientName, r.TaskCount, r.MissingCount, r.UninvoicedCount)).ToList(),
             byDoneMonth.Select(r => new TaskMonthCountDto(r.Month, r.TaskCount, r.MissingCount, r.UninvoicedCount)).ToList());
@@ -561,6 +621,20 @@ public sealed class TaskService(
     {
         var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
         task.InvoiceLabel = string.IsNullOrWhiteSpace(invoiceLabel) ? null : invoiceLabel.Trim();
+        task.UpdatedAt = clock.UtcNow;
+        await tasks.UpdateAsync(task, ct);
+
+        var client = await clients.GetByIdAsync(task.ClientId, ct);
+        string? projectName = null;
+        if (task.ProjectId is { } pid)
+            projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
+        return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    public async Task<TaskDto> UpdateDiscountAsync(Guid id, decimal discountPercent, CancellationToken ct = default)
+    {
+        var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
+        task.DiscountPercent = NormalizeDiscountPercent(discountPercent);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
 
@@ -749,10 +823,17 @@ public sealed class TaskService(
         };
     }
 
+    private static decimal NormalizeDiscountPercent(decimal discountPercent)
+    {
+        if (discountPercent is < 0 or > 100)
+            throw new DomainException("Discount percent must be between 0 and 100.");
+        return Math.Round(discountPercent, 2, MidpointRounding.AwayFromZero);
+    }
+
     private static TaskDto Map(WorkTask t, string clientName, string? projectName) =>
         new(
             t.Id, t.ShortId, t.ClientId, clientName, t.ProjectId, projectName,
-            t.Bill, t.BillableHours, t.NonBillableHours, t.InvoiceLabel, t.Note,
+            t.Bill, t.BillableHours, t.NonBillableHours, t.InvoiceLabel, t.DiscountPercent, t.Note,
             t.ClickUpUrl, t.ClickUpTaskId, t.ClickUpParentId,
             t.ClickUpFolderId, t.ClickUpFolderName, t.ClickUpListId, t.ClickUpListName,
             t.Title, t.Description, t.ClickUpStatus, t.Tags,

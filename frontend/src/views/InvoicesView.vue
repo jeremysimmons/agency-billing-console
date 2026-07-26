@@ -19,8 +19,10 @@ const name = ref('')
 const formError = ref('')
 const statusErrors = ref<Record<string, string>>({})
 const defaultErrors = ref<Record<string, string>>({})
+const rateErrors = ref<Record<string, string>>({})
 const savingId = ref<string | null>(null)
 const savingDefaultId = ref<string | null>(null)
+const savingRateId = ref<string | null>(null)
 const reorderError = ref('')
 const localOrder = ref<Invoice[]>([])
 const draggingId = ref<string | null>(null)
@@ -87,6 +89,7 @@ async function onStatusChange(inv: Invoice, value: string) {
       name: inv.name,
       status,
       isDefault: status === 'preparing' ? !!inv.isDefault : false,
+      rate: inv.rate ?? null,
     })
   } catch (e: any) {
     statusErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update status.'
@@ -106,11 +109,48 @@ async function onDefaultChange(inv: Invoice, checked: boolean) {
       name: inv.name,
       status: toApiStatus(inv.status),
       isDefault: checked,
+      rate: inv.rate ?? null,
     })
   } catch (e: any) {
     defaultErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update default.'
   } finally {
     savingDefaultId.value = null
+  }
+}
+
+function parseRate(raw: string): number | null | undefined {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n) || n < 0) return undefined
+  return n
+}
+
+async function onRateChange(inv: Invoice, raw: string) {
+  if (isNoneInvoice(inv)) return
+  const rate = parseRate(raw)
+  if (rate === undefined) {
+    rateErrors.value[inv.id] = 'Rate must be a non-negative number.'
+    return
+  }
+  if ((inv.rate ?? null) === rate) {
+    delete rateErrors.value[inv.id]
+    return
+  }
+  savingRateId.value = inv.id
+  delete rateErrors.value[inv.id]
+  try {
+    await updateInvoice.mutateAsync({
+      id: inv.id,
+      name: inv.name,
+      status: toApiStatus(inv.status),
+      isDefault: !!inv.isDefault,
+      rate,
+    })
+  } catch (e: any) {
+    rateErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update rate.'
+  } finally {
+    savingRateId.value = null
   }
 }
 
@@ -190,6 +230,7 @@ function onDragEnd() {
           <th class="drag-col" aria-label="Reorder"></th>
           <th>Name</th>
           <th>Status</th>
+          <th class="num">Rate</th>
           <th>Default</th>
         </tr>
       </thead>
@@ -217,7 +258,9 @@ function onDragEnd() {
               @dragend="onDragEnd"
             >⠿</span>
           </td>
-          <td :data-testid="`invoice-name-${inv.id}`">{{ inv.name }}</td>
+          <td :data-testid="`invoice-name-${inv.id}`">
+            <RouterLink :to="`/invoices/${inv.id}`" :data-testid="`invoice-name-link-${inv.id}`">{{ inv.name }}</RouterLink>
+          </td>
           <td class="status-cell">
             <span
               v-if="isNoneInvoice(inv)"
@@ -244,6 +287,31 @@ function onDragEnd() {
               >{{ statusErrors[inv.id] }}</span>
             </template>
           </td>
+          <td class="rate-cell">
+            <span
+              v-if="isNoneInvoice(inv)"
+              class="muted"
+              :data-testid="`invoice-rate-${inv.id}`"
+            >—</span>
+            <template v-else>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                class="rate-input"
+                :value="inv.rate ?? ''"
+                :disabled="savingRateId === inv.id"
+                :data-testid="`invoice-rate-${inv.id}`"
+                :aria-label="`Rate for ${inv.name}`"
+                @blur="onRateChange(inv, ($event.target as HTMLInputElement).value)"
+              />
+              <span
+                v-if="rateErrors[inv.id]"
+                class="error inline"
+                :data-testid="`invoice-rate-error-${inv.id}`"
+              >{{ rateErrors[inv.id] }}</span>
+            </template>
+          </td>
           <td class="default-cell">
             <span
               v-if="isNoneInvoice(inv)"
@@ -268,7 +336,7 @@ function onDragEnd() {
           </td>
         </tr>
         <tr v-if="rows.length === 0">
-          <td colspan="4" data-testid="invoices-empty">No invoices yet.</td>
+          <td colspan="5" data-testid="invoices-empty">No invoices yet.</td>
         </tr>
       </tbody>
     </table>
@@ -311,6 +379,17 @@ button:disabled { opacity: 0.6; cursor: default; }
   box-shadow: inset 0 2px 0 #059669;
 }
 .status-cell { min-width: 12rem; }
+.rate-cell { width: 7rem; vertical-align: middle; }
+.rate-input {
+  width: 5.5rem;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+  text-align: right;
+}
+.grid th.num { text-align: right; }
 .default-cell { width: 1%; white-space: nowrap; vertical-align: middle; }
 .default-cell input[type="checkbox"] {
   width: 2em;
@@ -326,4 +405,6 @@ button:disabled { opacity: 0.6; cursor: default; }
 .error { color: #dc2626; }
 .error.inline { display: block; margin-top: 0.25rem; font-size: 0.85rem; }
 .muted { color: #9ca3af; }
+a { color: #10b981; text-decoration: none; }
+a:hover { text-decoration: underline; }
 </style>
