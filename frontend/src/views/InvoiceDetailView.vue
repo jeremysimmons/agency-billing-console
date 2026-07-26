@@ -215,14 +215,9 @@ const clientGroups = computed((): ClientGroup[] => {
   for (const clientId of clientIds) {
     const clientTasks = byClientTasks.get(clientId) ?? []
     const clientManuals = byClientManuals.get(clientId) ?? []
-    const sorted = clientTasks.slice().sort((a, b) => {
-      const projectCmp = (a.projectName ?? '\uffff').localeCompare(b.projectName ?? '\uffff')
-      if (projectCmp !== 0) return projectCmp
-      return compareDate(a.dateDone, b.dateDone)
-    })
-
-    const billable = sorted.filter((t) => !isNonBillableTask(t))
-    const nonBillable = sorted.filter((t) => isNonBillableTask(t))
+    const byDateDone = (a: WorkTask, b: WorkTask) => compareDate(a.dateDone, b.dateDone)
+    const billable = clientTasks.filter((t) => !isNonBillableTask(t)).sort(byDateDone)
+    const nonBillable = clientTasks.filter((t) => isNonBillableTask(t)).sort(byDateDone)
 
     const rows: LineRow[] = []
     for (const line of clientManuals) {
