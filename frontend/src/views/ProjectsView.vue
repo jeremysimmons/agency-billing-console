@@ -25,6 +25,9 @@ const sharingId = ref<string | null>(null)
 
 const sortedProjects = computed(() =>
   (projects.value ?? []).slice().sort((a, b) => {
+    const aShared = isSharedProject(a)
+    const bShared = isSharedProject(b)
+    if (aShared !== bShared) return aShared ? -1 : 1
     const byClient = a.clientName.localeCompare(b.clientName, undefined, { sensitivity: 'base' })
     if (byClient !== 0) return byClient
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
@@ -138,18 +141,18 @@ async function moveToShared(p: Project) {
     <table v-else class="grid" data-testid="projects-table">
       <thead>
         <tr>
-          <th>Name</th>
           <th>Client</th>
+          <th>Project</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="p in sortedProjects" :key="p.id" :data-testid="`project-row-${p.id}`">
           <template v-if="editingId !== p.id">
-            <td :data-testid="`project-name-${p.id}`">{{ p.name }}</td>
             <td :data-testid="`project-client-${p.id}`">
               <RouterLink :to="`/clients/${p.clientId}`">{{ p.clientName }}</RouterLink>
             </td>
+            <td :data-testid="`project-name-${p.id}`">{{ p.name }}</td>
             <td>
               <button
                 type="button"
