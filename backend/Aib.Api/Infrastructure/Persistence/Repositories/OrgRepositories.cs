@@ -631,6 +631,7 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 bill = {t.Bill},
                 billable_hours = {t.BillableHours},
                 non_billable_hours = {t.NonBillableHours},
+                invoice_label = {t.InvoiceLabel},
                 clickup_url = {t.ClickUpUrl}, clickup_task_id = {t.ClickUpTaskId}, clickup_parent_id = {t.ClickUpParentId},
                 clickup_folder_id = {t.ClickUpFolderId}, clickup_folder_name = {t.ClickUpFolderName},
                 clickup_list_id = {t.ClickUpListId}, clickup_list_name = {t.ClickUpListName},
@@ -692,6 +693,24 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
               and (
                 (lower(trim(bill)) = 'yes' and billable_hours is null)
                 or (lower(trim(bill)) = 'no' and non_billable_hours is null)
+              )
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<int> SetNoneInvoiceForNonBillableAsync(DateTimeOffset updatedAt, CancellationToken ct = default)
+    {
+        var none = InvoiceLabels.None;
+        var builder = SimpleBuilder.Create($"""
+            update task set
+                invoice_label = {none},
+                updated_at = {updatedAt}
+            where lower(trim(coalesce(bill, ''))) = 'no'
+              and (
+                invoice_label is null
+                or trim(invoice_label) = ''
+                or lower(trim(invoice_label)) <> lower({none})
               )
             """);
         using var conn = await factory.OpenAsync(ct);

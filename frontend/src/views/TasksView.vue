@@ -715,6 +715,9 @@ function onEditBillChange(t: WorkTask) {
   )
   draft.value.billableHours = filled.billableHours
   draft.value.nonBillableHours = filled.nonBillableHours
+  if (draft.value.bill?.trim().toLowerCase() === 'no') {
+    draft.value.invoiceLabel = 'none'
+  }
 }
 
 async function updateBillableHoursInline(t: WorkTask, raw: string) {

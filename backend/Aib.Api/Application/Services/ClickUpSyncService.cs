@@ -115,9 +115,16 @@ public sealed class ClickUpSyncService(
             ct);
         var hoursFilled = await tasks.FillEmptyHoursFromActualAsync(now, ct);
 
+        await ReportAsync(
+            reportProgress,
+            new ClickUpSyncProgressEvent("invoices", Message: "Setting none invoice for non-billable"),
+            ct);
+        var invoicesSet = await tasks.SetNoneInvoiceForNonBillableAsync(now, ct);
+
         var summary = $"Synced {tasksCreated + tasksUpdated} tasks ({tasksCreated} new, {tasksUpdated} updated), " +
                       $"{containerEntities.Count} containers, {clientsCreated} new clients" +
-                      (hoursFilled > 0 ? $", filled hours on {hoursFilled} tasks" : "") + ".";
+                      (hoursFilled > 0 ? $", filled hours on {hoursFilled} tasks" : "") +
+                      (invoicesSet > 0 ? $", set none invoice on {invoicesSet} tasks" : "") + ".";
         await agencies.UpdateSyncSummaryAsync(agency.Id, now, summary, ct);
         logger.LogInformation("{Summary}", summary);
 
@@ -579,6 +586,7 @@ public sealed class ClickUpSyncService(
         if (TryResolveBill(remote, out var bill))
             task.Bill = bill;
         ApplyClickUpHoursForBill(task);
+        ApplyInvoiceForBill(task);
         task.UpdatedAt = now;
         return task;
     }
@@ -604,6 +612,12 @@ public sealed class ClickUpSyncService(
         {
             task.NonBillableHours = task.ActualHours;
         }
+    }
+
+    private static void ApplyInvoiceForBill(WorkTask task)
+    {
+        if (string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
+            task.InvoiceLabel = InvoiceLabels.None;
     }
 
     /// <summary>

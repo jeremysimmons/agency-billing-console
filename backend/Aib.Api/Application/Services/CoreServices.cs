@@ -405,6 +405,7 @@ public sealed class TaskService(
         task.NonBillableHours = request.NonBillableHours;
         task.InvoiceLabel = request.InvoiceLabel;
         task.Note = request.Note;
+        ApplyInvoiceForBill(task);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
         if (request.ProjectId is { } assignedProjectId)
@@ -425,6 +426,7 @@ public sealed class TaskService(
         var task = await tasks.GetByIdAsync(id, ct) ?? throw new NotFoundException("Task not found.");
 
         task.Bill = normalized;
+        ApplyInvoiceForBill(task);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
         await SyncBillToClickUpAsync(task, ct);
@@ -476,6 +478,12 @@ public sealed class TaskService(
             projectId,
             clock.UtcNow,
             ct);
+    }
+
+    private static void ApplyInvoiceForBill(WorkTask task)
+    {
+        if (string.Equals(task.Bill?.Trim(), "no", StringComparison.OrdinalIgnoreCase))
+            task.InvoiceLabel = InvoiceLabels.None;
     }
 
     public async Task<TaskDto> UpdateInvoiceAsync(Guid id, string? invoiceLabel, CancellationToken ct = default)

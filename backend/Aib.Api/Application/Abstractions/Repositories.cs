@@ -92,6 +92,11 @@ public interface ITaskRepository
     /// Returns number of rows updated.
     /// </summary>
     Task<int> FillEmptyHoursFromActualAsync(DateTimeOffset updatedAt, CancellationToken ct = default);
+    /// <summary>
+    /// Sets invoice_label to "none" for all tasks with bill=no.
+    /// Returns number of rows updated.
+    /// </summary>
+    Task<int> SetNoneInvoiceForNonBillableAsync(DateTimeOffset updatedAt, CancellationToken ct = default);
     Task<IReadOnlyDictionary<string, int>> CountByClickUpListIdAsync(CancellationToken ct = default);
 }
 
