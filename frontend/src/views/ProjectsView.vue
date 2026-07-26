@@ -145,11 +145,17 @@ async function moveToShared(p: Project) {
       New projects default to the <strong>Shared</strong> client. Choose another client when creating, or edit later to move.
     </p>
 
-    <form class="row" data-testid="project-create-form" @submit.prevent="add">
-      <select v-model="createClientId" required data-testid="project-create-client">
-        <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
-      </select>
-      <input v-model="name" placeholder="Project name" required data-testid="project-create-name" />
+    <form class="row create-form" data-testid="project-create-form" @submit.prevent="add">
+      <label>
+        Client
+        <select v-model="createClientId" required data-testid="project-create-client">
+          <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </label>
+      <label>
+        Project
+        <input v-model="name" placeholder="Project name" required data-testid="project-create-name" />
+      </label>
       <button
         :disabled="createProject.isLoading.value || !name.trim() || !createClientId"
         data-testid="project-create-submit"
@@ -231,6 +237,14 @@ async function moveToShared(p: Project) {
 <style scoped>
 .hint { color: #6b7280; font-size: 0.9rem; margin: -0.35rem 0 1rem; }
 .row, .edit-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+.create-form { align-items: flex-end; }
+.create-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
 .edit-row { margin: 0; }
 input, select {
   padding: 0.5rem 0.7rem;
