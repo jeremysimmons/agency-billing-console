@@ -27,9 +27,36 @@ public sealed record ClickUpSyncProgressEvent(
     int? ClientsCreated = null,
     int? ClientsProcessed = null,
     int? ClientsTotal = null,
+    int? ParentsFetched = null,
     DateTimeOffset? SyncedAt = null,
     string? Summary = null,
-    string? Error = null);
+    string? Error = null,
+    Guid? SyncRunId = null);
+
+public sealed record ClickUpSyncRunDto(
+    Guid Id,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? FinishedAt,
+    string Status,
+    string? Summary,
+    string Log,
+    int ContainersUpserted,
+    int TasksCreated,
+    int TasksUpdated,
+    int ClientsCreated,
+    int ParentsFetched);
+
+public sealed record ClickUpSyncRunSummaryDto(
+    Guid Id,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? FinishedAt,
+    string Status,
+    string? Summary,
+    int ContainersUpserted,
+    int TasksCreated,
+    int TasksUpdated,
+    int ClientsCreated,
+    int ParentsFetched);
 public sealed record DeleteAllClientsResult(int Deleted);
 
 public sealed record CreateProjectRequest(Guid ClientId, string Name);
@@ -87,7 +114,9 @@ public sealed record ClickUpSyncResultDto(
     int TasksCreated,
     int TasksUpdated,
     int ClientsCreated,
-    string Summary);
+    string Summary,
+    Guid? SyncRunId = null,
+    int ParentsFetched = 0);
 
 public sealed record CsvImportResultDto(int Imported, int Updated, int Skipped, string Summary);
 

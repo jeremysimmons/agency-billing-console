@@ -103,12 +103,25 @@ public interface ITaskRepository
     /// </summary>
     Task<int> SetNoneInvoiceForNonBillableAsync(DateTimeOffset updatedAt, CancellationToken ct = default);
     Task<IReadOnlyDictionary<string, int>> CountByClickUpListIdAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// ClickUp parent ids referenced by local tasks that have no matching local row.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListMissingParentClickUpIdsAsync(CancellationToken ct = default);
 }
 
 public interface IClickUpContainerRepository
 {
     Task UpsertManyAsync(IReadOnlyList<ClickUpContainer> containers, CancellationToken ct = default);
     Task<IReadOnlyList<ClickUpContainer>> ListAllAsync(CancellationToken ct = default);
+}
+
+public interface IClickUpSyncRunRepository
+{
+    Task InsertAsync(ClickUpSyncRun run, CancellationToken ct = default);
+    Task UpdateAsync(ClickUpSyncRun run, CancellationToken ct = default);
+    Task<ClickUpSyncRun?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<ClickUpSyncRun>> ListRecentAsync(Guid agencyId, int limit = 20, CancellationToken ct = default);
 }
 
 public interface IAgencyRepository

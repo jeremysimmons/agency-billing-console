@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<IClickUpContainerRepository, ClickUpContainerRepository>();
+        services.AddScoped<IClickUpSyncRunRepository, ClickUpSyncRunRepository>();
 
         return services;
     }

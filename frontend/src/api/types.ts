@@ -115,13 +115,36 @@ export interface ClickUpSyncResult {
   tasksUpdated: number
   clientsCreated: number
   summary: string
+  syncRunId?: string | null
+  parentsFetched?: number
+}
+
+export interface ClickUpSyncRunSummary {
+  id: string
+  startedAt: string
+  finishedAt: string | null
+  status: string
+  summary: string | null
+  containersUpserted: number
+  tasksCreated: number
+  tasksUpdated: number
+  clientsCreated: number
+  parentsFetched: number
+}
+
+export interface ClickUpSyncRun extends ClickUpSyncRunSummary {
+  log: string
 }
 
 export type ClickUpSyncPhase =
   | 'started'
   | 'hierarchy'
   | 'page'
+  | 'parents'
   | 'bill_fields'
+  | 'hours'
+  | 'invoices'
+  | 'log'
   | 'completed'
   | 'error'
 
@@ -135,9 +158,11 @@ export interface ClickUpSyncProgressEvent {
   clientsCreated?: number
   clientsProcessed?: number
   clientsTotal?: number
+  parentsFetched?: number
   syncedAt?: string
   summary?: string
   error?: string
+  syncRunId?: string
 }
 
 export interface CsvImportResult {

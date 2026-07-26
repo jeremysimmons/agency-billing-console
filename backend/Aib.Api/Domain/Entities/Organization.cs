@@ -111,3 +111,19 @@ public class ClickUpContainer
     public string? ParentExternalId { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+public class ClickUpSyncRun
+{
+    public Guid Id { get; set; }
+    public Guid AgencyId { get; set; }
+    public DateTimeOffset StartedAt { get; set; }
+    public DateTimeOffset? FinishedAt { get; set; }
+    public string Status { get; set; } = "running";
+    public string? Summary { get; set; }
+    public string Log { get; set; } = string.Empty;
+    public int ContainersUpserted { get; set; }
+    public int TasksCreated { get; set; }
+    public int TasksUpdated { get; set; }
+    public int ClientsCreated { get; set; }
+    public int ParentsFetched { get; set; }
+}

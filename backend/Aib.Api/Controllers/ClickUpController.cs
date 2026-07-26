@@ -60,6 +60,14 @@ public sealed class ClickUpController(ClickUpSyncService sync, CsvTaskImportServ
     [HttpGet("hierarchy")]
     public async Task<IActionResult> Hierarchy(CancellationToken ct) => Ok(await sync.GetHierarchyAsync(ct));
 
+    [HttpGet("sync-runs")]
+    public async Task<IActionResult> ListSyncRuns([FromQuery] int limit = 20, CancellationToken ct = default)
+        => Ok(await sync.ListSyncRunsAsync(limit, ct));
+
+    [HttpGet("sync-runs/{id:guid}")]
+    public async Task<IActionResult> GetSyncRun(Guid id, CancellationToken ct)
+        => Ok(await sync.GetSyncRunAsync(id, ct));
+
     [HttpPost("import-csv")]
     public async Task<IActionResult> ImportCsv(IFormFile? file, CancellationToken ct)
     {

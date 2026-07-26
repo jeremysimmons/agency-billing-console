@@ -4,6 +4,8 @@ import type {
   ClickUpHierarchyNode,
   ClickUpSyncProgressEvent,
   ClickUpSyncResult,
+  ClickUpSyncRun,
+  ClickUpSyncRunSummary,
   CsvImportResult,
 } from '../api/types'
 
@@ -12,6 +14,18 @@ export function useClickUpHierarchy() {
     key: ['clickup', 'hierarchy'],
     query: async () => (await http.get<ClickUpHierarchyNode[]>('/clickup/hierarchy')).data,
   })
+}
+
+export function useClickUpSyncRuns(limit = 20) {
+  return useQuery({
+    key: ['clickup', 'sync-runs', limit],
+    query: async () =>
+      (await http.get<ClickUpSyncRunSummary[]>('/clickup/sync-runs', { params: { limit } })).data,
+  })
+}
+
+export async function fetchClickUpSyncRun(id: string): Promise<ClickUpSyncRun> {
+  return (await http.get<ClickUpSyncRun>(`/clickup/sync-runs/${id}`)).data
 }
 
 function parseSseDataBlocks(buffer: string): { events: ClickUpSyncProgressEvent[]; rest: string } {
@@ -35,6 +49,8 @@ function completedToResult(event: ClickUpSyncProgressEvent): ClickUpSyncResult {
     tasksUpdated: event.tasksUpdated ?? 0,
     clientsCreated: event.clientsCreated ?? 0,
     summary: event.summary ?? event.message ?? 'Sync completed.',
+    syncRunId: event.syncRunId ?? null,
+    parentsFetched: event.parentsFetched ?? 0,
   }
 }
 
@@ -46,12 +62,20 @@ export function formatClickUpSyncStatus(event: ClickUpSyncProgressEvent): string
       return `Hierarchy upserted (${event.containersUpserted ?? 0} containers)`
     case 'page':
       return `Page ${(event.page ?? 0) + 1}: ${event.tasksCreated ?? 0} new, ${event.tasksUpdated ?? 0} updated tasks, ${event.clientsCreated ?? 0} new clients`
+    case 'parents':
+      return event.message ?? 'Fetching missing parents…'
     case 'bill_fields': {
       const total = event.clientsTotal ?? 0
       const done = event.clientsProcessed ?? 0
       if (total === 0) return 'Checking billable fields…'
       return `Checking billable fields (${done}/${total})`
     }
+    case 'hours':
+      return event.message ?? 'Filling hours…'
+    case 'invoices':
+      return event.message ?? 'Updating invoices…'
+    case 'log':
+      return event.message ?? 'Syncing…'
     case 'completed':
       return event.summary ?? event.message ?? 'Sync completed.'
     case 'error':

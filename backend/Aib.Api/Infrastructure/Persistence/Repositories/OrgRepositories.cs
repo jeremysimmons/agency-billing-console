@@ -839,6 +839,24 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
                 cancellationToken: ct));
         return rows.ToDictionary(r => r.ListId, r => r.Count);
     }
+
+    public async Task<IReadOnlyList<string>> ListMissingParentClickUpIdsAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<string>(new CommandDefinition(
+            """
+            select distinct t.clickup_parent_id
+            from task t
+            where t.clickup_parent_id is not null
+              and trim(t.clickup_parent_id) <> ''
+              and not exists (
+                  select 1 from task p where p.clickup_task_id = t.clickup_parent_id
+              )
+            order by t.clickup_parent_id
+            """,
+            cancellationToken: ct));
+        return rows.ToList();
+    }
 }
 
 public sealed class ClickUpContainerRepository(IDbConnectionFactory factory) : IClickUpContainerRepository
@@ -870,6 +888,66 @@ public sealed class ClickUpContainerRepository(IDbConnectionFactory factory) : I
         using var conn = await factory.OpenAsync(ct);
         var rows = await conn.QueryAsync<ClickUpContainer>(
             new CommandDefinition("select * from clickup_container order by container_type, name", cancellationToken: ct));
+        return rows.ToList();
+    }
+}
+
+public sealed class ClickUpSyncRunRepository(IDbConnectionFactory factory) : IClickUpSyncRunRepository
+{
+    public async Task InsertAsync(ClickUpSyncRun run, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            insert into clickup_sync_run
+                (id, agency_id, started_at, finished_at, status, summary, log,
+                 containers_upserted, tasks_created, tasks_updated, clients_created, parents_fetched)
+            values
+                ({run.Id}, {run.AgencyId}, {run.StartedAt}, {run.FinishedAt}, {run.Status}, {run.Summary}, {run.Log},
+                 {run.ContainersUpserted}, {run.TasksCreated}, {run.TasksUpdated}, {run.ClientsCreated}, {run.ParentsFetched})
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task UpdateAsync(ClickUpSyncRun run, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            update clickup_sync_run set
+                finished_at = {run.FinishedAt},
+                status = {run.Status},
+                summary = {run.Summary},
+                log = {run.Log},
+                containers_upserted = {run.ContainersUpserted},
+                tasks_created = {run.TasksCreated},
+                tasks_updated = {run.TasksUpdated},
+                clients_created = {run.ClientsCreated},
+                parents_fetched = {run.ParentsFetched}
+            where id = {run.Id}
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<ClickUpSyncRun?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"select * from clickup_sync_run where id = {id}");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<ClickUpSyncRun>(
+            new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<ClickUpSyncRun>> ListRecentAsync(
+        Guid agencyId, int limit = 20, CancellationToken ct = default)
+    {
+        var capped = Math.Clamp(limit, 1, 100);
+        var builder = SimpleBuilder.Create($"""
+            select * from clickup_sync_run
+            where agency_id = {agencyId}
+            order by started_at desc
+            limit {capped}
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<ClickUpSyncRun>(
+            new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
         return rows.ToList();
     }
 }
