@@ -924,6 +924,16 @@ function statusSlug(status: string) {
   return status.toLowerCase().replace(/\s+/g, '-')
 }
 
+function invertStatusFilters() {
+  const all = filterOptions.value?.statuses ?? []
+  const selected = new Set(statusFilters.value)
+  statusFilters.value = all.filter((s) => !selected.has(s))
+}
+
+function selectAllStatusFilters() {
+  statusFilters.value = [...(filterOptions.value?.statuses ?? [])]
+}
+
 function openClient(clientId: string) {
   clientFilter.value = clientId
   viewMode.value = 'list'
@@ -1144,6 +1154,20 @@ function openDoneMonth(month: string) {
               />
               {{ status }}
             </label>
+          </div>
+          <div class="status-popover-actions">
+            <button
+              type="button"
+              class="status-action"
+              data-testid="tasks-status-filter-all"
+              @click="selectAllStatusFilters"
+            >All</button>
+            <button
+              type="button"
+              class="status-action"
+              data-testid="tasks-status-filter-invert"
+              @click="invertStatusFilters"
+            >Invert</button>
           </div>
         </div>
       </div>
@@ -1935,6 +1959,25 @@ function openDoneMonth(month: string) {
   align-items: flex-start;
 }
 .status-checks .check { padding-bottom: 0; }
+.status-popover-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+.status-action {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.status-action:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
 .toggle-field {
   display: flex;
   flex-direction: column;
