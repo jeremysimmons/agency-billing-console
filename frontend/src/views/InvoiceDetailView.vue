@@ -1240,20 +1240,23 @@ const contentError = computed(() => tasksError.value || linesError.value)
 .manual-fields button:disabled { opacity: 0.6; cursor: default; }
 .flat-fee-tag { font-size: 0.8rem; margin-left: 0.25rem; }
 .task-clickup-id { margin-left: 0.4em; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-.grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; vertical-align: middle; }
+.grid { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: none; vertical-align: middle; }
 .grid th.num, .grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.grid thead th { font-weight: 600; border-bottom: 2px solid #e5e7eb; }
+.grid thead tr { border-bottom: 2px solid #e5e7eb; }
+.grid tbody tr { border-bottom: 1px solid #eee; }
+.grid thead th { font-weight: 600; }
 .client-header th {
   padding-top: 1.25rem;
   font-size: 1.1rem;
   font-weight: 600;
-  border-bottom: 1px solid #e5e7eb;
   background: transparent;
 }
+.client-header { border-bottom: 1px solid #e5e7eb; }
 .drag-col { width: 1.75rem; }
 .actions-col, .actions-cell { width: 7.5rem; text-align: right; white-space: nowrap; }
-.actions-cell { display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
+.actions-cell { white-space: nowrap; }
+.actions-cell .link-btn + .link-btn { margin-left: 0.5rem; }
 .drag-handle {
   display: inline-flex;
   align-items: center;
@@ -1265,7 +1268,7 @@ const contentError = computed(() => tasksError.value || linesError.value)
 }
 .drag-handle:active { cursor: grabbing; }
 .manual-row--dragging { opacity: 0.55; }
-.manual-row--drag-over td {
+.manual-row--drag-over {
   box-shadow: inset 0 2px 0 #059669;
 }
 .title-input,
@@ -1281,13 +1284,11 @@ const contentError = computed(() => tasksError.value || linesError.value)
 }
 .title-input { width: 100%; min-width: 0; }
 .billing-cell {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.35rem;
+  white-space: nowrap;
 }
-.billing-mode-select { width: 4.75rem; }
-.fee-input { width: 4.5rem; text-align: right; }
+.billing-cell > * + * { margin-left: 0.35rem; }
+.billing-mode-select { width: 4.75rem; vertical-align: middle; }
+.fee-input { width: 4.5rem; text-align: right; vertical-align: middle; }
 .discount-cell { width: 6.5rem; }
 .discount-input {
   width: 4.5rem;
@@ -1304,7 +1305,9 @@ const contentError = computed(() => tasksError.value || linesError.value)
 }
 .link-btn.danger { color: #dc2626; }
 .link-btn:disabled { opacity: 0.5; cursor: default; }
-.group-subtotal td { font-weight: 600; border-bottom: none; padding-top: 0.75rem; }
-.grand td { font-weight: 700; border-bottom: none; border-top: 2px solid #e5e7eb; font-size: 1.05rem; padding-top: 1rem; }
+.group-subtotal { border-bottom: none; }
+.group-subtotal td { font-weight: 600; padding-top: 0.75rem; }
+.grand { border-bottom: none; border-top: 2px solid #e5e7eb; }
+.grand td { font-weight: 700; font-size: 1.05rem; padding-top: 1rem; }
 a { color: #10b981; }
 </style>
