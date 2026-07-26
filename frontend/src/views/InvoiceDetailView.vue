@@ -2,9 +2,15 @@
 import { computed, ref } from 'vue'
 import { useInvoices, useUpdateInvoice } from '../queries/invoices'
 import { useTasks, useUpdateTaskDiscount } from '../queries/tasks'
-import type { InvoiceStatus, WorkTask } from '../api/types'
+import type { IncludeNonBillableTasks, InvoiceStatus, WorkTask } from '../api/types'
 
 const props = defineProps<{ id: string }>()
+
+const INCLUDE_NON_BILLABLE_OPTIONS: { value: IncludeNonBillableTasks; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'detail', label: 'Detail' },
+  { value: 'summary', label: 'Summary' },
+]
 
 const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = useInvoices()
 const invoice = computed(() => invoices.value?.find((i) => i.id === props.id))
@@ -21,6 +27,8 @@ const savingDiscountId = ref<string | null>(null)
 const discountErrors = ref<Record<string, string>>({})
 const savingRate = ref(false)
 const rateError = ref('')
+const savingIncludeNonBillable = ref(false)
+const includeNonBillableError = ref('')
 
 function toApiStatus(status: string): InvoiceStatus {
   const s = status.trim().toLowerCase().replaceAll(' ', '-').replaceAll('_', '-')
@@ -30,13 +38,28 @@ function toApiStatus(status: string): InvoiceStatus {
   return 'preparing'
 }
 
+function toIncludeNonBillable(value: string | null | undefined): IncludeNonBillableTasks {
+  const v = (value ?? '').trim().toLowerCase()
+  if (v === 'detail' || v === 'summary') return v
+  return 'none'
+}
+
+function isNonBillableTask(task: WorkTask) {
+  return (task.bill ?? '').trim().toLowerCase() === 'no'
+}
+
 interface LineRow {
-  task: WorkTask
+  key: string
+  task: WorkTask | null
+  projectName: string | null
+  title: string
   hours: number
   rate: number
   discountPercent: number
   subtotal: number
   isFlatFee: boolean
+  isNonBillable: boolean
+  allowDiscount: boolean
 }
 
 interface ClientGroup {
@@ -59,10 +82,12 @@ function lineSubtotal(units: number, rate: number, discountPercent: number) {
 }
 
 const invoiceRate = computed(() => invoice.value?.effectiveRate ?? null)
+const includeMode = computed(() => toIncludeNonBillable(invoice.value?.includeNonBillableTasks))
 
 const clientGroups = computed((): ClientGroup[] => {
   const list = tasks.value ?? []
   const hourlyRate = invoiceRate.value
+  const mode = includeMode.value
 
   const byClient = new Map<string, WorkTask[]>()
   for (const t of list) {
@@ -79,31 +104,81 @@ const clientGroups = computed((): ClientGroup[] => {
       if (projectCmp !== 0) return projectCmp
       return compareDate(a.dateDone, b.dateDone)
     })
+
+    const billable = sorted.filter((t) => !isNonBillableTask(t))
+    const nonBillable = sorted.filter((t) => isNonBillableTask(t))
+
     const rows: LineRow[] = []
-    for (const task of sorted) {
+    for (const task of billable) {
       const discountPercent = task.discountPercent ?? 0
       if (task.flatFee != null) {
         rows.push({
+          key: task.id,
           task,
+          projectName: task.projectName,
+          title: task.title,
           hours: 1,
           rate: task.flatFee,
           discountPercent,
           subtotal: lineSubtotal(1, task.flatFee, discountPercent),
           isFlatFee: true,
+          isNonBillable: false,
+          allowDiscount: true,
         })
         continue
       }
       if (hourlyRate == null) continue
       const hours = task.billableHours ?? 0
       rows.push({
+        key: task.id,
         task,
+        projectName: task.projectName,
+        title: task.title,
         hours,
         rate: hourlyRate,
         discountPercent,
         subtotal: lineSubtotal(hours, hourlyRate, discountPercent),
         isFlatFee: false,
+        isNonBillable: false,
+        allowDiscount: true,
       })
     }
+
+    if (mode === 'detail') {
+      for (const task of nonBillable) {
+        const hours = task.nonBillableHours ?? 0
+        rows.push({
+          key: task.id,
+          task,
+          projectName: task.projectName,
+          title: task.title,
+          hours,
+          rate: 0,
+          discountPercent: 0,
+          subtotal: 0,
+          isFlatFee: false,
+          isNonBillable: true,
+          allowDiscount: false,
+        })
+      }
+    } else if (mode === 'summary' && nonBillable.length > 0) {
+      const hours = nonBillable.reduce((sum, t) => sum + (t.nonBillableHours ?? 0), 0)
+      const count = nonBillable.length
+      rows.push({
+        key: `non-billable-summary-${clientId}`,
+        task: null,
+        projectName: null,
+        title: `${count} non-billable task${count === 1 ? '' : 's'}`,
+        hours,
+        rate: 0,
+        discountPercent: 0,
+        subtotal: 0,
+        isFlatFee: false,
+        isNonBillable: true,
+        allowDiscount: false,
+      })
+    }
+
     if (rows.length === 0) continue
     const hours = rows.reduce((sum, r) => sum + r.hours, 0)
     const subtotal = rows.reduce((sum, r) => sum + r.subtotal, 0)
@@ -158,6 +233,23 @@ function parseRate(raw: string): number | null | undefined {
   return n
 }
 
+async function persistInvoice(patch: {
+  rate?: number | null
+  includeNonBillableTasks?: IncludeNonBillableTasks
+}) {
+  const inv = invoice.value
+  if (!inv) return
+  await updateInvoice.mutateAsync({
+    id: inv.id,
+    name: inv.name,
+    status: toApiStatus(inv.status),
+    isDefault: !!inv.isDefault,
+    rate: patch.rate !== undefined ? patch.rate : (inv.rate ?? null),
+    includeNonBillableTasks: patch.includeNonBillableTasks
+      ?? toIncludeNonBillable(inv.includeNonBillableTasks),
+  })
+}
+
 async function onRateChange(raw: string) {
   const inv = invoice.value
   if (!inv) return
@@ -173,17 +265,27 @@ async function onRateChange(raw: string) {
   savingRate.value = true
   rateError.value = ''
   try {
-    await updateInvoice.mutateAsync({
-      id: inv.id,
-      name: inv.name,
-      status: toApiStatus(inv.status),
-      isDefault: !!inv.isDefault,
-      rate,
-    })
+    await persistInvoice({ rate })
   } catch (e: any) {
     rateError.value = e?.response?.data?.error ?? 'Could not update rate.'
   } finally {
     savingRate.value = false
+  }
+}
+
+async function onIncludeNonBillableChange(value: string) {
+  const inv = invoice.value
+  if (!inv) return
+  const mode = toIncludeNonBillable(value)
+  if (toIncludeNonBillable(inv.includeNonBillableTasks) === mode) return
+  savingIncludeNonBillable.value = true
+  includeNonBillableError.value = ''
+  try {
+    await persistInvoice({ includeNonBillableTasks: mode })
+  } catch (e: any) {
+    includeNonBillableError.value = e?.response?.data?.error ?? 'Could not update setting.'
+  } finally {
+    savingIncludeNonBillable.value = false
   }
 }
 
@@ -222,31 +324,56 @@ async function onDiscountChange(task: WorkTask, raw: string) {
       <p class="meta" data-testid="invoice-detail-meta">
         Status: {{ invoice.status }}
       </p>
-      <div class="rate-row" data-testid="invoice-detail-rate-row">
-        <label class="rate-label" for="invoice-detail-rate">Hourly rate</label>
-        <input
-          id="invoice-detail-rate"
-          type="number"
-          step="0.01"
-          min="0"
-          class="rate-input"
-          :value="invoice.rate ?? ''"
-          :placeholder="String(invoice.effectiveRate)"
-          :disabled="savingRate"
-          data-testid="invoice-detail-rate"
-          aria-label="Invoice hourly rate"
-          @blur="onRateChange(($event.target as HTMLInputElement).value)"
-        />
-        <span
-          v-if="invoice.rate == null"
-          class="muted rate-hint"
-          data-testid="invoice-detail-rate-default-hint"
-        >Using default ({{ formatRate(invoice.effectiveRate) }})</span>
-        <span
-          v-if="rateError"
-          class="error inline"
-          data-testid="invoice-detail-rate-error"
-        >{{ rateError }}</span>
+      <div class="settings-row" data-testid="invoice-detail-settings">
+        <div class="setting" data-testid="invoice-detail-rate-row">
+          <label class="setting-label" for="invoice-detail-rate">Hourly rate</label>
+          <input
+            id="invoice-detail-rate"
+            type="number"
+            step="0.01"
+            min="0"
+            class="rate-input"
+            :value="invoice.rate ?? ''"
+            :placeholder="String(invoice.effectiveRate)"
+            :disabled="savingRate"
+            data-testid="invoice-detail-rate"
+            aria-label="Invoice hourly rate"
+            @blur="onRateChange(($event.target as HTMLInputElement).value)"
+          />
+          <span
+            v-if="invoice.rate == null"
+            class="muted setting-hint"
+            data-testid="invoice-detail-rate-default-hint"
+          >Using default ({{ formatRate(invoice.effectiveRate) }})</span>
+          <span
+            v-if="rateError"
+            class="error inline"
+            data-testid="invoice-detail-rate-error"
+          >{{ rateError }}</span>
+        </div>
+        <div class="setting" data-testid="invoice-detail-include-non-billable-row">
+          <label class="setting-label" for="invoice-detail-include-non-billable">Include Non-Billable Tasks</label>
+          <select
+            id="invoice-detail-include-non-billable"
+            class="setting-select"
+            :value="includeMode"
+            :disabled="savingIncludeNonBillable"
+            data-testid="invoice-detail-include-non-billable"
+            aria-label="Include non-billable tasks"
+            @change="onIncludeNonBillableChange(($event.target as HTMLSelectElement).value)"
+          >
+            <option
+              v-for="opt in INCLUDE_NON_BILLABLE_OPTIONS"
+              :key="opt.value"
+              :value="opt.value"
+            >{{ opt.label }}</option>
+          </select>
+          <span
+            v-if="includeNonBillableError"
+            class="error inline"
+            data-testid="invoice-detail-include-non-billable-error"
+          >{{ includeNonBillableError }}</span>
+        </div>
       </div>
 
       <p v-if="tasksLoading" data-testid="invoice-detail-tasks-loading">Loading tasks…</p>
@@ -284,35 +411,62 @@ async function onDiscountChange(task: WorkTask, raw: string) {
             </tr>
             <tr
               v-for="row in group.rows"
-              :key="row.task.id"
-              :data-testid="`invoice-task-row-${row.task.id}`"
+              :key="row.key"
+              :class="{ 'non-billable-row': row.isNonBillable }"
+              :data-testid="row.task ? `invoice-task-row-${row.task.id}` : `invoice-non-billable-summary-${group.clientId}`"
             >
-              <td :data-testid="`invoice-task-project-${row.task.id}`">{{ row.task.projectName ?? '—' }}</td>
-              <td :data-testid="`invoice-task-title-${row.task.id}`">{{ row.task.title }}</td>
-              <td class="num" :data-testid="`invoice-task-hours-${row.task.id}`">{{ formatHours(row.hours) }}</td>
-              <td class="num" :data-testid="`invoice-task-rate-${row.task.id}`">
+              <td :data-testid="row.task ? `invoice-task-project-${row.task.id}` : undefined">
+                {{ row.projectName ?? '—' }}
+              </td>
+              <td :data-testid="row.task ? `invoice-task-title-${row.task.id}` : undefined">
+                <template v-if="row.task">
+                  <RouterLink
+                    v-if="row.task.clickUpTaskId"
+                    :to="{
+                      path: '/tasks',
+                      query: {
+                        clickUpId: row.task.clickUpTaskId,
+                        missingOnly: 'false',
+                        invoiced: ['paid', 'pending', 'none'],
+                      },
+                    }"
+                    :data-testid="`invoice-task-title-link-${row.task.id}`"
+                  >{{ row.title }}</RouterLink>
+                  <template v-else>{{ row.title }}</template>
+                </template>
+                <template v-else>{{ row.title }}</template>
+              </td>
+              <td class="num" :data-testid="row.task ? `invoice-task-hours-${row.task.id}` : undefined">
+                {{ formatHours(row.hours) }}
+              </td>
+              <td class="num" :data-testid="row.task ? `invoice-task-rate-${row.task.id}` : undefined">
                 {{ formatRate(row.rate) }}<span v-if="row.isFlatFee" class="muted flat-fee-tag"> flat</span>
               </td>
               <td class="num discount-cell">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  class="discount-input"
-                  :value="row.discountPercent"
-                  :disabled="savingDiscountId === row.task.id"
-                  :data-testid="`invoice-task-discount-${row.task.id}`"
-                  :aria-label="`Discount for ${row.task.title}`"
-                  @blur="onDiscountChange(row.task, ($event.target as HTMLInputElement).value)"
-                />
-                <span
-                  v-if="discountErrors[row.task.id]"
-                  class="error inline"
-                  :data-testid="`invoice-task-discount-error-${row.task.id}`"
-                >{{ discountErrors[row.task.id] }}</span>
+                <template v-if="row.allowDiscount && row.task">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    class="discount-input"
+                    :value="row.discountPercent"
+                    :disabled="savingDiscountId === row.task.id"
+                    :data-testid="`invoice-task-discount-${row.task.id}`"
+                    :aria-label="`Discount for ${row.title}`"
+                    @blur="onDiscountChange(row.task, ($event.target as HTMLInputElement).value)"
+                  />
+                  <span
+                    v-if="discountErrors[row.task.id]"
+                    class="error inline"
+                    :data-testid="`invoice-task-discount-error-${row.task.id}`"
+                  >{{ discountErrors[row.task.id] }}</span>
+                </template>
+                <span v-else class="muted">—</span>
               </td>
-              <td class="num" :data-testid="`invoice-task-subtotal-${row.task.id}`">{{ formatMoney(row.subtotal) }}</td>
+              <td class="num" :data-testid="row.task ? `invoice-task-subtotal-${row.task.id}` : undefined">
+                {{ formatMoney(row.subtotal) }}
+              </td>
             </tr>
             <tr class="group-subtotal" :data-testid="`invoice-client-subtotal-${group.clientId}`">
               <td colspan="2">Client subtotal</td>
@@ -341,14 +495,19 @@ async function onDiscountChange(task: WorkTask, raw: string) {
 .meta, .muted { color: #6b7280; font-size: 0.9rem; }
 .error { color: #dc2626; }
 .error.inline { display: block; margin-top: 0.25rem; font-size: 0.85rem; }
-.rate-row {
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.setting {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
-  margin: 0.75rem 0 1.25rem;
 }
-.rate-label { font-weight: 600; }
+.setting-label { font-weight: 600; }
 .rate-input {
   width: 6rem;
   padding: 0.35rem 0.5rem;
@@ -357,7 +516,14 @@ async function onDiscountChange(task: WorkTask, raw: string) {
   font: inherit;
   text-align: right;
 }
-.rate-hint { font-size: 0.85rem; }
+.setting-select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+}
+.setting-hint { font-size: 0.85rem; }
 .flat-fee-tag { font-size: 0.8rem; margin-left: 0.25rem; }
 .grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }

@@ -273,9 +273,10 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
     public async Task<Guid> InsertAsync(Invoice invoice, CancellationToken ct = default)
     {
         var status = invoice.Status.Value;
+        var includeNonBillable = invoice.IncludeNonBillableTasks.Value;
         var builder = SimpleBuilder.Create($"""
-            insert into invoice (id, name, status, sort_order, is_default, rate, created_at, updated_at)
-            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.IsDefault}, {invoice.Rate}, {invoice.CreatedAt}, {invoice.UpdatedAt})
+            insert into invoice (id, name, status, sort_order, is_default, rate, include_non_billable_tasks, created_at, updated_at)
+            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.IsDefault}, {invoice.Rate}, {includeNonBillable}, {invoice.CreatedAt}, {invoice.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -285,10 +286,12 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
     public async Task UpdateAsync(Invoice invoice, CancellationToken ct = default)
     {
         var status = invoice.Status.Value;
+        var includeNonBillable = invoice.IncludeNonBillableTasks.Value;
         var builder = SimpleBuilder.Create($"""
             update invoice
             set name = {invoice.Name}, status = {status}, sort_order = {invoice.SortOrder},
-                is_default = {invoice.IsDefault}, rate = {invoice.Rate}, updated_at = {invoice.UpdatedAt}
+                is_default = {invoice.IsDefault}, rate = {invoice.Rate},
+                include_non_billable_tasks = {includeNonBillable}, updated_at = {invoice.UpdatedAt}
             where id = {invoice.Id}
             """);
         using var conn = await factory.OpenAsync(ct);

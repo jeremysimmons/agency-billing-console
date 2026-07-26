@@ -63,11 +63,28 @@ public sealed record CreateProjectRequest(Guid ClientId, string Name);
 public sealed record UpdateProjectRequest(string Name, Guid ClientId);
 public sealed record ProjectDto(Guid Id, Guid ClientId, string ClientName, string Name);
 
-public sealed record CreateInvoiceRequest(string Name, InvoiceStatus? Status = null, bool IsDefault = false, decimal? Rate = null);
-public sealed record UpdateInvoiceRequest(string Name, InvoiceStatus Status, bool IsDefault = false, decimal? Rate = null);
+public sealed record CreateInvoiceRequest(
+    string Name,
+    InvoiceStatus? Status = null,
+    bool IsDefault = false,
+    decimal? Rate = null,
+    IncludeNonBillableTasks? IncludeNonBillableTasks = null);
+public sealed record UpdateInvoiceRequest(
+    string Name,
+    InvoiceStatus Status,
+    bool IsDefault = false,
+    decimal? Rate = null,
+    IncludeNonBillableTasks? IncludeNonBillableTasks = null);
 public sealed record ReorderInvoicesRequest(IReadOnlyList<Guid> OrderedIds);
 public sealed record InvoiceDto(
-    Guid Id, string Name, InvoiceStatus Status, int SortOrder, bool IsDefault, decimal? Rate, decimal EffectiveRate);
+    Guid Id,
+    string Name,
+    InvoiceStatus Status,
+    int SortOrder,
+    bool IsDefault,
+    decimal? Rate,
+    decimal EffectiveRate,
+    IncludeNonBillableTasks IncludeNonBillableTasks);
 
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,

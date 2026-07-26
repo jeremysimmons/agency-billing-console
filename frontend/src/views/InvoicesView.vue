@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useInvoices, useCreateInvoice, useUpdateInvoice, useReorderInvoices } from '../queries/invoices'
-import type { Invoice, InvoiceStatus } from '../api/types'
+import type { IncludeNonBillableTasks, Invoice, InvoiceStatus } from '../api/types'
 
 const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
   { value: 'preparing', label: 'preparing' },
@@ -60,6 +60,12 @@ function toApiStatus(status: string): InvoiceStatus {
   }
 }
 
+function toIncludeNonBillable(value: string | null | undefined): IncludeNonBillableTasks {
+  const v = (value ?? '').trim().toLowerCase()
+  if (v === 'detail' || v === 'summary') return v
+  return 'none'
+}
+
 function isNoneInvoice(inv: Invoice) {
   return inv.name.trim().toLowerCase() === 'none'
 }
@@ -90,6 +96,7 @@ async function onStatusChange(inv: Invoice, value: string) {
       status,
       isDefault: status === 'preparing' ? !!inv.isDefault : false,
       rate: inv.rate ?? null,
+      includeNonBillableTasks: toIncludeNonBillable(inv.includeNonBillableTasks),
     })
   } catch (e: any) {
     statusErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update status.'
@@ -110,6 +117,7 @@ async function onDefaultChange(inv: Invoice, checked: boolean) {
       status: toApiStatus(inv.status),
       isDefault: checked,
       rate: inv.rate ?? null,
+      includeNonBillableTasks: toIncludeNonBillable(inv.includeNonBillableTasks),
     })
   } catch (e: any) {
     defaultErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update default.'
@@ -146,6 +154,7 @@ async function onRateChange(inv: Invoice, raw: string) {
       status: toApiStatus(inv.status),
       isDefault: !!inv.isDefault,
       rate,
+      includeNonBillableTasks: toIncludeNonBillable(inv.includeNonBillableTasks),
     })
   } catch (e: any) {
     rateErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update rate.'
@@ -231,7 +240,7 @@ function onDragEnd() {
           <th>Name</th>
           <th>Status</th>
           <th class="num">Rate</th>
-          <th>Default</th>
+          <th class="default-col">Default</th>
         </tr>
       </thead>
       <tbody>
@@ -391,10 +400,12 @@ button:disabled { opacity: 0.6; cursor: default; }
   text-align: right;
 }
 .grid th.num { text-align: right; }
-.default-cell { width: 1%; white-space: nowrap; vertical-align: middle; }
+.default-col,
+.default-cell { width: 1%; white-space: nowrap; text-align: center; vertical-align: middle; }
 .default-cell input[type="checkbox"] {
   width: 2em;
   height: 2em;
+  vertical-align: middle;
 }
 .status-select {
   padding: 0.35rem 0.5rem;

@@ -258,6 +258,10 @@ public sealed class InvoiceService(
         if (request.Rate is < 0)
             throw new DomainException("Invoice rate cannot be negative.");
 
+        var includeNonBillable = request.IncludeNonBillableTasks ?? IncludeNonBillableTasks.None;
+        if (!IncludeNonBillableTasks.All.Contains(includeNonBillable))
+            throw new DomainException("Include non-billable tasks must be none, detail, or summary.");
+
         if (isDefault)
             await invoices.ClearDefaultsAsync(ct);
 
@@ -270,6 +274,7 @@ public sealed class InvoiceService(
             SortOrder = await invoices.GetNextSortOrderAsync(ct),
             IsDefault = isDefault,
             Rate = request.Rate,
+            IncludeNonBillableTasks = includeNonBillable,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -295,6 +300,10 @@ public sealed class InvoiceService(
         if (request.Rate is < 0)
             throw new DomainException("Invoice rate cannot be negative.");
 
+        var includeNonBillable = request.IncludeNonBillableTasks ?? IncludeNonBillableTasks.None;
+        if (!IncludeNonBillableTasks.All.Contains(includeNonBillable))
+            throw new DomainException("Include non-billable tasks must be none, detail, or summary.");
+
         var isDefault = request.IsDefault;
         if (request.Status != InvoiceStatus.Preparing)
             isDefault = false;
@@ -310,6 +319,7 @@ public sealed class InvoiceService(
         invoice.Status = request.Status;
         invoice.IsDefault = isDefault;
         invoice.Rate = request.Rate;
+        invoice.IncludeNonBillableTasks = includeNonBillable;
         invoice.UpdatedAt = clock.UtcNow;
         await invoices.UpdateAsync(invoice, ct);
         return Map(invoice);
@@ -331,7 +341,7 @@ public sealed class InvoiceService(
     }
 
     private InvoiceDto Map(Invoice i) =>
-        new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault, i.Rate, i.Rate ?? DefaultRate);
+        new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault, i.Rate, i.Rate ?? DefaultRate, i.IncludeNonBillableTasks);
 }
 
 public sealed class TaskService(

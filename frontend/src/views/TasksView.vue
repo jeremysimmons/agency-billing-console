@@ -130,7 +130,11 @@ const collapsedGroups = ref<Record<string, boolean>>(
     : {},
 )
 const projectFilter = ref(storedFilters.projectFilter || '')
-const clickUpIdFilter = ref(storedFilters.clickUpIdFilter || '')
+const clickUpIdFilter = ref(
+  (typeof route.query.clickUpId === 'string' ? route.query.clickUpId : '')
+    || storedFilters.clickUpIdFilter
+    || '',
+)
 const createdMonthFilter = ref(storedFilters.createdMonthFilter || '')
 const doneMonthFilter = ref(storedFilters.doneMonthFilter || '')
 const statusFilters = ref<string[]>(statusFiltersRestored ? [...storedFilters.statusFilters!] : [])
@@ -152,9 +156,10 @@ function clearScopeFilters() {
   projectFilter.value = ''
   clickUpIdFilter.value = ''
   clientFilter.value = ''
-  if (route.query.clientId) {
+  if (route.query.clientId || route.query.clickUpId) {
     const query = { ...route.query }
     delete query.clientId
+    delete query.clickUpId
     router.replace({ path: '/tasks', query })
   }
 }
@@ -191,6 +196,19 @@ watch(
   () => [route.query.listId, route.query.folderId, route.query.spaceId, route.query.missingOnly, route.query.invoiced] as const,
   () => {
     if (!route.query.listId && !route.query.folderId && !route.query.spaceId) return
+    if (route.query.missingOnly === 'false') missingOnly.value = false
+    else if (route.query.missingOnly === 'true') missingOnly.value = true
+    if (route.query.invoiced != null) {
+      invoicedFilters.value = normalizeInvoicedFilters(route.query.invoiced)
+    }
+  },
+)
+
+watch(
+  () => route.query.clickUpId,
+  (value) => {
+    if (typeof value !== 'string') return
+    clickUpIdFilter.value = value
     if (route.query.missingOnly === 'false') missingOnly.value = false
     else if (route.query.missingOnly === 'true') missingOnly.value = true
     if (route.query.invoiced != null) {

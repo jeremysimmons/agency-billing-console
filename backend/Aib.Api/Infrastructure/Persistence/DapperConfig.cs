@@ -28,6 +28,7 @@ public static class DapperConfig
         DefaultTypeMap.MatchNamesWithUnderscores = true;
         SqlMapper.AddTypeHandler(new EnumStringHandler<Domain.ClientStatus>());
         SqlMapper.AddTypeHandler(new InvoiceStatusHandler());
+        SqlMapper.AddTypeHandler(new IncludeNonBillableTasksHandler());
     }
 }
 
@@ -41,4 +42,16 @@ public sealed class InvoiceStatusHandler : SqlMapper.TypeHandler<InvoiceStatus>
 
     public override InvoiceStatus Parse(object value) =>
         InvoiceStatus.Parse(value?.ToString());
+}
+
+public sealed class IncludeNonBillableTasksHandler : SqlMapper.TypeHandler<IncludeNonBillableTasks>
+{
+    public override void SetValue(IDbDataParameter parameter, IncludeNonBillableTasks value)
+    {
+        parameter.DbType = DbType.String;
+        parameter.Value = value.Value;
+    }
+
+    public override IncludeNonBillableTasks Parse(object value) =>
+        IncludeNonBillableTasks.Parse(value?.ToString());
 }

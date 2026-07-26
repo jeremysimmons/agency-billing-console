@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import { http } from '../api/http'
-import type { Invoice, InvoiceStatus } from '../api/types'
+import type { IncludeNonBillableTasks, Invoice, InvoiceStatus } from '../api/types'
 
 export function useInvoices() {
   return useQuery({
@@ -12,7 +12,12 @@ export function useInvoices() {
 export function useCreateInvoice() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async (input: { name: string; status?: InvoiceStatus; isDefault?: boolean }) =>
+    mutation: async (input: {
+      name: string
+      status?: InvoiceStatus
+      isDefault?: boolean
+      includeNonBillableTasks?: IncludeNonBillableTasks
+    }) =>
       (await http.post<Invoice>('/invoices', input)).data,
     onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
   })
@@ -27,13 +32,21 @@ export function useUpdateInvoice() {
       status,
       isDefault,
       rate,
+      includeNonBillableTasks,
     }: {
       id: string
       name: string
       status: InvoiceStatus
       isDefault: boolean
       rate: number | null
-    }) => (await http.put<Invoice>(`/invoices/${id}`, { name, status, isDefault, rate })).data,
+      includeNonBillableTasks: IncludeNonBillableTasks
+    }) => (await http.put<Invoice>(`/invoices/${id}`, {
+      name,
+      status,
+      isDefault,
+      rate,
+      includeNonBillableTasks,
+    })).data,
     onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
   })
 }

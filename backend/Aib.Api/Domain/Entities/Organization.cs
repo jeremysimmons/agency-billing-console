@@ -57,6 +57,7 @@ public class Invoice
     public int SortOrder { get; set; }
     public bool IsDefault { get; set; }
     public decimal? Rate { get; set; }
+    public IncludeNonBillableTasks IncludeNonBillableTasks { get; set; } = IncludeNonBillableTasks.None;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

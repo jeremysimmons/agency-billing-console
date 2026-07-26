@@ -31,6 +31,7 @@ export interface Project {
 }
 
 export type InvoiceStatus = 'preparing' | 'sent' | 'partially-paid' | 'fully-paid'
+export type IncludeNonBillableTasks = 'none' | 'detail' | 'summary'
 
 export interface Invoice {
   id: string
@@ -40,6 +41,7 @@ export interface Invoice {
   isDefault: boolean
   rate: number | null
   effectiveRate: number
+  includeNonBillableTasks: IncludeNonBillableTasks | string
 }
 
 export interface WorkTask {

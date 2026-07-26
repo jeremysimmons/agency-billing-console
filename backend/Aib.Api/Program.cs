@@ -11,6 +11,8 @@ builder.Services.AddControllers()
         o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
         o.JsonSerializerOptions.Converters.Add(new Aib.Api.Serialization.InvoiceStatusJsonConverter());
         o.JsonSerializerOptions.Converters.Add(new Aib.Api.Serialization.NullableInvoiceStatusJsonConverter());
+        o.JsonSerializerOptions.Converters.Add(new Aib.Api.Serialization.IncludeNonBillableTasksJsonConverter());
+        o.JsonSerializerOptions.Converters.Add(new Aib.Api.Serialization.NullableIncludeNonBillableTasksJsonConverter());
     });
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplicationServices();
