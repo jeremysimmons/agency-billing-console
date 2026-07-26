@@ -820,10 +820,8 @@ watch(clientFilter, () => {
 watch(
   () => filterOptions.value?.statuses,
   (statuses) => {
-    if (!statuses?.length) {
-      statusFilters.value = []
-      return
-    }
+    // Options still loading — keep restored selection; do not wipe/persist empty.
+    if (!statuses?.length) return
     const available = new Set(statuses)
     const kept = statusFilters.value.filter((s) => available.has(s))
     if (statusFiltersRestored) {
