@@ -86,6 +86,37 @@ public sealed record InvoiceDto(
     decimal EffectiveRate,
     IncludeNonBillableTasks IncludeNonBillableTasks);
 
+public sealed record CreateInvoiceLineRequest(
+    Guid ClientId,
+    Guid? ProjectId,
+    string Title,
+    decimal Hours = 0,
+    decimal? FlatFee = null,
+    decimal DiscountPercent = 0);
+
+public sealed record UpdateInvoiceLineRequest(
+    Guid ClientId,
+    Guid? ProjectId,
+    string Title,
+    decimal Hours = 0,
+    decimal? FlatFee = null,
+    decimal DiscountPercent = 0);
+
+public sealed record ReorderInvoiceLinesRequest(IReadOnlyList<Guid> OrderedIds);
+
+public sealed record InvoiceLineDto(
+    Guid Id,
+    Guid InvoiceId,
+    Guid ClientId,
+    string ClientName,
+    Guid? ProjectId,
+    string? ProjectName,
+    string Title,
+    decimal Hours,
+    decimal? FlatFee,
+    decimal DiscountPercent,
+    int SortOrder);
+
 public sealed record UpdateTaskPrepRequest(
     Guid? ProjectId, string? Bill, decimal? BillableHours, decimal? NonBillableHours,
     string? InvoiceLabel, decimal? FlatFee, string? Note);

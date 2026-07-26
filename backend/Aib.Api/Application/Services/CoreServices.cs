@@ -344,6 +344,175 @@ public sealed class InvoiceService(
         new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault, i.Rate, i.Rate ?? DefaultRate, i.IncludeNonBillableTasks);
 }
 
+public sealed class InvoiceLineService(
+    IInvoiceLineRepository lines,
+    IInvoiceRepository invoices,
+    IClientRepository clients,
+    IProjectRepository projects,
+    IClock clock)
+{
+    public async Task<IReadOnlyList<InvoiceLineDto>> ListAsync(Guid invoiceId, CancellationToken ct = default)
+    {
+        _ = await invoices.GetByIdAsync(invoiceId, ct)
+            ?? throw new NotFoundException("Invoice not found.");
+        var list = await lines.ListByInvoiceAsync(invoiceId, ct);
+        return await MapManyAsync(list, ct);
+    }
+
+    public async Task<InvoiceLineDto> CreateAsync(
+        Guid invoiceId, CreateInvoiceLineRequest request, CancellationToken ct = default)
+    {
+        _ = await invoices.GetByIdAsync(invoiceId, ct)
+            ?? throw new NotFoundException("Invoice not found.");
+
+        var (client, project, title, hours, flatFee, discount) = await ValidateAsync(request, ct);
+
+        var now = clock.UtcNow;
+        var line = new InvoiceLine
+        {
+            Id = Guid.NewGuid(),
+            InvoiceId = invoiceId,
+            ClientId = client.Id,
+            ProjectId = project?.Id,
+            Title = title,
+            Hours = hours,
+            FlatFee = flatFee,
+            DiscountPercent = discount,
+            SortOrder = await lines.GetNextSortOrderAsync(invoiceId, ct),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        await lines.InsertAsync(line, ct);
+        return Map(line, client.Name, project?.Name);
+    }
+
+    public async Task<InvoiceLineDto> UpdateAsync(
+        Guid invoiceId, Guid id, UpdateInvoiceLineRequest request, CancellationToken ct = default)
+    {
+        var line = await lines.GetByIdAsync(id, ct)
+                   ?? throw new NotFoundException("Invoice line not found.");
+        if (line.InvoiceId != invoiceId)
+            throw new NotFoundException("Invoice line not found.");
+
+        var (client, project, title, hours, flatFee, discount) = await ValidateAsync(
+            new CreateInvoiceLineRequest(
+                request.ClientId, request.ProjectId, request.Title,
+                request.Hours, request.FlatFee, request.DiscountPercent),
+            ct);
+
+        line.ClientId = client.Id;
+        line.ProjectId = project?.Id;
+        line.Title = title;
+        line.Hours = hours;
+        line.FlatFee = flatFee;
+        line.DiscountPercent = discount;
+        line.UpdatedAt = clock.UtcNow;
+        await lines.UpdateAsync(line, ct);
+        return Map(line, client.Name, project?.Name);
+    }
+
+    public async Task DeleteAsync(Guid invoiceId, Guid id, CancellationToken ct = default)
+    {
+        var line = await lines.GetByIdAsync(id, ct)
+                   ?? throw new NotFoundException("Invoice line not found.");
+        if (line.InvoiceId != invoiceId)
+            throw new NotFoundException("Invoice line not found.");
+        await lines.DeleteAsync(id, ct);
+    }
+
+    public async Task<IReadOnlyList<InvoiceLineDto>> ReorderAsync(
+        Guid invoiceId, ReorderInvoiceLinesRequest request, CancellationToken ct = default)
+    {
+        _ = await invoices.GetByIdAsync(invoiceId, ct)
+            ?? throw new NotFoundException("Invoice not found.");
+
+        var orderedIds = request.OrderedIds ?? [];
+        var existing = await lines.ListByInvoiceAsync(invoiceId, ct);
+        if (orderedIds.Count != existing.Count
+            || orderedIds.Distinct().Count() != orderedIds.Count
+            || orderedIds.Any(id => existing.All(e => e.Id != id)))
+        {
+            throw new DomainException("Invoice line order must include each line exactly once.");
+        }
+
+        await lines.ReorderAsync(invoiceId, orderedIds, clock.UtcNow, ct);
+        return await MapManyAsync(await lines.ListByInvoiceAsync(invoiceId, ct), ct);
+    }
+
+    private async Task<(Client Client, Project? Project, string Title, decimal Hours, decimal? FlatFee, decimal Discount)>
+        ValidateAsync(CreateInvoiceLineRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title))
+            throw new DomainException("Line title is required.");
+
+        var client = await clients.GetByIdAsync(request.ClientId, ct)
+                     ?? throw new DomainException("Client not found.");
+
+        Project? project = null;
+        if (request.ProjectId is { } projectId)
+        {
+            project = await projects.GetByIdAsync(projectId, ct)
+                      ?? throw new DomainException("Project not found.");
+            if (project.ClientId != client.Id)
+            {
+                var projectClient = await clients.GetByIdAsync(project.ClientId, ct);
+                if (!SharedClients.IsShared(projectClient?.Name))
+                    throw new DomainException("Project must belong to the selected client, or Shared.");
+            }
+        }
+
+        if (request.Hours < 0)
+            throw new DomainException("Hours cannot be negative.");
+        if (request.FlatFee is < 0)
+            throw new DomainException("Flat fee cannot be negative.");
+        if (request.DiscountPercent is < 0 or > 100)
+            throw new DomainException("Discount must be between 0 and 100.");
+
+        if (request.FlatFee is null && request.Hours <= 0)
+            throw new DomainException("Enter hours or a flat fee.");
+
+        var hours = request.FlatFee is not null ? 0m : request.Hours;
+        var flatFee = request.FlatFee;
+        return (client, project, request.Title.Trim(), hours, flatFee, request.DiscountPercent);
+    }
+
+    private async Task<IReadOnlyList<InvoiceLineDto>> MapManyAsync(
+        IReadOnlyList<InvoiceLine> list, CancellationToken ct)
+    {
+        var clientNames = new Dictionary<Guid, string>();
+        var projectNames = new Dictionary<Guid, string?>();
+        var result = new List<InvoiceLineDto>(list.Count);
+        foreach (var line in list)
+        {
+            if (!clientNames.TryGetValue(line.ClientId, out var clientName))
+            {
+                var client = await clients.GetByIdAsync(line.ClientId, ct);
+                clientName = client?.Name ?? "Unknown";
+                clientNames[line.ClientId] = clientName;
+            }
+
+            string? projectName = null;
+            if (line.ProjectId is { } pid)
+            {
+                if (!projectNames.TryGetValue(pid, out projectName))
+                {
+                    var project = await projects.GetByIdAsync(pid, ct);
+                    projectName = project?.Name;
+                    projectNames[pid] = projectName;
+                }
+            }
+
+            result.Add(Map(line, clientName, projectName));
+        }
+        return result;
+    }
+
+    private static InvoiceLineDto Map(InvoiceLine line, string clientName, string? projectName) =>
+        new(
+            line.Id, line.InvoiceId, line.ClientId, clientName, line.ProjectId, projectName,
+            line.Title, line.Hours, line.FlatFee, line.DiscountPercent, line.SortOrder);
+}
+
 public sealed class TaskService(
     ITaskRepository tasks,
     IClientRepository clients,

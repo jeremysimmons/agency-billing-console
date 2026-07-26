@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<ClientService>();
         services.AddScoped<ProjectService>();
         services.AddScoped<InvoiceService>();
+        services.AddScoped<InvoiceLineService>();
         services.AddScoped<TaskService>();
         services.AddScoped<ClickUpSyncService>();
         services.AddScoped<CsvTaskImportService>();

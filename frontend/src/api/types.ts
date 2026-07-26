@@ -44,6 +44,20 @@ export interface Invoice {
   includeNonBillableTasks: IncludeNonBillableTasks | string
 }
 
+export interface InvoiceLine {
+  id: string
+  invoiceId: string
+  clientId: string
+  clientName: string
+  projectId: string | null
+  projectName: string | null
+  title: string
+  hours: number
+  flatFee: number | null
+  discountPercent: number
+  sortOrder: number
+}
+
 export interface WorkTask {
   id: string
   shortId: number

@@ -325,6 +325,100 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
     }
 }
 
+public sealed class InvoiceLineRepository(IDbConnectionFactory factory) : IInvoiceLineRepository
+{
+    public async Task<InvoiceLine?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"select * from invoice_line where id = {id}");
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<InvoiceLine>(
+            new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<InvoiceLine>> ListByInvoiceAsync(Guid invoiceId, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            select * from invoice_line
+            where invoice_id = {invoiceId}
+            order by sort_order, created_at
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        var rows = await conn.QueryAsync<InvoiceLine>(
+            new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        return rows.ToList();
+    }
+
+    public async Task<int> GetNextSortOrderAsync(Guid invoiceId, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            select coalesce(max(sort_order), -1) + 1 from invoice_line
+            where invoice_id = {invoiceId}
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(
+            new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task<Guid> InsertAsync(InvoiceLine line, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            insert into invoice_line
+                (id, invoice_id, client_id, project_id, title, hours, flat_fee, discount_percent, sort_order, created_at, updated_at)
+            values
+                ({line.Id}, {line.InvoiceId}, {line.ClientId}, {line.ProjectId}, {line.Title},
+                 {line.Hours}, {line.FlatFee}, {line.DiscountPercent}, {line.SortOrder}, {line.CreatedAt}, {line.UpdatedAt})
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+        return line.Id;
+    }
+
+    public async Task UpdateAsync(InvoiceLine line, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            update invoice_line
+            set client_id = {line.ClientId},
+                project_id = {line.ProjectId},
+                title = {line.Title},
+                hours = {line.Hours},
+                flat_fee = {line.FlatFee},
+                discount_percent = {line.DiscountPercent},
+                sort_order = {line.SortOrder},
+                updated_at = {line.UpdatedAt}
+            where id = {line.Id}
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"delete from invoice_line where id = {id}");
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task ReorderAsync(
+        Guid invoiceId, IReadOnlyList<Guid> orderedIds, DateTimeOffset updatedAt, CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        using var tx = conn.BeginTransaction();
+        for (var i = 0; i < orderedIds.Count; i++)
+        {
+            var id = orderedIds[i];
+            var sortOrder = i;
+            var builder = SimpleBuilder.Create($"""
+                update invoice_line
+                set sort_order = {sortOrder}, updated_at = {updatedAt}
+                where id = {id} and invoice_id = {invoiceId}
+                """);
+            await conn.ExecuteAsync(new CommandDefinition(
+                builder.Sql, builder.Parameters, transaction: tx, cancellationToken: ct));
+        }
+        tx.Commit();
+    }
+}
+
 public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskRepository
 {
     public async Task<WorkTask?> GetByIdAsync(Guid id, CancellationToken ct = default)

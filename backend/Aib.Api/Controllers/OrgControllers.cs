@@ -62,7 +62,7 @@ public sealed class ProjectsController(ProjectService projects) : ControllerBase
 
 [ApiController]
 [Route("api/invoices")]
-public sealed class InvoicesController(InvoiceService invoices) : ControllerBase
+public sealed class InvoicesController(InvoiceService invoices, InvoiceLineService lines) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
@@ -79,6 +79,32 @@ public sealed class InvoicesController(InvoiceService invoices) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateInvoiceRequest request, CancellationToken ct)
         => Ok(await invoices.UpdateAsync(id, request, ct));
+
+    [HttpGet("{invoiceId:guid}/lines")]
+    public async Task<IActionResult> ListLines(Guid invoiceId, CancellationToken ct)
+        => Ok(await lines.ListAsync(invoiceId, ct));
+
+    [HttpPost("{invoiceId:guid}/lines")]
+    public async Task<IActionResult> CreateLine(
+        Guid invoiceId, [FromBody] CreateInvoiceLineRequest request, CancellationToken ct)
+        => Ok(await lines.CreateAsync(invoiceId, request, ct));
+
+    [HttpPut("{invoiceId:guid}/lines/reorder")]
+    public async Task<IActionResult> ReorderLines(
+        Guid invoiceId, [FromBody] ReorderInvoiceLinesRequest request, CancellationToken ct)
+        => Ok(await lines.ReorderAsync(invoiceId, request, ct));
+
+    [HttpPut("{invoiceId:guid}/lines/{id:guid}")]
+    public async Task<IActionResult> UpdateLine(
+        Guid invoiceId, Guid id, [FromBody] UpdateInvoiceLineRequest request, CancellationToken ct)
+        => Ok(await lines.UpdateAsync(invoiceId, id, request, ct));
+
+    [HttpDelete("{invoiceId:guid}/lines/{id:guid}")]
+    public async Task<IActionResult> DeleteLine(Guid invoiceId, Guid id, CancellationToken ct)
+    {
+        await lines.DeleteAsync(invoiceId, id, ct);
+        return NoContent();
+    }
 }
 
 [ApiController]

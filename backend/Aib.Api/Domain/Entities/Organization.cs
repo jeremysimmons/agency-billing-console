@@ -62,6 +62,22 @@ public class Invoice
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
+/// <summary>Manual invoice line not backed by a ClickUp task.</summary>
+public class InvoiceLine
+{
+    public Guid Id { get; set; }
+    public Guid InvoiceId { get; set; }
+    public Guid ClientId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Hours { get; set; }
+    public decimal? FlatFee { get; set; }
+    public decimal DiscountPercent { get; set; }
+    public int SortOrder { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 /// <summary>Sheet-shaped task row: manual billing cols + ClickUp API cols.</summary>
 public class WorkTask
 {

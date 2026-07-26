@@ -44,6 +44,17 @@ public interface IInvoiceRepository
     Task ReorderAsync(IReadOnlyList<Guid> orderedIds, DateTimeOffset updatedAt, CancellationToken ct = default);
 }
 
+public interface IInvoiceLineRepository
+{
+    Task<InvoiceLine?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<InvoiceLine>> ListByInvoiceAsync(Guid invoiceId, CancellationToken ct = default);
+    Task<int> GetNextSortOrderAsync(Guid invoiceId, CancellationToken ct = default);
+    Task<Guid> InsertAsync(InvoiceLine line, CancellationToken ct = default);
+    Task UpdateAsync(InvoiceLine line, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
+    Task ReorderAsync(Guid invoiceId, IReadOnlyList<Guid> orderedIds, DateTimeOffset updatedAt, CancellationToken ct = default);
+}
+
 public interface ITaskRepository
 {
     Task<WorkTask?> GetByIdAsync(Guid id, CancellationToken ct = default);

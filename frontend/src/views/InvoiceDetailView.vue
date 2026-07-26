@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useInvoices, useUpdateInvoice } from '../queries/invoices'
+import { computed, ref, watch } from 'vue'
+import {
+  useInvoices,
+  useUpdateInvoice,
+  useInvoiceLines,
+  useCreateInvoiceLine,
+  useUpdateInvoiceLine,
+  useDeleteInvoiceLine,
+  useReorderInvoiceLines,
+} from '../queries/invoices'
 import { useTasks, useUpdateTaskDiscount } from '../queries/tasks'
-import type { IncludeNonBillableTasks, InvoiceStatus, WorkTask } from '../api/types'
+import { useClients } from '../queries/clients'
+import { useAllProjects, useProjects } from '../queries/projects'
+import type { IncludeNonBillableTasks, InvoiceLine, InvoiceStatus, WorkTask } from '../api/types'
 
 const props = defineProps<{ id: string }>()
 
@@ -23,12 +33,65 @@ const tasksEnabled = computed(() => !!invoice.value?.name)
 const { data: tasks, isLoading: tasksLoading, error: tasksError } = useTasks(taskFilters, tasksEnabled)
 const updateDiscount = useUpdateTaskDiscount(taskFilters)
 
+const invoiceId = () => props.id
+const linesEnabled = computed(() => !!invoice.value)
+const { data: invoiceLines, isLoading: linesLoading, error: linesError } = useInvoiceLines(
+  () => (linesEnabled.value ? props.id : undefined),
+)
+const createLine = useCreateInvoiceLine(invoiceId)
+const updateLine = useUpdateInvoiceLine(invoiceId)
+const deleteLine = useDeleteInvoiceLine(invoiceId)
+const reorderLines = useReorderInvoiceLines(invoiceId)
+
+const { data: clients } = useClients()
+const { data: allProjects } = useAllProjects()
+
 const savingDiscountId = ref<string | null>(null)
 const discountErrors = ref<Record<string, string>>({})
 const savingRate = ref(false)
 const rateError = ref('')
 const savingIncludeNonBillable = ref(false)
 const includeNonBillableError = ref('')
+const savingLineId = ref<string | null>(null)
+const lineErrors = ref<Record<string, string>>({})
+const editingManualId = ref<string | null>(null)
+const confirmDeleteManualId = ref<string | null>(null)
+const formError = ref('')
+const reorderError = ref('')
+const localManualOrder = ref<InvoiceLine[]>([])
+const draggingId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+
+const formClientId = ref('')
+const formProjectId = ref('')
+const formTitle = ref('')
+const formBillingMode = ref<'hours' | 'flat'>('hours')
+const formHours = ref('')
+const formFlatFee = ref('')
+const formDiscount = ref('0')
+
+const { data: formProjectList } = useProjects(
+  () => formClientId.value || undefined,
+  () => ({ includeShared: true }),
+)
+
+watch(formClientId, () => {
+  formProjectId.value = ''
+})
+
+watch(
+  invoiceLines,
+  (list) => {
+    if (!list) {
+      localManualOrder.value = []
+      return
+    }
+    localManualOrder.value = list
+      .slice()
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.title.localeCompare(b.title))
+  },
+  { immediate: true },
+)
 
 function toApiStatus(status: string): InvoiceStatus {
   const s = status.trim().toLowerCase().replaceAll(' ', '-').replaceAll('_', '-')
@@ -48,9 +111,17 @@ function isNonBillableTask(task: WorkTask) {
   return (task.bill ?? '').trim().toLowerCase() === 'no'
 }
 
+const VOLLEY_URL_RE = /https?:\/\/app\.meetvolley\.com\/\S*/gi
+
+function displayTaskTitle(title: string) {
+  return title.replace(VOLLEY_URL_RE, '').replace(/\s{2,}/g, ' ').trim()
+}
+
 interface LineRow {
   key: string
+  kind: 'task' | 'manual' | 'summary'
   task: WorkTask | null
+  line: InvoiceLine | null
   projectName: string | null
   title: string
   hours: number
@@ -60,6 +131,8 @@ interface LineRow {
   isFlatFee: boolean
   isNonBillable: boolean
   allowDiscount: boolean
+  allowEdit: boolean
+  allowDrag: boolean
 }
 
 interface ClientGroup {
@@ -84,21 +157,56 @@ function lineSubtotal(units: number, rate: number, discountPercent: number) {
 const invoiceRate = computed(() => invoice.value?.effectiveRate ?? null)
 const includeMode = computed(() => toIncludeNonBillable(invoice.value?.includeNonBillableTasks))
 
+const activeClients = computed(() =>
+  (clients.value ?? []).filter((c) => c.active).sort((a, b) => a.name.localeCompare(b.name)),
+)
+
+const sharedClientIds = computed(() =>
+  new Set(
+    (clients.value ?? [])
+      .filter((c) => c.name.trim().toLowerCase() === 'shared')
+      .map((c) => c.id),
+  ),
+)
+
+function projectsForClient(clientId: string) {
+  return (allProjects.value ?? []).filter(
+    (p) => p.clientId === clientId || sharedClientIds.value.has(p.clientId),
+  )
+}
+
 const clientGroups = computed((): ClientGroup[] => {
   const list = tasks.value ?? []
+  const manuals = localManualOrder.value
   const hourlyRate = invoiceRate.value
   const mode = includeMode.value
 
-  const byClient = new Map<string, WorkTask[]>()
+  const clientIds = new Set<string>()
+  for (const t of list) clientIds.add(t.clientId)
+  for (const m of manuals) clientIds.add(m.clientId)
+
+  const clientNames = new Map<string, string>()
+  for (const t of list) clientNames.set(t.clientId, t.clientName)
+  for (const m of manuals) clientNames.set(m.clientId, m.clientName)
+
+  const byClientTasks = new Map<string, WorkTask[]>()
   for (const t of list) {
-    const key = t.clientId
-    const bucket = byClient.get(key)
+    const bucket = byClientTasks.get(t.clientId)
     if (bucket) bucket.push(t)
-    else byClient.set(key, [t])
+    else byClientTasks.set(t.clientId, [t])
+  }
+
+  const byClientManuals = new Map<string, InvoiceLine[]>()
+  for (const m of manuals) {
+    const bucket = byClientManuals.get(m.clientId)
+    if (bucket) bucket.push(m)
+    else byClientManuals.set(m.clientId, [m])
   }
 
   const groups: ClientGroup[] = []
-  for (const [clientId, clientTasks] of byClient) {
+  for (const clientId of clientIds) {
+    const clientTasks = byClientTasks.get(clientId) ?? []
+    const clientManuals = byClientManuals.get(clientId) ?? []
     const sorted = clientTasks.slice().sort((a, b) => {
       const projectCmp = (a.projectName ?? '\uffff').localeCompare(b.projectName ?? '\uffff')
       if (projectCmp !== 0) return projectCmp
@@ -109,31 +217,37 @@ const clientGroups = computed((): ClientGroup[] => {
     const nonBillable = sorted.filter((t) => isNonBillableTask(t))
 
     const rows: LineRow[] = []
-    for (const task of billable) {
-      const discountPercent = task.discountPercent ?? 0
-      if (task.flatFee != null) {
+    for (const line of clientManuals) {
+      const discountPercent = line.discountPercent ?? 0
+      if (line.flatFee != null) {
         rows.push({
-          key: task.id,
-          task,
-          projectName: task.projectName,
-          title: task.title,
+          key: `manual-${line.id}`,
+          kind: 'manual',
+          task: null,
+          line,
+          projectName: line.projectName,
+          title: line.title,
           hours: 1,
-          rate: task.flatFee,
+          rate: line.flatFee,
           discountPercent,
-          subtotal: lineSubtotal(1, task.flatFee, discountPercent),
+          subtotal: lineSubtotal(1, line.flatFee, discountPercent),
           isFlatFee: true,
           isNonBillable: false,
           allowDiscount: true,
+          allowEdit: true,
+          allowDrag: true,
         })
         continue
       }
       if (hourlyRate == null) continue
-      const hours = task.billableHours ?? 0
+      const hours = line.hours ?? 0
       rows.push({
-        key: task.id,
-        task,
-        projectName: task.projectName,
-        title: task.title,
+        key: `manual-${line.id}`,
+        kind: 'manual',
+        task: null,
+        line,
+        projectName: line.projectName,
+        title: line.title,
         hours,
         rate: hourlyRate,
         discountPercent,
@@ -141,6 +255,51 @@ const clientGroups = computed((): ClientGroup[] => {
         isFlatFee: false,
         isNonBillable: false,
         allowDiscount: true,
+        allowEdit: true,
+        allowDrag: true,
+      })
+    }
+
+    for (const task of billable) {
+      const discountPercent = task.discountPercent ?? 0
+      if (task.flatFee != null) {
+        rows.push({
+          key: `task-${task.id}`,
+          kind: 'task',
+          task,
+          line: null,
+          projectName: task.projectName,
+          title: displayTaskTitle(task.title),
+          hours: 1,
+          rate: task.flatFee,
+          discountPercent,
+          subtotal: lineSubtotal(1, task.flatFee, discountPercent),
+          isFlatFee: true,
+          isNonBillable: false,
+          allowDiscount: true,
+          allowEdit: false,
+          allowDrag: false,
+        })
+        continue
+      }
+      if (hourlyRate == null) continue
+      const hours = task.billableHours ?? 0
+      rows.push({
+        key: `task-${task.id}`,
+        kind: 'task',
+        task,
+        line: null,
+        projectName: task.projectName,
+        title: displayTaskTitle(task.title),
+        hours,
+        rate: hourlyRate,
+        discountPercent,
+        subtotal: lineSubtotal(hours, hourlyRate, discountPercent),
+        isFlatFee: false,
+        isNonBillable: false,
+        allowDiscount: true,
+        allowEdit: false,
+        allowDrag: false,
       })
     }
 
@@ -148,10 +307,12 @@ const clientGroups = computed((): ClientGroup[] => {
       for (const task of nonBillable) {
         const hours = task.nonBillableHours ?? 0
         rows.push({
-          key: task.id,
+          key: `task-${task.id}`,
+          kind: 'task',
           task,
+          line: null,
           projectName: task.projectName,
-          title: task.title,
+          title: displayTaskTitle(task.title),
           hours,
           rate: 0,
           discountPercent: 0,
@@ -159,6 +320,8 @@ const clientGroups = computed((): ClientGroup[] => {
           isFlatFee: false,
           isNonBillable: true,
           allowDiscount: false,
+          allowEdit: false,
+          allowDrag: false,
         })
       }
     } else if (mode === 'summary' && nonBillable.length > 0) {
@@ -166,7 +329,9 @@ const clientGroups = computed((): ClientGroup[] => {
       const count = nonBillable.length
       rows.push({
         key: `non-billable-summary-${clientId}`,
+        kind: 'summary',
         task: null,
+        line: null,
         projectName: null,
         title: `${count} non-billable task${count === 1 ? '' : 's'}`,
         hours,
@@ -176,15 +341,17 @@ const clientGroups = computed((): ClientGroup[] => {
         isFlatFee: false,
         isNonBillable: true,
         allowDiscount: false,
+        allowEdit: false,
+        allowDrag: false,
       })
     }
 
     if (rows.length === 0) continue
-    const hours = rows.reduce((sum, r) => sum + r.hours, 0)
+    const hours = rows.reduce((sum, r) => sum + (r.isNonBillable ? 0 : r.hours), 0)
     const subtotal = rows.reduce((sum, r) => sum + r.subtotal, 0)
     groups.push({
       clientId,
-      clientName: clientTasks[0]?.clientName ?? 'Unknown',
+      clientName: clientNames.get(clientId) ?? 'Unknown',
       rows,
       hours,
       subtotal,
@@ -217,17 +384,25 @@ function formatRate(n: number | null) {
   return money.format(n)
 }
 
-function parseDiscount(raw: string): number | undefined {
-  const trimmed = raw.trim()
+function parseDiscount(raw: string | number): number | undefined {
+  const trimmed = String(raw ?? '').trim()
   if (!trimmed) return 0
   const n = Number(trimmed)
   if (!Number.isFinite(n) || n < 0 || n > 100) return undefined
   return n
 }
 
-function parseRate(raw: string): number | null | undefined {
-  const trimmed = raw.trim()
+function parseRate(raw: string | number): number | null | undefined {
+  const trimmed = String(raw ?? '').trim()
   if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n) || n < 0) return undefined
+  return n
+}
+
+function parseNonNegative(raw: string | number): number | undefined {
+  const trimmed = String(raw ?? '').trim()
+  if (!trimmed) return 0
   const n = Number(trimmed)
   if (!Number.isFinite(n) || n < 0) return undefined
   return n
@@ -309,6 +484,236 @@ async function onDiscountChange(task: WorkTask, raw: string) {
     savingDiscountId.value = null
   }
 }
+
+async function addManualLine() {
+  formError.value = ''
+  if (!formClientId.value) {
+    formError.value = 'Client is required.'
+    return
+  }
+  if (!formTitle.value.trim()) {
+    formError.value = 'Title is required.'
+    return
+  }
+  const discountPercent = parseDiscount(formDiscount.value)
+  if (discountPercent === undefined) {
+    formError.value = 'Discount must be 0–100.'
+    return
+  }
+
+  let hours = 0
+  let flatFee: number | null = null
+  if (formBillingMode.value === 'flat') {
+    const fee = parseNonNegative(formFlatFee.value)
+    if (fee === undefined || fee <= 0) {
+      formError.value = 'Flat fee must be a positive number.'
+      return
+    }
+    flatFee = fee
+  } else {
+    const h = parseNonNegative(formHours.value)
+    if (h === undefined || h <= 0) {
+      formError.value = 'Hours must be a positive number.'
+      return
+    }
+    hours = h
+  }
+
+  try {
+    await createLine.mutateAsync({
+      clientId: formClientId.value,
+      projectId: formProjectId.value || null,
+      title: formTitle.value.trim(),
+      hours,
+      flatFee,
+      discountPercent,
+    })
+    formTitle.value = ''
+    formHours.value = ''
+    formFlatFee.value = ''
+    formDiscount.value = '0'
+    formBillingMode.value = 'hours'
+  } catch (e: any) {
+    formError.value = e?.response?.data?.error ?? 'Could not add line.'
+  }
+}
+
+async function persistManualLine(line: InvoiceLine, patch: Partial<{
+  clientId: string
+  projectId: string | null
+  title: string
+  hours: number
+  flatFee: number | null
+  discountPercent: number
+}>) {
+  savingLineId.value = line.id
+  delete lineErrors.value[line.id]
+  try {
+    await updateLine.mutateAsync({
+      id: line.id,
+      clientId: patch.clientId ?? line.clientId,
+      projectId: patch.projectId !== undefined ? patch.projectId : line.projectId,
+      title: patch.title ?? line.title,
+      hours: patch.hours ?? line.hours,
+      flatFee: patch.flatFee !== undefined ? patch.flatFee : line.flatFee,
+      discountPercent: patch.discountPercent ?? line.discountPercent,
+    })
+  } catch (e: any) {
+    lineErrors.value[line.id] = e?.response?.data?.error ?? 'Could not update line.'
+  } finally {
+    savingLineId.value = null
+  }
+}
+
+async function onManualTitleChange(line: InvoiceLine, raw: string) {
+  const title = raw.trim()
+  if (!title) {
+    lineErrors.value[line.id] = 'Title is required.'
+    return
+  }
+  if (title === line.title) {
+    delete lineErrors.value[line.id]
+    return
+  }
+  await persistManualLine(line, { title })
+}
+
+async function onManualDiscountChange(line: InvoiceLine, raw: string) {
+  const discountPercent = parseDiscount(raw)
+  if (discountPercent === undefined) {
+    lineErrors.value[line.id] = 'Discount must be 0–100.'
+    return
+  }
+  if ((line.discountPercent ?? 0) === discountPercent) {
+    delete lineErrors.value[line.id]
+    return
+  }
+  await persistManualLine(line, { discountPercent })
+}
+
+async function onManualHoursChange(line: InvoiceLine, raw: string) {
+  const hours = parseNonNegative(raw)
+  if (hours === undefined || hours <= 0) {
+    lineErrors.value[line.id] = 'Hours must be a positive number.'
+    return
+  }
+  if (line.flatFee == null && (line.hours ?? 0) === hours) {
+    delete lineErrors.value[line.id]
+    return
+  }
+  await persistManualLine(line, { hours, flatFee: null })
+}
+
+async function onManualFlatFeeChange(line: InvoiceLine, raw: string) {
+  const flatFee = parseNonNegative(raw)
+  if (flatFee === undefined || flatFee <= 0) {
+    lineErrors.value[line.id] = 'Flat fee must be a positive number.'
+    return
+  }
+  if (line.flatFee != null && line.flatFee === flatFee) {
+    delete lineErrors.value[line.id]
+    return
+  }
+  await persistManualLine(line, { flatFee, hours: 0 })
+}
+
+async function onManualBillingModeChange(line: InvoiceLine, mode: 'hours' | 'flat') {
+  if (mode === 'flat' && line.flatFee != null) return
+  if (mode === 'hours' && line.flatFee == null) return
+  if (mode === 'flat') {
+    await persistManualLine(line, { flatFee: line.flatFee && line.flatFee > 0 ? line.flatFee : 1, hours: 0 })
+  } else {
+    await persistManualLine(line, { flatFee: null, hours: line.hours > 0 ? line.hours : 1 })
+  }
+}
+
+async function onManualProjectChange(line: InvoiceLine, projectId: string) {
+  const next = projectId || null
+  if ((line.projectId ?? null) === next) return
+  await persistManualLine(line, { projectId: next })
+}
+
+async function onDeleteManualLine(line: InvoiceLine) {
+  savingLineId.value = line.id
+  delete lineErrors.value[line.id]
+  try {
+    await deleteLine.mutateAsync(line.id)
+    confirmDeleteManualId.value = null
+    editingManualId.value = null
+  } catch (e: any) {
+    lineErrors.value[line.id] = e?.response?.data?.error ?? 'Could not delete line.'
+    confirmDeleteManualId.value = null
+  } finally {
+    savingLineId.value = null
+  }
+}
+
+function startEditManual(line: InvoiceLine) {
+  editingManualId.value = line.id
+  confirmDeleteManualId.value = null
+}
+
+function stopEditManual() {
+  editingManualId.value = null
+  confirmDeleteManualId.value = null
+}
+
+function isEditingManual(line: InvoiceLine | null) {
+  return !!line && editingManualId.value === line.id
+}
+
+function onDragStart(id: string, event: DragEvent) {
+  draggingId.value = id
+  event.dataTransfer?.setData('text/plain', id)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragOver(id: string, event: DragEvent) {
+  if (!draggingId.value) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverId.value = id
+}
+
+function onDragLeave(id: string) {
+  if (dragOverId.value === id) dragOverId.value = null
+}
+
+async function onDrop(targetId: string, event: DragEvent) {
+  event.preventDefault()
+  const fromId = event.dataTransfer?.getData('text/plain') || draggingId.value
+  draggingId.value = null
+  dragOverId.value = null
+  if (!fromId || fromId === targetId) return
+
+  const order = localManualOrder.value.map((l) => l.id)
+  const fromIdx = order.indexOf(fromId)
+  const toIdx = order.indexOf(targetId)
+  if (fromIdx < 0 || toIdx < 0) return
+  order.splice(fromIdx, 1)
+  order.splice(toIdx, 0, fromId)
+
+  const byId = new Map(localManualOrder.value.map((l) => [l.id, l]))
+  localManualOrder.value = order.map((id, i) => {
+    const line = byId.get(id)!
+    return { ...line, sortOrder: i }
+  })
+
+  reorderError.value = ''
+  try {
+    await reorderLines.mutateAsync(order)
+  } catch (e: any) {
+    reorderError.value = e?.response?.data?.error ?? 'Could not save line order.'
+  }
+}
+
+function onDragEnd() {
+  draggingId.value = null
+  dragOverId.value = null
+}
+
+const contentLoading = computed(() => tasksLoading.value || linesLoading.value)
+const contentError = computed(() => tasksError.value || linesError.value)
 </script>
 
 <template>
@@ -376,11 +781,86 @@ async function onDiscountChange(task: WorkTask, raw: string) {
         </div>
       </div>
 
-      <p v-if="tasksLoading" data-testid="invoice-detail-tasks-loading">Loading tasks…</p>
-      <p v-else-if="tasksError" class="error" data-testid="invoice-detail-tasks-error">Failed to load tasks.</p>
+      <form class="manual-form" data-testid="invoice-manual-line-form" @submit.prevent="addManualLine">
+        <h2 class="manual-heading">Add manual line</h2>
+        <div class="manual-fields">
+          <select
+            v-model="formClientId"
+            required
+            data-testid="invoice-manual-client"
+            aria-label="Client"
+          >
+            <option value="">Client…</option>
+            <option v-for="c in activeClients" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <select
+            v-model="formProjectId"
+            :disabled="!formClientId"
+            data-testid="invoice-manual-project"
+            aria-label="Project"
+          >
+            <option value="">Project…</option>
+            <option v-for="p in formProjectList ?? []" :key="p.id" :value="p.id">{{ p.name }}</option>
+          </select>
+          <input
+            v-model="formTitle"
+            placeholder="Task name"
+            required
+            data-testid="invoice-manual-title"
+          />
+          <select
+            v-model="formBillingMode"
+            data-testid="invoice-manual-billing-mode"
+            aria-label="Billing mode"
+          >
+            <option value="hours">Hours</option>
+            <option value="flat">Flat fee</option>
+          </select>
+          <input
+            v-if="formBillingMode === 'hours'"
+            v-model="formHours"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Hours"
+            required
+            data-testid="invoice-manual-hours"
+          />
+          <input
+            v-else
+            v-model="formFlatFee"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Flat fee"
+            required
+            data-testid="invoice-manual-flat-fee"
+          />
+          <input
+            v-model="formDiscount"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            placeholder="Discount %"
+            data-testid="invoice-manual-discount"
+            aria-label="Discount percent"
+          />
+          <button
+            type="submit"
+            :disabled="createLine.isLoading.value"
+            data-testid="invoice-manual-submit"
+          >Add line</button>
+        </div>
+        <p v-if="formError" class="error" data-testid="invoice-manual-error">{{ formError }}</p>
+      </form>
+      <p v-if="reorderError" class="error" data-testid="invoice-manual-reorder-error">{{ reorderError }}</p>
+
+      <p v-if="contentLoading" data-testid="invoice-detail-tasks-loading">Loading tasks…</p>
+      <p v-else-if="contentError" class="error" data-testid="invoice-detail-tasks-error">Failed to load invoice lines.</p>
       <template v-else-if="tasksEnabled">
         <p v-if="clientGroups.length === 0" class="muted" data-testid="invoice-detail-empty">
-          No tasks assigned to this invoice.
+          No tasks or manual lines on this invoice.
         </p>
 
         <table
@@ -390,12 +870,14 @@ async function onDiscountChange(task: WorkTask, raw: string) {
         >
           <thead>
             <tr>
+              <th class="drag-col" aria-label="Reorder"></th>
               <th>Project</th>
               <th>Task</th>
-              <th class="num">Hours</th>
+              <th class="num">Hours / Fee</th>
               <th class="num">Rate</th>
               <th class="num">Discount %</th>
               <th class="num">Subtotal</th>
+              <th class="actions-col" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody
@@ -405,41 +887,162 @@ async function onDiscountChange(task: WorkTask, raw: string) {
           >
             <tr class="client-header">
               <th
-                colspan="6"
+                colspan="8"
                 :data-testid="`invoice-client-name-${group.clientId}`"
               >{{ group.clientName }}</th>
             </tr>
             <tr
               v-for="row in group.rows"
               :key="row.key"
-              :class="{ 'non-billable-row': row.isNonBillable }"
-              :data-testid="row.task ? `invoice-task-row-${row.task.id}` : `invoice-non-billable-summary-${group.clientId}`"
+              :class="{
+                'non-billable-row': row.isNonBillable,
+                'manual-row': row.kind === 'manual',
+                'manual-row--dragging': row.line && draggingId === row.line.id,
+                'manual-row--drag-over': row.line && dragOverId === row.line.id && draggingId !== row.line.id,
+              }"
+              :data-testid="row.task
+                ? `invoice-task-row-${row.task.id}`
+                : row.line
+                  ? `invoice-manual-row-${row.line.id}`
+                  : `invoice-non-billable-summary-${group.clientId}`"
+              @dragover="row.line ? onDragOver(row.line.id, $event) : undefined"
+              @dragleave="row.line ? onDragLeave(row.line.id) : undefined"
+              @drop="row.line ? onDrop(row.line.id, $event) : undefined"
             >
-              <td :data-testid="row.task ? `invoice-task-project-${row.task.id}` : undefined">
-                {{ row.projectName ?? '—' }}
+              <td class="drag-col">
+                <span
+                  v-if="row.allowDrag && row.line && isEditingManual(row.line)"
+                  class="drag-handle"
+                  draggable="true"
+                  title="Drag to reorder"
+                  :data-testid="`invoice-manual-drag-${row.line.id}`"
+                  @dragstart="onDragStart(row.line.id, $event)"
+                  @dragend="onDragEnd"
+                >⠿</span>
               </td>
-              <td :data-testid="row.task ? `invoice-task-title-${row.task.id}` : undefined">
+              <td :data-testid="row.task
+                ? `invoice-task-project-${row.task.id}`
+                : row.line
+                  ? `invoice-manual-project-cell-${row.line.id}`
+                  : undefined"
+              >
+                <template v-if="row.line && isEditingManual(row.line)">
+                  <select
+                    class="project-select"
+                    :value="row.line.projectId ?? ''"
+                    :disabled="savingLineId === row.line.id"
+                    :data-testid="`invoice-manual-project-${row.line.id}`"
+                    :aria-label="`Project for ${row.title}`"
+                    @change="onManualProjectChange(row.line!, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">—</option>
+                    <option
+                      v-for="p in projectsForClient(row.line.clientId)"
+                      :key="p.id"
+                      :value="p.id"
+                    >{{ p.name }}</option>
+                  </select>
+                </template>
+                <template v-else>{{ row.projectName ?? '—' }}</template>
+              </td>
+              <td :data-testid="row.task
+                ? `invoice-task-title-${row.task.id}`
+                : row.line
+                  ? `invoice-manual-title-cell-${row.line.id}`
+                  : undefined"
+              >
                 <template v-if="row.task">
-                  <RouterLink
-                    v-if="row.task.clickUpTaskId"
-                    :to="{
-                      path: '/tasks',
-                      query: {
-                        clickUpId: row.task.clickUpTaskId,
-                        missingOnly: 'false',
-                        invoiced: ['paid', 'pending', 'none'],
-                      },
-                    }"
-                    :data-testid="`invoice-task-title-link-${row.task.id}`"
-                  >{{ row.title }}</RouterLink>
-                  <template v-else>{{ row.title }}</template>
+                  <span :data-testid="`invoice-task-title-text-${row.task.id}`">{{ row.title }}</span>
+                  <a
+                    v-if="row.task.clickUpTaskId && row.task.clickUpUrl"
+                    class="task-clickup-id"
+                    :href="row.task.clickUpUrl"
+                    target="_blank"
+                    rel="noopener"
+                    :data-testid="`invoice-task-clickup-id-${row.task.id}`"
+                  >{{ row.task.clickUpTaskId }}</a>
+                  <span
+                    v-else-if="row.task.clickUpTaskId"
+                    class="muted task-clickup-id"
+                    :data-testid="`invoice-task-clickup-id-${row.task.id}`"
+                  >{{ row.task.clickUpTaskId }}</span>
+                </template>
+                <template v-else-if="row.line && isEditingManual(row.line)">
+                  <input
+                    type="text"
+                    class="title-input"
+                    :value="row.line.title"
+                    :disabled="savingLineId === row.line.id"
+                    :data-testid="`invoice-manual-title-${row.line.id}`"
+                    :aria-label="`Title for ${row.title}`"
+                    @blur="onManualTitleChange(row.line!, ($event.target as HTMLInputElement).value)"
+                  />
+                </template>
+                <template v-else-if="row.line">
+                  <span :data-testid="`invoice-manual-title-${row.line.id}`">{{ row.line.title }}</span>
                 </template>
                 <template v-else>{{ row.title }}</template>
               </td>
-              <td class="num" :data-testid="row.task ? `invoice-task-hours-${row.task.id}` : undefined">
-                {{ formatHours(row.hours) }}
+              <td class="num billing-cell">
+                <template v-if="row.line && isEditingManual(row.line)">
+                  <select
+                    class="billing-mode-select"
+                    :value="row.isFlatFee ? 'flat' : 'hours'"
+                    :disabled="savingLineId === row.line.id"
+                    :data-testid="`invoice-manual-mode-${row.line.id}`"
+                    :aria-label="`Billing mode for ${row.title}`"
+                    @change="onManualBillingModeChange(row.line!, ($event.target as HTMLSelectElement).value as 'hours' | 'flat')"
+                  >
+                    <option value="hours">Hours</option>
+                    <option value="flat">Flat</option>
+                  </select>
+                  <input
+                    v-if="row.isFlatFee"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="fee-input"
+                    :value="row.line.flatFee ?? ''"
+                    :disabled="savingLineId === row.line.id"
+                    :data-testid="`invoice-manual-fee-${row.line.id}`"
+                    :aria-label="`Flat fee for ${row.title}`"
+                    @blur="onManualFlatFeeChange(row.line!, ($event.target as HTMLInputElement).value)"
+                  />
+                  <input
+                    v-else
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="fee-input"
+                    :value="row.line.hours"
+                    :disabled="savingLineId === row.line.id"
+                    :data-testid="`invoice-manual-hours-${row.line.id}`"
+                    :aria-label="`Hours for ${row.title}`"
+                    @blur="onManualHoursChange(row.line!, ($event.target as HTMLInputElement).value)"
+                  />
+                </template>
+                <template v-else-if="row.line">
+                  <span
+                    v-if="row.isFlatFee"
+                    :data-testid="`invoice-manual-fee-${row.line.id}`"
+                  >{{ formatMoney(row.rate) }}</span>
+                  <span
+                    v-else
+                    :data-testid="`invoice-manual-hours-${row.line.id}`"
+                  >{{ formatHours(row.hours) }}</span>
+                </template>
+                <template v-else>
+                  <span :data-testid="row.task ? `invoice-task-hours-${row.task.id}` : undefined">
+                    {{ formatHours(row.hours) }}
+                  </span>
+                </template>
               </td>
-              <td class="num" :data-testid="row.task ? `invoice-task-rate-${row.task.id}` : undefined">
+              <td class="num" :data-testid="row.task
+                ? `invoice-task-rate-${row.task.id}`
+                : row.line
+                  ? `invoice-manual-rate-${row.line.id}`
+                  : undefined"
+              >
                 {{ formatRate(row.rate) }}<span v-if="row.isFlatFee" class="muted flat-fee-tag"> flat</span>
               </td>
               <td class="num discount-cell">
@@ -462,27 +1065,106 @@ async function onDiscountChange(task: WorkTask, raw: string) {
                     :data-testid="`invoice-task-discount-error-${row.task.id}`"
                   >{{ discountErrors[row.task.id] }}</span>
                 </template>
+                <template v-else-if="row.allowDiscount && row.line && isEditingManual(row.line)">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    class="discount-input"
+                    :value="row.discountPercent"
+                    :disabled="savingLineId === row.line.id"
+                    :data-testid="`invoice-manual-discount-${row.line.id}`"
+                    :aria-label="`Discount for ${row.title}`"
+                    @blur="onManualDiscountChange(row.line!, ($event.target as HTMLInputElement).value)"
+                  />
+                  <span
+                    v-if="lineErrors[row.line.id]"
+                    class="error inline"
+                    :data-testid="`invoice-manual-error-${row.line.id}`"
+                  >{{ lineErrors[row.line.id] }}</span>
+                </template>
+                <template v-else-if="row.allowDiscount && row.line">
+                  <span :data-testid="`invoice-manual-discount-${row.line.id}`">{{ row.discountPercent }}</span>
+                  <span
+                    v-if="lineErrors[row.line.id]"
+                    class="error inline"
+                    :data-testid="`invoice-manual-error-${row.line.id}`"
+                  >{{ lineErrors[row.line.id] }}</span>
+                </template>
                 <span v-else class="muted">—</span>
               </td>
-              <td class="num" :data-testid="row.task ? `invoice-task-subtotal-${row.task.id}` : undefined">
+              <td class="num" :data-testid="row.task
+                ? `invoice-task-subtotal-${row.task.id}`
+                : row.line
+                  ? `invoice-manual-subtotal-${row.line.id}`
+                  : undefined"
+              >
                 {{ formatMoney(row.subtotal) }}
+              </td>
+              <td class="actions-cell">
+                <template v-if="row.line">
+                  <template v-if="isEditingManual(row.line)">
+                    <template v-if="confirmDeleteManualId === row.line.id">
+                      <button
+                        type="button"
+                        class="link-btn danger"
+                        :disabled="savingLineId === row.line.id"
+                        :data-testid="`invoice-manual-delete-confirm-${row.line.id}`"
+                        @click="onDeleteManualLine(row.line)"
+                      >Confirm</button>
+                      <button
+                        type="button"
+                        class="link-btn"
+                        :disabled="savingLineId === row.line.id"
+                        :data-testid="`invoice-manual-delete-cancel-${row.line.id}`"
+                        @click="confirmDeleteManualId = null"
+                      >Cancel</button>
+                    </template>
+                    <template v-else>
+                      <button
+                        type="button"
+                        class="link-btn"
+                        :disabled="savingLineId === row.line.id"
+                        :data-testid="`invoice-manual-done-${row.line.id}`"
+                        @click="stopEditManual"
+                      >Done</button>
+                      <button
+                        type="button"
+                        class="link-btn danger"
+                        :disabled="savingLineId === row.line.id"
+                        :data-testid="`invoice-manual-delete-${row.line.id}`"
+                        @click="confirmDeleteManualId = row.line.id"
+                      >Delete</button>
+                    </template>
+                  </template>
+                  <button
+                    v-else
+                    type="button"
+                    class="link-btn"
+                    :data-testid="`invoice-manual-edit-${row.line.id}`"
+                    @click="startEditManual(row.line)"
+                  >Edit</button>
+                </template>
               </td>
             </tr>
             <tr class="group-subtotal" :data-testid="`invoice-client-subtotal-${group.clientId}`">
-              <td colspan="2">Client subtotal</td>
+              <td colspan="3">Client subtotal</td>
               <td class="num">{{ formatHours(group.hours) }}</td>
               <td class="num"></td>
               <td class="num"></td>
               <td class="num">{{ formatMoney(group.subtotal) }}</td>
+              <td></td>
             </tr>
           </tbody>
           <tfoot data-testid="invoice-grand-total">
             <tr class="grand">
-              <td colspan="2">Grand total</td>
+              <td colspan="3">Grand total</td>
               <td class="num">{{ formatHours(grandHours) }}</td>
               <td class="num"></td>
               <td class="num"></td>
               <td class="num">{{ formatMoney(grandTotal) }}</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -524,9 +1206,42 @@ async function onDiscountChange(task: WorkTask, raw: string) {
   background: #fff;
 }
 .setting-hint { font-size: 0.85rem; }
+.manual-form {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #e5e7eb;
+}
+.manual-heading {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+.manual-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.manual-fields input,
+.manual-fields select {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+.manual-fields button {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+}
+.manual-fields button:disabled { opacity: 0.6; cursor: default; }
 .flat-fee-tag { font-size: 0.8rem; margin-left: 0.25rem; }
+.task-clickup-id { margin-left: 0.4em; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
+.grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; vertical-align: middle; }
 .grid th.num, .grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .grid thead th { font-weight: 600; border-bottom: 2px solid #e5e7eb; }
 .client-header th {
@@ -536,15 +1251,59 @@ async function onDiscountChange(task: WorkTask, raw: string) {
   border-bottom: 1px solid #e5e7eb;
   background: transparent;
 }
-.discount-cell { width: 6.5rem; }
-.discount-input {
-  width: 4.5rem;
+.drag-col { width: 1.75rem; }
+.actions-col, .actions-cell { width: 7.5rem; text-align: right; white-space: nowrap; }
+.actions-cell { display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  color: #9ca3af;
+  cursor: grab;
+  user-select: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.manual-row--dragging { opacity: 0.55; }
+.manual-row--drag-over td {
+  box-shadow: inset 0 2px 0 #059669;
+}
+.title-input,
+.fee-input,
+.discount-input,
+.project-select,
+.billing-mode-select {
   padding: 0.35rem 0.5rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font: inherit;
+  background: #fff;
+}
+.title-input { width: 100%; min-width: 0; }
+.billing-cell {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+}
+.billing-mode-select { width: 4.75rem; }
+.fee-input { width: 4.5rem; text-align: right; }
+.discount-cell { width: 6.5rem; }
+.discount-input {
+  width: 4.5rem;
   text-align: right;
 }
+.project-select { width: 100%; max-width: 10rem; }
+.link-btn {
+  border: none;
+  background: none;
+  color: #10b981;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.link-btn.danger { color: #dc2626; }
+.link-btn:disabled { opacity: 0.5; cursor: default; }
 .group-subtotal td { font-weight: 600; border-bottom: none; padding-top: 0.75rem; }
 .grand td { font-weight: 700; border-bottom: none; border-top: 2px solid #e5e7eb; font-size: 1.05rem; padding-top: 1rem; }
 a { color: #10b981; }
