@@ -468,12 +468,15 @@ public sealed class InvoiceLineService(
         if (request.DiscountPercent is < 0 or > 100)
             throw new DomainException("Discount must be between 0 and 100.");
 
+        // Hours-only: flatFee null, hours > 0 (invoice hourly rate).
+        // Flat fee: flatFee set, hours = 0 (quantity 1).
+        // Expense: flatFee = unit rate, hours = quantity (> 0).
         if (request.FlatFee is null && request.Hours <= 0)
-            throw new DomainException("Enter hours or a flat fee.");
+            throw new DomainException("Enter hours, a flat fee, or an expense (rate × quantity).");
+        if (request.FlatFee is not null && request.FlatFee <= 0)
+            throw new DomainException("Flat fee / expense rate must be positive.");
 
-        var hours = request.FlatFee is not null ? 0m : request.Hours;
-        var flatFee = request.FlatFee;
-        return (client, project, request.Title.Trim(), hours, flatFee, request.DiscountPercent);
+        return (client, project, request.Title.Trim(), request.Hours, request.FlatFee, request.DiscountPercent);
     }
 
     private async Task<IReadOnlyList<InvoiceLineDto>> MapManyAsync(

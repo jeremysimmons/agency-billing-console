@@ -66,12 +66,15 @@ const localManualOrder = ref<InvoiceLine[]>([])
 const draggingId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
 
+type ManualBillingMode = 'hours' | 'flat' | 'expense'
+
 const formClientId = ref('')
 const formProjectId = ref('')
 const formTitle = ref('')
-const formBillingMode = ref<'hours' | 'flat'>('hours')
+const formBillingMode = ref<ManualBillingMode>('hours')
 const formHours = ref('')
 const formFlatFee = ref('')
+const formQuantity = ref('1')
 const formDiscount = ref('0')
 
 const { data: formProjectList } = useProjects(
@@ -128,15 +131,23 @@ interface LineRow {
   line: InvoiceLine | null
   projectName: string | null
   title: string
+  /** Billable hours, or quantity for flat/expense rows. */
   hours: number
   rate: number
   discountPercent: number
   subtotal: number
   isFlatFee: boolean
+  isExpense: boolean
   isNonBillable: boolean
   allowDiscount: boolean
   allowEdit: boolean
   allowDrag: boolean
+}
+
+function manualBillingMode(line: InvoiceLine): ManualBillingMode {
+  if (line.flatFee != null && (line.hours ?? 0) > 0) return 'expense'
+  if (line.flatFee != null) return 'flat'
+  return 'hours'
 }
 
 interface ClientGroup {
@@ -222,7 +233,30 @@ const clientGroups = computed((): ClientGroup[] => {
     const rows: LineRow[] = []
     for (const line of clientManuals) {
       const discountPercent = line.discountPercent ?? 0
-      if (line.flatFee != null) {
+      const modeKind = manualBillingMode(line)
+      if (modeKind === 'expense' && line.flatFee != null) {
+        const qty = line.hours ?? 0
+        rows.push({
+          key: `manual-${line.id}`,
+          kind: 'manual',
+          task: null,
+          line,
+          projectName: line.projectName,
+          title: line.title,
+          hours: qty,
+          rate: line.flatFee,
+          discountPercent,
+          subtotal: lineSubtotal(qty, line.flatFee, discountPercent),
+          isFlatFee: false,
+          isExpense: true,
+          isNonBillable: false,
+          allowDiscount: true,
+          allowEdit: true,
+          allowDrag: true,
+        })
+        continue
+      }
+      if (modeKind === 'flat' && line.flatFee != null) {
         rows.push({
           key: `manual-${line.id}`,
           kind: 'manual',
@@ -235,6 +269,7 @@ const clientGroups = computed((): ClientGroup[] => {
           discountPercent,
           subtotal: lineSubtotal(1, line.flatFee, discountPercent),
           isFlatFee: true,
+          isExpense: false,
           isNonBillable: false,
           allowDiscount: true,
           allowEdit: true,
@@ -256,6 +291,7 @@ const clientGroups = computed((): ClientGroup[] => {
         discountPercent,
         subtotal: lineSubtotal(hours, hourlyRate, discountPercent),
         isFlatFee: false,
+        isExpense: false,
         isNonBillable: false,
         allowDiscount: true,
         allowEdit: true,
@@ -278,6 +314,7 @@ const clientGroups = computed((): ClientGroup[] => {
           discountPercent,
           subtotal: lineSubtotal(1, task.flatFee, discountPercent),
           isFlatFee: true,
+          isExpense: false,
           isNonBillable: false,
           allowDiscount: true,
           allowEdit: false,
@@ -299,6 +336,7 @@ const clientGroups = computed((): ClientGroup[] => {
         discountPercent,
         subtotal: lineSubtotal(hours, hourlyRate, discountPercent),
         isFlatFee: false,
+        isExpense: false,
         isNonBillable: false,
         allowDiscount: true,
         allowEdit: false,
@@ -321,6 +359,7 @@ const clientGroups = computed((): ClientGroup[] => {
           discountPercent: 0,
           subtotal: 0,
           isFlatFee: false,
+          isExpense: false,
           isNonBillable: true,
           allowDiscount: false,
           allowEdit: false,
@@ -342,6 +381,7 @@ const clientGroups = computed((): ClientGroup[] => {
         discountPercent: 0,
         subtotal: 0,
         isFlatFee: false,
+        isExpense: false,
         isNonBillable: true,
         allowDiscount: false,
         allowEdit: false,
@@ -350,7 +390,10 @@ const clientGroups = computed((): ClientGroup[] => {
     }
 
     if (rows.length === 0) continue
-    const hours = rows.reduce((sum, r) => sum + (r.isNonBillable ? 0 : r.hours), 0)
+    const hours = rows.reduce(
+      (sum, r) => sum + (r.isNonBillable || r.isFlatFee || r.isExpense ? 0 : r.hours),
+      0,
+    )
     const subtotal = rows.reduce((sum, r) => sum + r.subtotal, 0)
     groups.push({
       clientId,
@@ -569,6 +612,19 @@ async function addManualLine() {
       return
     }
     flatFee = fee
+  } else if (formBillingMode.value === 'expense') {
+    const qty = parseNonNegative(formQuantity.value)
+    if (qty === undefined || qty <= 0) {
+      formError.value = 'Quantity must be a positive number.'
+      return
+    }
+    const rate = parseNonNegative(formFlatFee.value)
+    if (rate === undefined || rate <= 0) {
+      formError.value = 'Expense rate must be a positive number.'
+      return
+    }
+    hours = qty
+    flatFee = rate
   } else {
     const h = parseNonNegative(formHours.value)
     if (h === undefined || h <= 0) {
@@ -590,6 +646,7 @@ async function addManualLine() {
     formTitle.value = ''
     formHours.value = ''
     formFlatFee.value = ''
+    formQuantity.value = '1'
     formDiscount.value = '0'
     formBillingMode.value = 'hours'
   } catch (e: any) {
@@ -669,20 +726,58 @@ async function onManualFlatFeeChange(line: InvoiceLine, raw: string) {
     lineErrors.value[line.id] = 'Flat fee must be a positive number.'
     return
   }
-  if (line.flatFee != null && line.flatFee === flatFee) {
+  if (manualBillingMode(line) === 'flat' && line.flatFee === flatFee) {
     delete lineErrors.value[line.id]
     return
   }
   await persistManualLine(line, { flatFee, hours: 0 })
 }
 
-async function onManualBillingModeChange(line: InvoiceLine, mode: 'hours' | 'flat') {
-  if (mode === 'flat' && line.flatFee != null) return
-  if (mode === 'hours' && line.flatFee == null) return
+async function onManualExpenseRateChange(line: InvoiceLine, raw: string) {
+  const rate = parseNonNegative(raw)
+  if (rate === undefined || rate <= 0) {
+    lineErrors.value[line.id] = 'Expense rate must be a positive number.'
+    return
+  }
+  if (manualBillingMode(line) === 'expense' && line.flatFee === rate) {
+    delete lineErrors.value[line.id]
+    return
+  }
+  const qty = (line.hours ?? 0) > 0 ? line.hours : 1
+  await persistManualLine(line, { flatFee: rate, hours: qty })
+}
+
+async function onManualQuantityChange(line: InvoiceLine, raw: string) {
+  const qty = parseNonNegative(raw)
+  if (qty === undefined || qty <= 0) {
+    lineErrors.value[line.id] = 'Quantity must be a positive number.'
+    return
+  }
+  if (manualBillingMode(line) === 'expense' && (line.hours ?? 0) === qty) {
+    delete lineErrors.value[line.id]
+    return
+  }
+  const rate = line.flatFee && line.flatFee > 0 ? line.flatFee : 1
+  await persistManualLine(line, { hours: qty, flatFee: rate })
+}
+
+async function onManualBillingModeChange(line: InvoiceLine, mode: ManualBillingMode) {
+  if (manualBillingMode(line) === mode) return
   if (mode === 'flat') {
-    await persistManualLine(line, { flatFee: line.flatFee && line.flatFee > 0 ? line.flatFee : 1, hours: 0 })
+    await persistManualLine(line, {
+      flatFee: line.flatFee && line.flatFee > 0 ? line.flatFee : 1,
+      hours: 0,
+    })
+  } else if (mode === 'expense') {
+    await persistManualLine(line, {
+      flatFee: line.flatFee && line.flatFee > 0 ? line.flatFee : 1,
+      hours: line.hours > 0 ? line.hours : 1,
+    })
   } else {
-    await persistManualLine(line, { flatFee: null, hours: line.hours > 0 ? line.hours : 1 })
+    await persistManualLine(line, {
+      flatFee: null,
+      hours: line.hours > 0 ? line.hours : 1,
+    })
   }
 }
 
@@ -901,6 +996,7 @@ const contentError = computed(() => tasksError.value || linesError.value)
           >
             <option value="hours">Hours</option>
             <option value="flat">Flat fee</option>
+            <option value="expense">Expense</option>
           </select>
           <input
             v-if="formBillingMode === 'hours'"
@@ -912,6 +1008,28 @@ const contentError = computed(() => tasksError.value || linesError.value)
             required
             data-testid="invoice-manual-hours"
           />
+          <template v-else-if="formBillingMode === 'expense'">
+            <input
+              v-model="formQuantity"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Qty"
+              required
+              data-testid="invoice-manual-quantity"
+              aria-label="Expense quantity"
+            />
+            <input
+              v-model="formFlatFee"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Unit rate"
+              required
+              data-testid="invoice-manual-expense-rate"
+              aria-label="Expense unit rate"
+            />
+          </template>
           <input
             v-else
             v-model="formFlatFee"
@@ -1068,17 +1186,42 @@ const contentError = computed(() => tasksError.value || linesError.value)
                 <template v-if="row.line && isEditingManual(row.line)">
                   <select
                     class="billing-mode-select"
-                    :value="row.isFlatFee ? 'flat' : 'hours'"
+                    :value="manualBillingMode(row.line)"
                     :disabled="savingLineId === row.line.id"
                     :data-testid="`invoice-manual-mode-${row.line.id}`"
                     :aria-label="`Billing mode for ${row.title}`"
-                    @change="onManualBillingModeChange(row.line!, ($event.target as HTMLSelectElement).value as 'hours' | 'flat')"
+                    @change="onManualBillingModeChange(row.line!, ($event.target as HTMLSelectElement).value as ManualBillingMode)"
                   >
                     <option value="hours">Hours</option>
                     <option value="flat">Flat</option>
+                    <option value="expense">Expense</option>
                   </select>
+                  <template v-if="row.isExpense">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="fee-input"
+                      :value="row.line.hours"
+                      :disabled="savingLineId === row.line.id"
+                      :data-testid="`invoice-manual-quantity-${row.line.id}`"
+                      :aria-label="`Quantity for ${row.title}`"
+                      @blur="onManualQuantityChange(row.line!, ($event.target as HTMLInputElement).value)"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="fee-input"
+                      :value="row.line.flatFee ?? ''"
+                      :disabled="savingLineId === row.line.id"
+                      :data-testid="`invoice-manual-expense-rate-${row.line.id}`"
+                      :aria-label="`Unit rate for ${row.title}`"
+                      @blur="onManualExpenseRateChange(row.line!, ($event.target as HTMLInputElement).value)"
+                    />
+                  </template>
                   <input
-                    v-if="row.isFlatFee"
+                    v-else-if="row.isFlatFee"
                     type="number"
                     step="0.01"
                     min="0"
@@ -1104,7 +1247,11 @@ const contentError = computed(() => tasksError.value || linesError.value)
                 </template>
                 <template v-else-if="row.line">
                   <span
-                    v-if="row.isFlatFee"
+                    v-if="row.isExpense"
+                    :data-testid="`invoice-manual-quantity-${row.line.id}`"
+                  >{{ formatHours(row.hours) }}</span>
+                  <span
+                    v-else-if="row.isFlatFee"
                     :data-testid="`invoice-manual-fee-${row.line.id}`"
                   >{{ formatMoney(row.rate) }}</span>
                   <span
@@ -1124,7 +1271,9 @@ const contentError = computed(() => tasksError.value || linesError.value)
                   ? `invoice-manual-rate-${row.line.id}`
                   : undefined"
               >
-                {{ formatRate(row.rate) }}<span v-if="row.isFlatFee" class="muted flat-fee-tag"> flat</span>
+                {{ formatRate(row.rate) }}
+                <span v-if="row.isFlatFee" class="muted flat-fee-tag"> flat</span>
+                <span v-else-if="row.isExpense" class="muted flat-fee-tag"> ea</span>
               </td>
               <td
                 v-if="showDiscounts"
@@ -1406,7 +1555,7 @@ const contentError = computed(() => tasksError.value || linesError.value)
   white-space: nowrap;
 }
 .billing-cell > * + * { margin-left: 0.35rem; }
-.billing-mode-select { width: 4.75rem; vertical-align: middle; }
+.billing-mode-select { width: 5.75rem; vertical-align: middle; }
 .fee-input { width: 4.5rem; text-align: right; vertical-align: middle; }
 .discount-cell { width: 6.5rem; }
 .discount-input {
