@@ -1,0 +1,21 @@
+---
+description: How to invoke psql for local Postgres (not Npgsql connection strings)
+alwaysApply: true
+---
+
+# psql connection
+
+`ConnectionStrings:Postgres` in appsettings is **Npgsql** format. Do **not** pass it to `psql`.
+
+```bash
+# ❌ BAD — psql: invalid connection option "Host"
+psql "Host=localhost;Port=5432;Database=aib;Username=jeremy"
+
+# ✅ GOOD — flags
+psql -h localhost -p 5432 -U jeremy -d aib
+
+# ✅ GOOD — URI
+psql "postgresql://jeremy@localhost:5432/aib"
+```
+
+Read host/port/db/user from `backend/Aib.Api/appsettings.Development.json` (or `appsettings.json`) and map to `-h` / `-p` / `-d` / `-U`.
