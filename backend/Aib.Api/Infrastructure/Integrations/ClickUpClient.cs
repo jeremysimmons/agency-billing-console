@@ -37,9 +37,15 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
         return new ClickUpTaskPage(tasks, lastPage || tasks.Count == 0);
     }
 
-    public async Task<ClickUpTask> GetTaskAsync(string taskId, CancellationToken ct = default)
+    public Task<ClickUpTask> GetTaskAsync(string taskId, CancellationToken ct = default)
+        => GetTaskAsync(taskId, includeSubtasks: false, ct);
+
+    public async Task<ClickUpTask> GetTaskAsync(string taskId, bool includeSubtasks, CancellationToken ct = default)
     {
-        using var doc = await GetJsonAsync($"task/{Uri.EscapeDataString(taskId)}", ct);
+        var query = $"task/{Uri.EscapeDataString(taskId)}";
+        if (includeSubtasks)
+            query += "?include_subtasks=true";
+        using var doc = await GetJsonAsync(query, ct);
         var remote = ParseTask(doc.RootElement);
         if (string.IsNullOrWhiteSpace(remote.Id))
             throw new InvalidOperationException("ClickUp returned a task without an id.");
@@ -51,6 +57,17 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
         var json = JsonSerializer.Serialize(new { value });
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
         await SendAsync(HttpMethod.Post, $"task/{Uri.EscapeDataString(taskId)}/field/{Uri.EscapeDataString(fieldId)}", content, ct);
+    }
+
+    public async Task AddTaskAssigneesAsync(string taskId, IReadOnlyList<long> assigneeIds, CancellationToken ct = default)
+    {
+        if (assigneeIds.Count == 0) return;
+        var json = JsonSerializer.Serialize(new
+        {
+            assignees = new { add = assigneeIds, rem = Array.Empty<long>() },
+        });
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        await SendAsync(HttpMethod.Put, $"task/{Uri.EscapeDataString(taskId)}", content, ct);
     }
 
     public Task<IReadOnlyList<ClickUpCustomField>> GetListCustomFieldsAsync(string listId, CancellationToken ct = default)
@@ -212,8 +229,42 @@ public sealed class ClickUpClient(HttpClient http, IOptions<ClickUpOptions> opti
             ActualHours = MsToHours(GetLong(el, "time_spent")),
             Url = GetString(el, "url"),
             Tags = tags,
-            CustomFields = ParseTaskCustomFields(el)
+            CustomFields = ParseTaskCustomFields(el),
+            Subtasks = ParseSubtasks(el),
+            AssigneeIds = ParseAssigneeIds(el)
         };
+    }
+
+    private static IReadOnlyList<string> ParseAssigneeIds(JsonElement el)
+    {
+        if (!el.TryGetProperty("assignees", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var ids = new List<string>();
+        foreach (var assignee in arr.EnumerateArray())
+        {
+            var id = GetString(assignee, "id");
+            if (!string.IsNullOrWhiteSpace(id))
+                ids.Add(id);
+        }
+
+        return ids;
+    }
+
+    private static IReadOnlyList<ClickUpTask> ParseSubtasks(JsonElement el)
+    {
+        if (!el.TryGetProperty("subtasks", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var subtasks = new List<ClickUpTask>();
+        foreach (var sub in arr.EnumerateArray())
+        {
+            var parsed = ParseTask(sub);
+            if (!string.IsNullOrWhiteSpace(parsed.Id))
+                subtasks.Add(parsed);
+        }
+
+        return subtasks;
     }
 
     private static IReadOnlyList<ClickUpTaskCustomField> ParseTaskCustomFields(JsonElement el)

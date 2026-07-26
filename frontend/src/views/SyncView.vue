@@ -115,7 +115,7 @@ async function onFile(e: Event) {
     <div class="card" data-testid="sync-clickup-card">
       <h2>ClickUp API</h2>
       <p class="muted">
-        Pulls hierarchy + your assigned tasks, then fetches any missing parents. Preserves Bill / hours / invoice / note / project assign.
+        Pulls hierarchy + your assigned tasks, then fetches unassigned descendants and any missing parents. Preserves Bill / hours / invoice / note / project assign.
       </p>
       <p v-if="agency?.lastClickUpSyncAt" class="muted" data-testid="sync-last-run">
         Last sync: {{ new Date(agency.lastClickUpSyncAt).toLocaleString() }}

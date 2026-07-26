@@ -25,6 +25,10 @@ public sealed record ClickUpTask
     public string? Url { get; init; }
     public IReadOnlyList<string> Tags { get; init; } = [];
     public IReadOnlyList<ClickUpTaskCustomField> CustomFields { get; init; } = [];
+    /// <summary>Direct subtasks when requested via include_subtasks (usually one level).</summary>
+    public IReadOnlyList<ClickUpTask> Subtasks { get; init; } = [];
+    /// <summary>ClickUp user ids currently assigned to the task.</summary>
+    public IReadOnlyList<string> AssigneeIds { get; init; } = [];
 }
 
 public sealed record ClickUpTaskPage(IReadOnlyList<ClickUpTask> Tasks, bool LastPage);
@@ -53,7 +57,12 @@ public interface IClickUpClient
 
     Task<ClickUpTask> GetTaskAsync(string taskId, CancellationToken ct = default);
 
+    Task<ClickUpTask> GetTaskAsync(string taskId, bool includeSubtasks, CancellationToken ct = default);
+
     Task SetTaskCustomFieldAsync(string taskId, string fieldId, object? value, CancellationToken ct = default);
+
+    /// <summary>Adds assignees to a task (ClickUp update task assignees.add).</summary>
+    Task AddTaskAssigneesAsync(string taskId, IReadOnlyList<long> assigneeIds, CancellationToken ct = default);
 
     Task<IReadOnlyList<ClickUpCustomField>> GetListCustomFieldsAsync(string listId, CancellationToken ct = default);
 

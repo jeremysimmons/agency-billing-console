@@ -500,6 +500,7 @@ public sealed class TaskService(
         if (request.ProjectId is { } assignedProjectId)
             await PropagateProjectToUnassignedChildrenAsync(task, assignedProjectId, ct);
         await SyncBillToClickUpAsync(task, ct);
+        await EnsureSelfAssignedOnClickUpAsync(task, ct);
 
         var client = await clients.GetByIdAsync(task.ClientId, ct);
         string? projectName = null;
@@ -520,6 +521,7 @@ public sealed class TaskService(
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
         await SyncBillToClickUpAsync(task, ct);
+        await EnsureSelfAssignedOnClickUpAsync(task, ct);
 
         var client = await clients.GetByIdAsync(task.ClientId, ct);
         string? projectName = null;
@@ -815,6 +817,50 @@ public sealed class TaskService(
                 ex,
                 "Failed to sync bill={Bill} to ClickUp for task {TaskId} ({ClickUpTaskId})",
                 task.Bill,
+                task.Id,
+                task.ClickUpTaskId);
+        }
+    }
+
+    /// <summary>
+    /// When bill=yes, ensure the configured ClickUp user is an assignee so the task
+    /// stays in the assignee-filtered sync set.
+    /// </summary>
+    private async Task EnsureSelfAssignedOnClickUpAsync(WorkTask task, CancellationToken ct)
+    {
+        if (!string.Equals(task.Bill?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+            return;
+        if (string.IsNullOrWhiteSpace(task.ClickUpTaskId))
+            return;
+        if (!_clickUp.IsConfigured || string.IsNullOrWhiteSpace(_clickUp.AssigneeId))
+            return;
+        if (!long.TryParse(_clickUp.AssigneeId, out var assigneeId))
+        {
+            logger.LogWarning("ClickUp assignee id {AssigneeId} is not numeric; cannot add assignee", _clickUp.AssigneeId);
+            return;
+        }
+
+        try
+        {
+            var remote = await clickUp.GetTaskAsync(task.ClickUpTaskId, ct);
+            var alreadyAssigned = remote.AssigneeIds.Any(id =>
+                string.Equals(id, _clickUp.AssigneeId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, assigneeId.ToString(), StringComparison.OrdinalIgnoreCase));
+            if (alreadyAssigned)
+                return;
+
+            await clickUp.AddTaskAssigneesAsync(task.ClickUpTaskId, [assigneeId], ct);
+            logger.LogInformation(
+                "Added ClickUp assignee {AssigneeId} to task {ClickUpTaskId} after bill=yes",
+                assigneeId,
+                task.ClickUpTaskId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to add ClickUp assignee {AssigneeId} to task {TaskId} ({ClickUpTaskId})",
+                _clickUp.AssigneeId,
                 task.Id,
                 task.ClickUpTaskId);
         }

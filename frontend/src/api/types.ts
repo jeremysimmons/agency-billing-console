@@ -140,6 +140,7 @@ export type ClickUpSyncPhase =
   | 'started'
   | 'hierarchy'
   | 'page'
+  | 'descendants'
   | 'parents'
   | 'bill_fields'
   | 'hours'

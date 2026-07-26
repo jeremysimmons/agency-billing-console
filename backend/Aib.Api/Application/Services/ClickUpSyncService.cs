@@ -170,6 +170,10 @@ public sealed class ClickUpSyncService(
                 $"{tasksCreated} created, {tasksUpdated} updated, {clientsCreated} new clients",
                 ct);
 
+            var descendantsFetched = await ResolveMissingDescendantsAsync(
+                agency.Id, seenTaskIds, now, clientLocations, reportProgress, log, ct);
+            tasksCreated += descendantsFetched;
+
             var parentsFetched = await ResolveMissingParentsAsync(
                 agency.Id, now, clientLocations, reportProgress, log, ct);
             tasksCreated += parentsFetched;
@@ -207,6 +211,7 @@ public sealed class ClickUpSyncService(
 
             var summary = $"Synced {tasksCreated + tasksUpdated} tasks ({tasksCreated} new, {tasksUpdated} updated), " +
                           $"{containerEntities.Count} containers, {clientsCreated} new clients" +
+                          (descendantsFetched > 0 ? $", fetched {descendantsFetched} missing descendants" : "") +
                           (parentsFetched > 0 ? $", fetched {parentsFetched} missing parents" : "") +
                           (hoursFilled > 0 ? $", filled hours on {hoursFilled} tasks" : "") +
                           (invoicesSet > 0 ? $", set none invoice on {invoicesSet} tasks" : "") + ".";
@@ -300,6 +305,17 @@ public sealed class ClickUpSyncService(
         ApplyApiFields(task, remote, client.Client.Id, now);
         await tasks.UpdateApiFieldsAsync(task, ct);
 
+        var clientLocations = new Dictionary<Guid, ClientLocationHint>();
+        RememberClientLocation(clientLocations, client.Client.Id, remote);
+        await ResolveMissingDescendantsAsync(
+            agency.Id,
+            new HashSet<string>(StringComparer.Ordinal) { task.ClickUpTaskId },
+            now,
+            clientLocations,
+            reportProgress: null,
+            log: null,
+            ct);
+
         string? projectName = null;
         if (task.ProjectId is { } pid)
             projectName = (await projects.GetByIdAsync(pid, ct))?.Name;
@@ -313,6 +329,143 @@ public sealed class ClickUpSyncService(
             task.DateCreated, task.DueDate, task.DateDone, task.DateClosed,
             task.OrderIndex, task.EstimatedHours, task.ActualHours,
             NeedsAttention(task));
+    }
+
+    private async Task<int> ResolveMissingDescendantsAsync(
+        Guid agencyId,
+        IReadOnlyCollection<string> seedTaskIds,
+        DateTimeOffset now,
+        Dictionary<Guid, ClientLocationHint> clientLocations,
+        Func<ClickUpSyncProgressEvent, CancellationToken, Task>? reportProgress,
+        SyncLogBuffer? log,
+        CancellationToken ct)
+    {
+        var queue = new Queue<string>(seedTaskIds.Where(id => !string.IsNullOrWhiteSpace(id)));
+        var expanded = new HashSet<string>(StringComparer.Ordinal);
+        var fetched = 0;
+
+        if (queue.Count == 0)
+        {
+            if (log is not null)
+                await log.WriteAsync(reportProgress, "No assigned tasks to expand for descendants", ct);
+            return 0;
+        }
+
+        if (log is not null)
+        {
+            await log.WriteAsync(
+                reportProgress,
+                $"Resolving descendants under {queue.Count} assigned task(s)…",
+                ct);
+            await ReportAsync(
+                reportProgress,
+                new ClickUpSyncProgressEvent(
+                    "descendants",
+                    Message: "Fetching missing descendant tasks",
+                    SyncRunId: log.SyncRunId),
+                ct);
+        }
+
+        while (queue.Count > 0)
+        {
+            var taskId = queue.Dequeue();
+            if (!expanded.Add(taskId))
+                continue;
+
+            try
+            {
+                if (log is not null)
+                    await log.WriteAsync(reportProgress, $"  descendants FETCH {taskId}…", ct);
+
+                var remote = await clickUp.GetTaskAsync(taskId, includeSubtasks: true, ct);
+                if (remote.Subtasks.Count == 0)
+                    continue;
+
+                if (log is not null)
+                {
+                    await log.WriteAsync(
+                        reportProgress,
+                        $"  descendants {taskId}: {remote.Subtasks.Count} direct child(ren)",
+                        ct);
+                }
+
+                foreach (var stub in remote.Subtasks)
+                {
+                    if (string.IsNullOrWhiteSpace(stub.Id))
+                        continue;
+
+                    var full = await EnsureTaskHasLocationAsync(stub, ct);
+                    var created = await UpsertRemoteTaskAsync(
+                        agencyId, full, now, clientLocations, ct);
+                    if (created)
+                    {
+                        fetched++;
+                        if (log is not null)
+                        {
+                            await log.WriteAsync(
+                                reportProgress,
+                                $"  descendant CREATE {FormatTask(full)}",
+                                ct);
+                        }
+                    }
+
+                    if (!expanded.Contains(full.Id))
+                        queue.Enqueue(full.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (log is not null)
+                {
+                    await log.WriteAsync(
+                        reportProgress,
+                        $"  descendants FAIL {taskId}: {ex.Message}",
+                        ct);
+                }
+
+                logger.LogWarning(ex, "Failed to fetch ClickUp descendants for {TaskId}", taskId);
+            }
+        }
+
+        if (log is not null)
+            await log.WriteAsync(reportProgress, $"Descendant resolve complete: {fetched} created", ct);
+        return fetched;
+    }
+
+    /// <summary>
+    /// Subtask stubs from include_subtasks may omit list/folder; fetch full task when needed.
+    /// </summary>
+    private async Task<ClickUpTask> EnsureTaskHasLocationAsync(ClickUpTask remote, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(remote.ListId) || !string.IsNullOrWhiteSpace(remote.FolderId))
+            return remote;
+        return await clickUp.GetTaskAsync(remote.Id, ct);
+    }
+
+    private async Task<bool> UpsertRemoteTaskAsync(
+        Guid agencyId,
+        ClickUpTask remote,
+        DateTimeOffset now,
+        Dictionary<Guid, ClientLocationHint> clientLocations,
+        CancellationToken ct)
+    {
+        var client = await EnsureClientAsync(agencyId, remote, now, ct);
+        RememberClientLocation(clientLocations, client.Client.Id, remote);
+
+        var existing = !string.IsNullOrWhiteSpace(remote.Url)
+            ? await tasks.GetByClickUpUrlAsync(remote.Url, ct)
+            : await tasks.GetByClickUpTaskIdAsync(remote.Id, ct);
+
+        if (existing is null)
+        {
+            var task = MapNewTask(remote, client.Client.Id, now);
+            await tasks.InsertAsync(task, ct);
+            return true;
+        }
+
+        ApplyApiFields(existing, remote, client.Client.Id, now);
+        await tasks.UpdateApiFieldsAsync(existing, ct);
+        return false;
     }
 
     private async Task<int> ResolveMissingParentsAsync(

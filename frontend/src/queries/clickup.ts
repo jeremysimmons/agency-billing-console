@@ -62,6 +62,8 @@ export function formatClickUpSyncStatus(event: ClickUpSyncProgressEvent): string
       return `Hierarchy upserted (${event.containersUpserted ?? 0} containers)`
     case 'page':
       return `Page ${(event.page ?? 0) + 1}: ${event.tasksCreated ?? 0} new, ${event.tasksUpdated ?? 0} updated tasks, ${event.clientsCreated ?? 0} new clients`
+    case 'descendants':
+      return event.message ?? 'Fetching missing descendants…'
     case 'parents':
       return event.message ?? 'Fetching missing parents…'
     case 'bill_fields': {
