@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import ToggleSwitch from 'primevue/toggleswitch'
 import {
   useInvoices,
   useUpdateInvoice,
@@ -48,6 +49,9 @@ const { data: allProjects } = useAllProjects()
 
 const savingDiscountId = ref<string | null>(null)
 const discountErrors = ref<Record<string, string>>({})
+const applyingDiscounts = ref(false)
+const applyDiscountsError = ref('')
+const showDiscounts = ref(false)
 const savingRate = ref(false)
 const rateError = ref('')
 const savingIncludeNonBillable = ref(false)
@@ -152,6 +156,10 @@ function compareDate(a: string | null, b: string | null) {
 
 function lineSubtotal(units: number, rate: number, discountPercent: number) {
   return units * rate * (1 - discountPercent / 100)
+}
+
+function lineDiscountAmount(units: number, rate: number, discountPercent: number) {
+  return units * rate * (discountPercent / 100)
 }
 
 const invoiceRate = computed(() => invoice.value?.effectiveRate ?? null)
@@ -384,6 +392,35 @@ function formatRate(n: number | null) {
   return money.format(n)
 }
 
+/** Full calendar months strictly between completion month and current month. */
+function monthsSinceDone(dateDone: string | null | undefined): number | null {
+  if (!dateDone) return null
+  const done = new Date(dateDone)
+  if (Number.isNaN(done.getTime())) return null
+  const today = new Date()
+  const monthDiff =
+    (today.getFullYear() - done.getFullYear()) * 12 + (today.getMonth() - done.getMonth())
+  // e.g. 2026-04-01 → 2026-07-26: May + June = 2 (exclude start + current months)
+  return Math.max(0, monthDiff - 1)
+}
+
+function formatDateYmd(value: string | null | undefined): string | null {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function formatDoneAge(dateDone: string | null | undefined): string {
+  const ymd = formatDateYmd(dateDone)
+  if (!ymd) return '—'
+  const months = monthsSinceDone(dateDone)
+  return months == null ? ymd : `${ymd} · ${months}`
+}
+
 function parseDiscount(raw: string | number): number | undefined {
   const trimmed = String(raw ?? '').trim()
   if (!trimmed) return 0
@@ -482,6 +519,33 @@ async function onDiscountChange(task: WorkTask, raw: string) {
     discountErrors.value[task.id] = e?.response?.data?.error ?? 'Could not update discount.'
   } finally {
     savingDiscountId.value = null
+  }
+}
+
+async function applyAgeDiscounts() {
+  applyDiscountsError.value = ''
+  const list = (tasks.value ?? []).filter((t) => !isNonBillableTask(t))
+  const updates: { id: string; discountPercent: number }[] = []
+  for (const task of list) {
+    const months = monthsSinceDone(task.dateDone)
+    if (months == null || months <= 0) continue
+    const discountPercent = Math.min(100, months * 5)
+    if ((task.discountPercent ?? 0) === discountPercent) continue
+    updates.push({ id: task.id, discountPercent })
+  }
+  if (updates.length === 0) return
+
+  applyingDiscounts.value = true
+  try {
+    const results = await Promise.allSettled(
+      updates.map((u) => updateDiscount.mutateAsync(u)),
+    )
+    const failed = results.filter((r) => r.status === 'rejected').length
+    if (failed > 0) {
+      applyDiscountsError.value = `Could not update discount on ${failed} of ${updates.length} tasks.`
+    }
+  } finally {
+    applyingDiscounts.value = false
   }
 }
 
@@ -779,6 +843,33 @@ const contentError = computed(() => tasksError.value || linesError.value)
             data-testid="invoice-detail-include-non-billable-error"
           >{{ includeNonBillableError }}</span>
         </div>
+        <div class="setting" data-testid="invoice-detail-discounts-toggle-row">
+          <span id="invoice-detail-discounts-label" class="setting-label">Discounts</span>
+          <ToggleSwitch
+            v-model="showDiscounts"
+            aria-labelledby="invoice-detail-discounts-label"
+            :pt="{ input: { 'data-testid': 'invoice-detail-discounts-toggle' } }"
+          />
+        </div>
+        <div
+          v-if="showDiscounts"
+          class="setting"
+          data-testid="invoice-detail-apply-discounts-row"
+        >
+          <button
+            type="button"
+            class="apply-discounts-btn"
+            :disabled="applyingDiscounts || contentLoading"
+            data-testid="invoice-detail-apply-discounts"
+            @click="applyAgeDiscounts"
+          >{{ applyingDiscounts ? 'Applying…' : 'Apply Discounts' }}</button>
+          <span class="muted setting-hint">5% × months for tasks with Months &gt; 0</span>
+          <span
+            v-if="applyDiscountsError"
+            class="error inline"
+            data-testid="invoice-detail-apply-discounts-error"
+          >{{ applyDiscountsError }}</span>
+        </div>
       </div>
 
       <form class="manual-form" data-testid="invoice-manual-line-form" @submit.prevent="addManualLine">
@@ -875,7 +966,9 @@ const contentError = computed(() => tasksError.value || linesError.value)
               <th>Task</th>
               <th class="num">Hours / Fee</th>
               <th class="num">Rate</th>
+              <th v-if="showDiscounts" class="num" title="Months since completion date">Months</th>
               <th class="num">Discount %</th>
+              <th class="num">Discount</th>
               <th class="num">Subtotal</th>
               <th class="actions-col" aria-label="Actions"></th>
             </tr>
@@ -887,7 +980,7 @@ const contentError = computed(() => tasksError.value || linesError.value)
           >
             <tr class="client-header">
               <th
-                colspan="8"
+                :colspan="showDiscounts ? 10 : 9"
                 :data-testid="`invoice-client-name-${group.clientId}`"
               >{{ group.clientName }}</th>
             </tr>
@@ -953,19 +1046,12 @@ const contentError = computed(() => tasksError.value || linesError.value)
               >
                 <template v-if="row.task">
                   <span :data-testid="`invoice-task-title-text-${row.task.id}`">{{ row.title }}</span>
-                  <a
-                    v-if="row.task.clickUpTaskId && row.task.clickUpUrl"
+                  <RouterLink
+                    v-if="row.task.clickUpTaskId"
                     class="task-clickup-id"
-                    :href="row.task.clickUpUrl"
-                    target="_blank"
-                    rel="noopener"
+                    :to="{ path: '/tasks', query: { clickUpId: row.task.clickUpTaskId } }"
                     :data-testid="`invoice-task-clickup-id-${row.task.id}`"
-                  >{{ row.task.clickUpTaskId }}</a>
-                  <span
-                    v-else-if="row.task.clickUpTaskId"
-                    class="muted task-clickup-id"
-                    :data-testid="`invoice-task-clickup-id-${row.task.id}`"
-                  >{{ row.task.clickUpTaskId }}</span>
+                  >{{ row.task.clickUpTaskId }}</RouterLink>
                 </template>
                 <template v-else-if="row.line && isEditingManual(row.line)">
                   <input
@@ -1045,8 +1131,15 @@ const contentError = computed(() => tasksError.value || linesError.value)
               >
                 {{ formatRate(row.rate) }}<span v-if="row.isFlatFee" class="muted flat-fee-tag"> flat</span>
               </td>
+              <td
+                v-if="showDiscounts"
+                class="num"
+                :data-testid="row.task ? `invoice-task-months-${row.task.id}` : undefined"
+              >
+                {{ row.task ? formatDoneAge(row.task.dateDone) : '—' }}
+              </td>
               <td class="num discount-cell">
-                <template v-if="row.allowDiscount && row.task">
+                <template v-if="showDiscounts && row.allowDiscount && row.task">
                   <input
                     type="number"
                     step="0.01"
@@ -1065,7 +1158,7 @@ const contentError = computed(() => tasksError.value || linesError.value)
                     :data-testid="`invoice-task-discount-error-${row.task.id}`"
                   >{{ discountErrors[row.task.id] }}</span>
                 </template>
-                <template v-else-if="row.allowDiscount && row.line && isEditingManual(row.line)">
+                <template v-else-if="showDiscounts && row.allowDiscount && row.line && isEditingManual(row.line)">
                   <input
                     type="number"
                     step="0.01"
@@ -1084,13 +1177,30 @@ const contentError = computed(() => tasksError.value || linesError.value)
                     :data-testid="`invoice-manual-error-${row.line.id}`"
                   >{{ lineErrors[row.line.id] }}</span>
                 </template>
-                <template v-else-if="row.allowDiscount && row.line">
-                  <span :data-testid="`invoice-manual-discount-${row.line.id}`">{{ row.discountPercent }}</span>
+                <template v-else-if="row.allowDiscount && (row.task || row.line)">
                   <span
-                    v-if="lineErrors[row.line.id]"
+                    :data-testid="row.task
+                      ? `invoice-task-discount-${row.task.id}`
+                      : `invoice-manual-discount-${row.line!.id}`"
+                  >{{ row.discountPercent ? row.discountPercent : '—' }}</span>
+                  <span
+                    v-if="row.line && lineErrors[row.line.id]"
                     class="error inline"
                     :data-testid="`invoice-manual-error-${row.line.id}`"
                   >{{ lineErrors[row.line.id] }}</span>
+                </template>
+                <span v-else class="muted">—</span>
+              </td>
+              <td
+                class="num"
+                :data-testid="row.task
+                  ? `invoice-task-discount-amount-${row.task.id}`
+                  : row.line
+                    ? `invoice-manual-discount-amount-${row.line.id}`
+                    : undefined"
+              >
+                <template v-if="row.allowDiscount && row.discountPercent">
+                  {{ formatMoney(lineDiscountAmount(row.hours, row.rate, row.discountPercent)) }}
                 </template>
                 <span v-else class="muted">—</span>
               </td>
@@ -1152,6 +1262,8 @@ const contentError = computed(() => tasksError.value || linesError.value)
               <td colspan="3">Client subtotal</td>
               <td class="num">{{ formatHours(group.hours) }}</td>
               <td class="num"></td>
+              <td v-if="showDiscounts" class="num"></td>
+              <td class="num"></td>
               <td class="num"></td>
               <td class="num">{{ formatMoney(group.subtotal) }}</td>
               <td></td>
@@ -1161,6 +1273,8 @@ const contentError = computed(() => tasksError.value || linesError.value)
             <tr class="grand">
               <td colspan="3">Grand total</td>
               <td class="num">{{ formatHours(grandHours) }}</td>
+              <td class="num"></td>
+              <td v-if="showDiscounts" class="num"></td>
               <td class="num"></td>
               <td class="num"></td>
               <td class="num">{{ formatMoney(grandTotal) }}</td>
@@ -1206,6 +1320,16 @@ const contentError = computed(() => tasksError.value || linesError.value)
   background: #fff;
 }
 .setting-hint { font-size: 0.85rem; }
+.apply-discounts-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.apply-discounts-btn:disabled { opacity: 0.6; cursor: default; }
 .manual-form {
   margin: 0 0 1.25rem;
   padding: 0.75rem 0;
