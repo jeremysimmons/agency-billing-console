@@ -646,6 +646,34 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
+    public async Task<int> AssignProjectToUnassignedDescendantsAsync(
+        string parentClickUpTaskId,
+        Guid projectId,
+        DateTimeOffset updatedAt,
+        CancellationToken ct = default)
+    {
+        var builder = SimpleBuilder.Create($"""
+            with recursive descendants as (
+                select id, clickup_task_id
+                from task
+                where clickup_parent_id = {parentClickUpTaskId}
+                  and clickup_task_id is not null
+                union all
+                select t.id, t.clickup_task_id
+                from task t
+                inner join descendants d on t.clickup_parent_id = d.clickup_task_id
+                where t.clickup_task_id is not null
+            )
+            update task set
+                project_id = {projectId},
+                updated_at = {updatedAt}
+            where id in (select id from descendants)
+              and project_id is null
+            """);
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
     public async Task<int> FillEmptyHoursFromActualAsync(DateTimeOffset updatedAt, CancellationToken ct = default)
     {
         var builder = SimpleBuilder.Create($"""

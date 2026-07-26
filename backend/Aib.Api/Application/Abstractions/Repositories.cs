@@ -79,6 +79,15 @@ public interface ITaskRepository
     Task UpdateAsync(WorkTask task, CancellationToken ct = default);
     Task UpdateApiFieldsAsync(WorkTask task, CancellationToken ct = default);
     /// <summary>
+    /// Sets project_id on descendants (via clickup_parent_id) that have no project yet.
+    /// Returns number of rows updated.
+    /// </summary>
+    Task<int> AssignProjectToUnassignedDescendantsAsync(
+        string parentClickUpTaskId,
+        Guid projectId,
+        DateTimeOffset updatedAt,
+        CancellationToken ct = default);
+    /// <summary>
     /// For tasks with bill set: copy actual_hours into empty billable/non-billable hours.
     /// Returns number of rows updated.
     /// </summary>

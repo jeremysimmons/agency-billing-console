@@ -152,6 +152,8 @@ export function useUpdateTaskProject(filters: MaybeRefOrGetter<TaskListFilters>)
       (await http.patch<WorkTask>(`/tasks/${id}/project`, { projectId })).data,
     onSuccess: (updated) => {
       patchTaskList(cache, f.value, updated)
+      // Project may cascade to unassigned children — refresh list.
+      cache.invalidateQueries({ key: ['tasks'] })
     },
   })
 }

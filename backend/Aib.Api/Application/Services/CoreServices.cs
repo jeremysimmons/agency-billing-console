@@ -407,6 +407,8 @@ public sealed class TaskService(
         task.Note = request.Note;
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
+        if (request.ProjectId is { } assignedProjectId)
+            await PropagateProjectToUnassignedChildrenAsync(task, assignedProjectId, ct);
         await SyncBillToClickUpAsync(task, ct);
 
         var client = await clients.GetByIdAsync(task.ClientId, ct);
@@ -455,9 +457,25 @@ public sealed class TaskService(
         task.ProjectId = projectId;
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
+        if (projectId is { } assignedProjectId)
+            await PropagateProjectToUnassignedChildrenAsync(task, assignedProjectId, ct);
 
         var client = await clients.GetByIdAsync(task.ClientId, ct);
         return Map(task, client?.Name ?? "Unknown", projectName);
+    }
+
+    private async Task PropagateProjectToUnassignedChildrenAsync(
+        WorkTask parent,
+        Guid projectId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(parent.ClickUpTaskId))
+            return;
+        await tasks.AssignProjectToUnassignedDescendantsAsync(
+            parent.ClickUpTaskId,
+            projectId,
+            clock.UtcNow,
+            ct);
     }
 
     public async Task<TaskDto> UpdateInvoiceAsync(Guid id, string? invoiceLabel, CancellationToken ct = default)
