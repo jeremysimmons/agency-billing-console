@@ -404,5 +404,6 @@ Separate path (`POST /api/clickup/import-csv`) that upserts tasks/clients from s
 
 ## Related docs
 
+- [Backend API](./api.md)
 - [ClickUp sync process](./clickup-sync.md)
 - [ClickUp data hierarchy (UI vs API naming)](./clickup-data-hierarchy.md)

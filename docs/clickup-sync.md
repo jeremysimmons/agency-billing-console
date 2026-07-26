@@ -284,5 +284,6 @@ Agency ↔ Workspace is configuration (`TeamId`), not a synced FK.
 - Closed tasks are included (`include_closed=true`).
 - Hierarchy rebuild replaces container names/parents via upsert; orphaned containers from deleted ClickUp locations are not pruned automatically.
 - Full log is stored on `clickup_sync_run.log` for debugging (Sync UI history).
+- See [api.md](./api.md) for HTTP endpoints (including SSE sync and task patches).
 - See [clickup-data-hierarchy.md](./clickup-data-hierarchy.md) for UI vs API naming (`team` = Workspace).
 - See [entity-db-structure.md](./entity-db-structure.md) for column ownership and billing rules.

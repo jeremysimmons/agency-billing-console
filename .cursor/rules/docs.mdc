@@ -1,0 +1,49 @@
+---
+description: Use docs/ for project structure, schema, and how to query or call APIs
+alwaysApply: true
+---
+
+# Project docs
+
+Before inventing schema, sync behavior, or API shapes, read the relevant file under `docs/`:
+
+| Doc | Use when |
+|---|---|
+| [docs/entity-db-structure.md](docs/entity-db-structure.md) | Tables, columns, FKs/soft links, create/update rules, billing math |
+| [docs/api.md](docs/api.md) | HTTP endpoints, request/response DTOs, query params, errors |
+| [docs/clickup-sync.md](docs/clickup-sync.md) | Full/single-task sync pipeline, field ownership, SSE phases |
+| [docs/clickup-data-hierarchy.md](docs/clickup-data-hierarchy.md) | ClickUp UI vs API naming (`team` = Workspace) |
+
+Source of truth for live code: entities in `backend/Aib.Api/Domain/`, contracts in `Application/Contracts/Contracts.cs`, controllers under `Controllers/`. Prefer docs for orientation; verify against code when changing behavior.
+
+## Interacting with data
+
+### Prefer the HTTP API for app-shaped reads/writes
+
+- Base URL locally: `http://localhost:5146` (see `launchSettings.json`).
+- Endpoint index and payloads: [docs/api.md](docs/api.md).
+- Domain errors return `{ "error": "..." }` with 400/403/404/500.
+
+```bash
+# ✅ GOOD — list via API
+curl -s http://localhost:5146/api/clients | jq .
+
+# ✅ GOOD — patch task prep field
+curl -s -X PATCH http://localhost:5146/api/tasks/$ID/bill \
+  -H 'Content-Type: application/json' \
+  -d '{"bill":"yes"}'
+```
+
+Do **not** invent endpoints; check `docs/api.md` or controllers first.
+
+### Prefer SQL for ad-hoc inspection / bulk checks
+
+- Schema and relationships: [docs/entity-db-structure.md](docs/entity-db-structure.md).
+- Connection: follow the **psql** rule (Npgsql string ≠ `psql` args). Host/db/user from `backend/Aib.Api/appsettings.Development.json`.
+
+```bash
+# ✅ GOOD
+psql -h localhost -p 5432 -U jeremy -d aib -c 'select id, name from client limit 5;'
+```
+
+Use SQL for debugging and one-off queries. Use the API (or app services) when business rules matter (invoice defaults, Shared projects, ClickUp bill push, hours side effects). Do not bypass those rules with raw SQL updates unless the user explicitly asks for a direct DB fix.
