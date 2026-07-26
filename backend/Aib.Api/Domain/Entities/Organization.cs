@@ -55,6 +55,7 @@ public class Invoice
     public string Name { get; set; } = string.Empty;
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Preparing;
     public int SortOrder { get; set; }
+    public bool IsDefault { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

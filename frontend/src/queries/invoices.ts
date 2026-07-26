@@ -12,7 +12,7 @@ export function useInvoices() {
 export function useCreateInvoice() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async (input: { name: string; status?: InvoiceStatus }) =>
+    mutation: async (input: { name: string; status?: InvoiceStatus; isDefault?: boolean }) =>
       (await http.post<Invoice>('/invoices', input)).data,
     onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
   })
@@ -21,8 +21,17 @@ export function useCreateInvoice() {
 export function useUpdateInvoice() {
   const cache = useQueryCache()
   return useMutation({
-    mutation: async ({ id, name, status }: { id: string; name: string; status: InvoiceStatus }) =>
-      (await http.put<Invoice>(`/invoices/${id}`, { name, status })).data,
+    mutation: async ({
+      id,
+      name,
+      status,
+      isDefault,
+    }: {
+      id: string
+      name: string
+      status: InvoiceStatus
+      isDefault: boolean
+    }) => (await http.put<Invoice>(`/invoices/${id}`, { name, status, isDefault })).data,
     onSettled: () => cache.invalidateQueries({ key: ['invoices'] }),
   })
 }

@@ -35,10 +35,12 @@ public interface IInvoiceRepository
 {
     Task<Invoice?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Invoice?> GetByNameAsync(string name, CancellationToken ct = default);
+    Task<Invoice?> GetDefaultAsync(CancellationToken ct = default);
     Task<IReadOnlyList<Invoice>> ListAsync(CancellationToken ct = default);
     Task<int> GetNextSortOrderAsync(CancellationToken ct = default);
     Task<Guid> InsertAsync(Invoice invoice, CancellationToken ct = default);
     Task UpdateAsync(Invoice invoice, CancellationToken ct = default);
+    Task ClearDefaultsAsync(CancellationToken ct = default);
     Task ReorderAsync(IReadOnlyList<Guid> orderedIds, DateTimeOffset updatedAt, CancellationToken ct = default);
 }
 
@@ -86,6 +88,7 @@ public interface ITaskRepository
         string parentClickUpTaskId,
         Guid projectId,
         DateTimeOffset updatedAt,
+        string? defaultInvoiceLabelForBillable = null,
         CancellationToken ct = default);
     /// <summary>
     /// For tasks with bill set: copy actual_hours into empty billable/non-billable hours.

@@ -246,6 +246,15 @@ public sealed class InvoiceService(
             throw new DomainException(
                 "Invoice status must be preparing, sent, partially-paid, or fully-paid.");
 
+        var isDefault = request.IsDefault;
+        if (isDefault && status != InvoiceStatus.Preparing)
+            throw new DomainException("Only a preparing invoice can be the default.");
+        if (isDefault && InvoiceLabels.IsNone(name))
+            throw new DomainException("The none invoice cannot be the default.");
+
+        if (isDefault)
+            await invoices.ClearDefaultsAsync(ct);
+
         var now = clock.UtcNow;
         var invoice = new Invoice
         {
@@ -253,6 +262,7 @@ public sealed class InvoiceService(
             Name = name,
             Status = status,
             SortOrder = await invoices.GetNextSortOrderAsync(ct),
+            IsDefault = isDefault,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -275,8 +285,20 @@ public sealed class InvoiceService(
         if (conflict is not null && conflict.Id != id)
             throw new DomainException("An invoice with that name already exists.");
 
+        var isDefault = request.IsDefault;
+        if (request.Status != InvoiceStatus.Preparing)
+            isDefault = false;
+        if (isDefault && InvoiceLabels.IsNone(name))
+            throw new DomainException("The none invoice cannot be the default.");
+        if (isDefault && request.Status != InvoiceStatus.Preparing)
+            throw new DomainException("Only a preparing invoice can be the default.");
+
+        if (isDefault && !invoice.IsDefault)
+            await invoices.ClearDefaultsAsync(ct);
+
         invoice.Name = name;
         invoice.Status = request.Status;
+        invoice.IsDefault = isDefault;
         invoice.UpdatedAt = clock.UtcNow;
         await invoices.UpdateAsync(invoice, ct);
         return Map(invoice);
@@ -297,13 +319,14 @@ public sealed class InvoiceService(
         return (await invoices.ListAsync(ct)).Select(Map).ToList();
     }
 
-    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status, i.SortOrder);
+    private static InvoiceDto Map(Invoice i) => new(i.Id, i.Name, i.Status, i.SortOrder, i.IsDefault);
 }
 
 public sealed class TaskService(
     ITaskRepository tasks,
     IClientRepository clients,
     IProjectRepository projects,
+    IInvoiceRepository invoices,
     IClickUpClient clickUp,
     IOptions<ClickUpOptions> clickUpOptions,
     IClock clock,
@@ -406,6 +429,8 @@ public sealed class TaskService(
         task.InvoiceLabel = request.InvoiceLabel;
         task.Note = request.Note;
         ApplyInvoiceForBill(task);
+        if (request.ProjectId is not null)
+            await ApplyDefaultInvoiceForBillableAsync(task, ct);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
         if (request.ProjectId is { } assignedProjectId)
@@ -457,6 +482,8 @@ public sealed class TaskService(
         }
 
         task.ProjectId = projectId;
+        if (projectId is not null)
+            await ApplyDefaultInvoiceForBillableAsync(task, ct);
         task.UpdatedAt = clock.UtcNow;
         await tasks.UpdateAsync(task, ct);
         if (projectId is { } assignedProjectId)
@@ -473,11 +500,31 @@ public sealed class TaskService(
     {
         if (string.IsNullOrWhiteSpace(parent.ClickUpTaskId))
             return;
+        string? defaultInvoiceLabel = null;
+        var defaultInvoice = await invoices.GetDefaultAsync(ct);
+        if (defaultInvoice is not null
+            && defaultInvoice.Status == InvoiceStatus.Preparing
+            && !InvoiceLabels.IsNone(defaultInvoice.Name))
+            defaultInvoiceLabel = defaultInvoice.Name;
+
         await tasks.AssignProjectToUnassignedDescendantsAsync(
             parent.ClickUpTaskId,
             projectId,
             clock.UtcNow,
+            defaultInvoiceLabel,
             ct);
+    }
+
+    private async Task ApplyDefaultInvoiceForBillableAsync(WorkTask task, CancellationToken ct)
+    {
+        if (!string.Equals(task.Bill?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+            return;
+        var defaultInvoice = await invoices.GetDefaultAsync(ct);
+        if (defaultInvoice is null
+            || defaultInvoice.Status != InvoiceStatus.Preparing
+            || InvoiceLabels.IsNone(defaultInvoice.Name))
+            return;
+        task.InvoiceLabel = defaultInvoice.Name;
     }
 
     private static void ApplyInvoiceForBill(WorkTask task)

@@ -239,6 +239,18 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
         return await conn.QuerySingleOrDefaultAsync<Invoice>(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }
 
+    public async Task<Invoice?> GetDefaultAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<Invoice>(new CommandDefinition(
+            """
+            select * from invoice
+            where is_default and lower(trim(status)) = 'preparing'
+            order by sort_order, name
+            limit 1
+            """, cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<Invoice>> ListAsync(CancellationToken ct = default)
     {
         using var conn = await factory.OpenAsync(ct);
@@ -262,8 +274,8 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
     {
         var status = invoice.Status.Value;
         var builder = SimpleBuilder.Create($"""
-            insert into invoice (id, name, status, sort_order, created_at, updated_at)
-            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.CreatedAt}, {invoice.UpdatedAt})
+            insert into invoice (id, name, status, sort_order, is_default, created_at, updated_at)
+            values ({invoice.Id}, {invoice.Name}, {status}, {invoice.SortOrder}, {invoice.IsDefault}, {invoice.CreatedAt}, {invoice.UpdatedAt})
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
@@ -275,11 +287,20 @@ public sealed class InvoiceRepository(IDbConnectionFactory factory) : IInvoiceRe
         var status = invoice.Status.Value;
         var builder = SimpleBuilder.Create($"""
             update invoice
-            set name = {invoice.Name}, status = {status}, sort_order = {invoice.SortOrder}, updated_at = {invoice.UpdatedAt}
+            set name = {invoice.Name}, status = {status}, sort_order = {invoice.SortOrder},
+                is_default = {invoice.IsDefault}, updated_at = {invoice.UpdatedAt}
             where id = {invoice.Id}
             """);
         using var conn = await factory.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
+    }
+
+    public async Task ClearDefaultsAsync(CancellationToken ct = default)
+    {
+        using var conn = await factory.OpenAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "update invoice set is_default = false where is_default",
+            cancellationToken: ct));
     }
 
     public async Task ReorderAsync(IReadOnlyList<Guid> orderedIds, DateTimeOffset updatedAt, CancellationToken ct = default)
@@ -651,26 +672,52 @@ public sealed class TaskRepository(IDbConnectionFactory factory) : ITaskReposito
         string parentClickUpTaskId,
         Guid projectId,
         DateTimeOffset updatedAt,
+        string? defaultInvoiceLabelForBillable = null,
         CancellationToken ct = default)
     {
-        var builder = SimpleBuilder.Create($"""
-            with recursive descendants as (
-                select id, clickup_task_id
-                from task
-                where clickup_parent_id = {parentClickUpTaskId}
-                  and clickup_task_id is not null
-                union all
-                select t.id, t.clickup_task_id
-                from task t
-                inner join descendants d on t.clickup_parent_id = d.clickup_task_id
-                where t.clickup_task_id is not null
-            )
-            update task set
-                project_id = {projectId},
-                updated_at = {updatedAt}
-            where id in (select id from descendants)
-              and project_id is null
-            """);
+        // Split paths so a null invoice label is not bound as an untyped Postgres parameter.
+        var builder = string.IsNullOrWhiteSpace(defaultInvoiceLabelForBillable)
+            ? SimpleBuilder.Create($"""
+                with recursive descendants as (
+                    select id, clickup_task_id
+                    from task
+                    where clickup_parent_id = {parentClickUpTaskId}
+                      and clickup_task_id is not null
+                    union all
+                    select t.id, t.clickup_task_id
+                    from task t
+                    inner join descendants d on t.clickup_parent_id = d.clickup_task_id
+                    where t.clickup_task_id is not null
+                )
+                update task set
+                    project_id = {projectId},
+                    updated_at = {updatedAt}
+                where id in (select id from descendants)
+                  and project_id is null
+                """)
+            : SimpleBuilder.Create($"""
+                with recursive descendants as (
+                    select id, clickup_task_id
+                    from task
+                    where clickup_parent_id = {parentClickUpTaskId}
+                      and clickup_task_id is not null
+                    union all
+                    select t.id, t.clickup_task_id
+                    from task t
+                    inner join descendants d on t.clickup_parent_id = d.clickup_task_id
+                    where t.clickup_task_id is not null
+                )
+                update task set
+                    project_id = {projectId},
+                    invoice_label = case
+                        when lower(trim(coalesce(bill, ''))) = 'yes'
+                        then {defaultInvoiceLabelForBillable}
+                        else invoice_label
+                    end,
+                    updated_at = {updatedAt}
+                where id in (select id from descendants)
+                  and project_id is null
+                """);
         using var conn = await factory.OpenAsync(ct);
         return await conn.ExecuteAsync(new CommandDefinition(builder.Sql, builder.Parameters, cancellationToken: ct));
     }

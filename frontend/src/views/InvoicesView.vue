@@ -18,7 +18,9 @@ const reorderInvoices = useReorderInvoices()
 const name = ref('')
 const formError = ref('')
 const statusErrors = ref<Record<string, string>>({})
+const defaultErrors = ref<Record<string, string>>({})
 const savingId = ref<string | null>(null)
+const savingDefaultId = ref<string | null>(null)
 const reorderError = ref('')
 const localOrder = ref<Invoice[]>([])
 const draggingId = ref<string | null>(null)
@@ -60,6 +62,10 @@ function isNoneInvoice(inv: Invoice) {
   return inv.name.trim().toLowerCase() === 'none'
 }
 
+function canBeDefault(inv: Invoice) {
+  return !isNoneInvoice(inv) && statusKey(inv.status) === 'preparing'
+}
+
 async function add() {
   formError.value = ''
   try {
@@ -76,11 +82,35 @@ async function onStatusChange(inv: Invoice, value: string) {
   savingId.value = inv.id
   delete statusErrors.value[inv.id]
   try {
-    await updateInvoice.mutateAsync({ id: inv.id, name: inv.name, status })
+    await updateInvoice.mutateAsync({
+      id: inv.id,
+      name: inv.name,
+      status,
+      isDefault: status === 'preparing' ? !!inv.isDefault : false,
+    })
   } catch (e: any) {
     statusErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update status.'
   } finally {
     savingId.value = null
+  }
+}
+
+async function onDefaultChange(inv: Invoice, checked: boolean) {
+  if (!canBeDefault(inv) && checked) return
+  if (!!inv.isDefault === checked) return
+  savingDefaultId.value = inv.id
+  delete defaultErrors.value[inv.id]
+  try {
+    await updateInvoice.mutateAsync({
+      id: inv.id,
+      name: inv.name,
+      status: toApiStatus(inv.status),
+      isDefault: checked,
+    })
+  } catch (e: any) {
+    defaultErrors.value[inv.id] = e?.response?.data?.error ?? 'Could not update default.'
+  } finally {
+    savingDefaultId.value = null
   }
 }
 
@@ -138,7 +168,10 @@ function onDragEnd() {
 <template>
   <section data-testid="invoices-view">
     <h1>Invoices</h1>
-    <p class="hint">Drag rows to set the order used on the Tasks invoice dropdown.</p>
+    <p class="hint">
+      Drag rows to set the order used on the Tasks invoice dropdown.
+      Only one preparing invoice can be the default; it is assigned when a project is set on a billable task.
+    </p>
 
     <form class="row" data-testid="invoice-create-form" @submit.prevent="add">
       <input v-model="name" placeholder="Invoice name" required data-testid="invoice-create-name" />
@@ -157,6 +190,7 @@ function onDragEnd() {
           <th class="drag-col" aria-label="Reorder"></th>
           <th>Name</th>
           <th>Status</th>
+          <th>Default</th>
         </tr>
       </thead>
       <tbody>
@@ -210,9 +244,31 @@ function onDragEnd() {
               >{{ statusErrors[inv.id] }}</span>
             </template>
           </td>
+          <td class="default-cell">
+            <span
+              v-if="isNoneInvoice(inv)"
+              class="muted"
+              :data-testid="`invoice-default-${inv.id}`"
+            >—</span>
+            <template v-else>
+              <input
+                type="checkbox"
+                :checked="!!inv.isDefault"
+                :disabled="savingDefaultId === inv.id || (!canBeDefault(inv) && !inv.isDefault)"
+                :data-testid="`invoice-default-${inv.id}`"
+                :aria-label="`Default invoice ${inv.name}`"
+                @change="onDefaultChange(inv, ($event.target as HTMLInputElement).checked)"
+              />
+              <span
+                v-if="defaultErrors[inv.id]"
+                class="error inline"
+                :data-testid="`invoice-default-error-${inv.id}`"
+              >{{ defaultErrors[inv.id] }}</span>
+            </template>
+          </td>
         </tr>
         <tr v-if="rows.length === 0">
-          <td colspan="3" data-testid="invoices-empty">No invoices yet.</td>
+          <td colspan="4" data-testid="invoices-empty">No invoices yet.</td>
         </tr>
       </tbody>
     </table>
@@ -255,6 +311,7 @@ button:disabled { opacity: 0.6; cursor: default; }
   box-shadow: inset 0 2px 0 #059669;
 }
 .status-cell { min-width: 12rem; }
+.default-cell { width: 1%; white-space: nowrap; vertical-align: middle; }
 .status-select {
   padding: 0.35rem 0.5rem;
   border: 1px solid #d1d5db;
