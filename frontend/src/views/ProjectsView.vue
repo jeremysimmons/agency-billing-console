@@ -21,6 +21,7 @@ const editingId = ref<string | null>(null)
 const editName = ref('')
 const editClientId = ref('')
 const editError = ref('')
+const sharingId = ref<string | null>(null)
 
 const sortedProjects = computed(() =>
   (projects.value ?? []).slice().sort((a, b) => {
@@ -29,6 +30,11 @@ const sortedProjects = computed(() =>
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
   }),
 )
+
+function isSharedProject(p: Project) {
+  return p.clientName.trim().toLowerCase() === SHARED_CLIENT_NAME.toLowerCase()
+    || (sharedClient.value != null && p.clientId === sharedClient.value.id)
+}
 
 async function add() {
   formError.value = ''
@@ -84,6 +90,30 @@ async function saveEdit() {
     editError.value = e?.response?.data?.error ?? 'Could not save project.'
   }
 }
+
+async function moveToShared(p: Project) {
+  editError.value = ''
+  if (!sharedClient.value) {
+    editError.value = 'Shared client is missing. Restart the API to seed it.'
+    return
+  }
+  if (isSharedProject(p)) return
+  if (!confirm(`Move “${p.name}” to Shared?`)) return
+
+  sharingId.value = p.id
+  try {
+    await updateProject.mutateAsync({
+      id: p.id,
+      name: p.name,
+      clientId: sharedClient.value.id,
+    })
+    if (editingId.value === p.id) cancelEdit()
+  } catch (e: any) {
+    editError.value = e?.response?.data?.error ?? 'Could not move project to Shared.'
+  } finally {
+    sharingId.value = null
+  }
+}
 </script>
 
 <template>
@@ -127,6 +157,14 @@ async function saveEdit() {
                 :data-testid="`project-edit-${p.id}`"
                 @click="startEdit(p)"
               >Edit</button>
+              <button
+                v-if="!isSharedProject(p)"
+                type="button"
+                class="link"
+                :disabled="sharingId === p.id || !sharedClient"
+                :data-testid="`project-shared-${p.id}`"
+                @click="moveToShared(p)"
+              >Shared</button>
             </td>
           </template>
           <td v-else colspan="3">
@@ -184,7 +222,8 @@ button:not(.link) {
   cursor: pointer;
 }
 button:disabled { opacity: 0.6; cursor: default; }
-.link { background: none; border: none; color: #10b981; cursor: pointer; padding: 0; font: inherit; }
+.link { background: none; border: none; color: #10b981; cursor: pointer; padding: 0; font: inherit; margin-right: 0.75rem; }
+.link:disabled { opacity: 0.6; cursor: default; }
 .grid { width: 100%; border-collapse: collapse; }
 .grid th, .grid td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; vertical-align: middle; }
 .error { color: #dc2626; }
