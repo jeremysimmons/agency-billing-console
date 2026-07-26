@@ -312,6 +312,10 @@ button:disabled { opacity: 0.6; cursor: default; }
 }
 .status-cell { min-width: 12rem; }
 .default-cell { width: 1%; white-space: nowrap; vertical-align: middle; }
+.default-cell input[type="checkbox"] {
+  width: 2em;
+  height: 2em;
+}
 .status-select {
   padding: 0.35rem 0.5rem;
   border: 1px solid #d1d5db;
