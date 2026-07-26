@@ -37,8 +37,11 @@ async function remove(id: string) {
   <section data-testid="clients-view">
     <h1>Clients</h1>
 
-    <form class="row" data-testid="client-create-form" @submit.prevent="add">
-      <input v-model="name" placeholder="Client name" required data-testid="client-create-name" />
+    <form class="row create-form" data-testid="client-create-form" @submit.prevent="add">
+      <label>
+        Client
+        <input v-model="name" placeholder="Client name" required data-testid="client-create-name" />
+      </label>
       <button :disabled="createClient.isLoading.value" data-testid="client-create-submit">Add client</button>
     </form>
     <p v-if="formError" class="error" data-testid="client-create-error">{{ formError }}</p>
@@ -70,7 +73,14 @@ async function remove(id: string) {
 </template>
 
 <style scoped>
-.row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.row { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: flex-end; flex-wrap: wrap; }
+.create-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
 input { padding: 0.5rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; }
 button { padding: 0.5rem 0.9rem; border: none; border-radius: 8px; background: #10b981; color: #fff; cursor: pointer; }
 .grid { width: 100%; border-collapse: collapse; }
