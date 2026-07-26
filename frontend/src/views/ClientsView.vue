@@ -7,7 +7,6 @@ const createClient = useCreateClient()
 const deleteClient = useDeleteClient()
 
 const name = ref('')
-const code = ref('')
 const formError = ref('')
 const confirmId = ref<string | null>(null)
 const deleteError = ref('')
@@ -15,8 +14,8 @@ const deleteError = ref('')
 async function add() {
   formError.value = ''
   try {
-    await createClient.mutateAsync({ name: name.value, code: code.value || null })
-    name.value = ''; code.value = ''
+    await createClient.mutateAsync({ name: name.value })
+    name.value = ''
   } catch (e: any) {
     formError.value = e?.response?.data?.error ?? 'Could not create client.'
   }
@@ -40,7 +39,6 @@ async function remove(id: string) {
 
     <form class="row" data-testid="client-create-form" @submit.prevent="add">
       <input v-model="name" placeholder="Client name" required data-testid="client-create-name" />
-      <input v-model="code" placeholder="Code (optional)" data-testid="client-create-code" />
       <button :disabled="createClient.isLoading.value" data-testid="client-create-submit">Add client</button>
     </form>
     <p v-if="formError" class="error" data-testid="client-create-error">{{ formError }}</p>
@@ -49,13 +47,12 @@ async function remove(id: string) {
     <p v-if="isLoading" data-testid="clients-loading">Loading…</p>
     <p v-else-if="error" class="error" data-testid="clients-error">Failed to load clients.</p>
     <table v-else class="grid" data-testid="clients-table">
-      <thead><tr><th>Name</th><th>Code</th><th>Original name</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Original name</th><th>Status</th><th></th></tr></thead>
       <tbody>
         <tr v-for="c in clients" :key="c.id" :data-testid="`client-row-${c.id}`">
           <td>
             <RouterLink :to="`/clients/${c.id}`" :data-testid="`client-name-${c.id}`">{{ c.name }}</RouterLink>
           </td>
-          <td :data-testid="`client-code-${c.id}`">{{ c.code ?? '—' }}</td>
           <td :data-testid="`client-original-name-${c.id}`">{{ c.originalName ?? '—' }}</td>
           <td :data-testid="`client-status-${c.id}`">{{ c.status }}</td>
           <td class="actions">
@@ -66,7 +63,7 @@ async function remove(id: string) {
             <button v-else class="link danger" :data-testid="`client-delete-${c.id}`" @click="confirmId = c.id">Delete</button>
           </td>
         </tr>
-        <tr v-if="clients && clients.length === 0"><td colspan="5" data-testid="clients-empty">No clients yet.</td></tr>
+        <tr v-if="clients && clients.length === 0"><td colspan="4" data-testid="clients-empty">No clients yet.</td></tr>
       </tbody>
     </table>
   </section>

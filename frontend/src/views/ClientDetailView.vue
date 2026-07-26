@@ -19,7 +19,6 @@ const deleteClient = useDeleteClient()
 
 const editing = ref(false)
 const editName = ref('')
-const editCode = ref('')
 const editRate = ref('')
 const editError = ref('')
 const confirmDelete = ref(false)
@@ -28,14 +27,12 @@ const deleteError = ref('')
 watch(client, (c) => {
   if (c && !editing.value) {
     editName.value = c.name
-    editCode.value = c.code ?? ''
     editRate.value = c.defaultHourlyRate != null ? String(c.defaultHourlyRate) : ''
   }
 }, { immediate: true })
 
 function startEdit() {
   editName.value = client.value?.name ?? ''
-  editCode.value = client.value?.code ?? ''
   editRate.value = client.value?.defaultHourlyRate != null ? String(client.value.defaultHourlyRate) : ''
   editError.value = ''
   editing.value = true
@@ -44,7 +41,6 @@ function startEdit() {
 function cancelEdit() {
   editing.value = false
   editName.value = client.value?.name ?? ''
-  editCode.value = client.value?.code ?? ''
   editRate.value = client.value?.defaultHourlyRate != null ? String(client.value.defaultHourlyRate) : ''
   editError.value = ''
 }
@@ -68,7 +64,7 @@ async function saveEdit() {
       id: clientId.value,
       input: {
         name: editName.value.trim(),
-        code: editCode.value.trim() || null,
+        code: c.code,
         originalName: c.originalName,
         description: c.description,
         status: c.status,
@@ -157,10 +153,6 @@ async function remove() {
           <input v-model="editName" required data-testid="client-edit-name" />
         </label>
         <label>
-          Code
-          <input v-model="editCode" data-testid="client-edit-code" />
-        </label>
-        <label>
           Hourly rate
           <input v-model="editRate" type="number" step="0.01" min="0" data-testid="client-edit-rate" />
         </label>
@@ -171,7 +163,6 @@ async function remove() {
       </form>
       <p v-if="editError" class="error" data-testid="client-edit-error">{{ editError }}</p>
       <p v-if="!editing" class="meta" data-testid="client-detail-meta">
-        Code: {{ client.code ?? '—' }}<br/>
         Hourly rate: {{ client.defaultHourlyRate != null ? `$${client.defaultHourlyRate}` : '—' }}<br/>
         Folder id: {{ client.clickUpFolderId ?? '—' }}<br/>
         List id: {{ client.clickUpListId ?? '—' }}<br/>

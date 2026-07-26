@@ -585,13 +585,13 @@ public sealed class ClickUpSyncService(
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var (name, _, original) = ClickUpFolderNaming.Parse(displayName);
+        var (_, _, original) = ClickUpFolderNaming.Parse(displayName);
         var changed = false;
 
-        // Name tracks ClickUp; code is user-editable and must not be overwritten on sync.
-        if (existing.Name != name)
+        // Name is user-editable and must not be overwritten on sync.
+        // Keep OriginalName in sync with the ClickUp folder/list title.
+        if (existing.OriginalName != original)
         {
-            existing.Name = name;
             existing.OriginalName = original;
             changed = true;
         }
