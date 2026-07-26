@@ -205,6 +205,16 @@ watch(
 )
 
 watch(
+  () => route.query.clientId,
+  (value) => {
+    if (typeof value !== 'string' || !value) return
+    clientFilter.value = value
+    viewMode.value = 'list'
+  },
+  { immediate: true },
+)
+
+watch(
   () => route.query.clickUpId,
   (value) => {
     if (typeof value !== 'string') return

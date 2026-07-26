@@ -126,9 +126,13 @@ async function remove() {
 <template>
   <section data-testid="client-detail-view">
     <p>
-      <RouterLink to="/clients" data-testid="client-detail-back">← Clients</RouterLink> &nbsp; 
-      <RouterLink v-if="client"Assign tasks to these on the Tasks page :to="{ path: '/tasks', query: { clientId: client.id } }" data-testid="client-detail-tasks-link">View tasks</RouterLink>
-    
+      <RouterLink to="/clients" data-testid="client-detail-back">← Clients</RouterLink>
+      &nbsp;
+      <RouterLink
+        v-if="client"
+        :to="{ path: '/tasks', query: { clientId: client.id } }"
+        data-testid="client-detail-tasks-link"
+      >View tasks</RouterLink>
     </p>
 
     <template v-if="client">
